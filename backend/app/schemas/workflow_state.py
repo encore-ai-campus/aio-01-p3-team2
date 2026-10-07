@@ -91,6 +91,34 @@ class TraceResponse(BaseModel):
     traces: list[TraceEntry]
 
 
+class ToolLogEntry(BaseModel):
+    sequence: int
+    time: datetime
+    tool: str
+    status: str
+    response_time_ms: int = Field(ge=0)
+    error_type: str | None = None
+    data_source: str | None = None
+    game_data_version: str | None = None
+
+
+class ToolLogResponse(BaseModel):
+    task_id: str
+    tool_logs: list[ToolLogEntry]
+
+
+class TaskSummary(BaseModel):
+    task_id: str
+    event_name: str
+    workflow_status: WorkflowStatus
+    result_version: int
+    created_at: datetime
+
+
+class TaskListResponse(BaseModel):
+    tasks: list[TaskSummary]
+
+
 class ErrorResponse(BaseModel):
     error_code: str
     message: str

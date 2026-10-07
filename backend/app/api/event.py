@@ -2,12 +2,24 @@
 
 import os
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Query, Response
 
 from backend.app.schemas.approval import ApprovalRequest
 from backend.app.schemas.event import EventCreateRequest, TestEventCreateRequest
-from backend.app.schemas.workflow_state import TaskResponse, TraceResponse
-from backend.app.services.task_service import approve, generate, get_task, get_trace
+from backend.app.schemas.workflow_state import (
+    TaskListResponse,
+    TaskResponse,
+    ToolLogResponse,
+    TraceResponse,
+)
+from backend.app.services.task_service import (
+    approve,
+    generate,
+    get_task,
+    get_tool_logs,
+    get_trace,
+    list_tasks,
+)
 
 router = APIRouter()
 
@@ -38,9 +50,19 @@ def read_task(task_id: str) -> TaskResponse:
     return get_task(task_id)
 
 
+@router.get("/tasks", response_model=TaskListResponse)
+def read_tasks(limit: int = Query(default=20, ge=1, le=20)) -> TaskListResponse:
+    return list_tasks(limit)
+
+
 @router.get("/tasks/{task_id}/trace", response_model=TraceResponse)
 def read_trace(task_id: str) -> TraceResponse:
     return get_trace(task_id)
+
+
+@router.get("/tasks/{task_id}/tool-logs", response_model=ToolLogResponse)
+def read_tool_logs(task_id: str) -> ToolLogResponse:
+    return get_tool_logs(task_id)
 
 
 @router.post("/tasks/{task_id}/approval", response_model=TaskResponse)

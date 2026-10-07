@@ -9,13 +9,17 @@ from backend.app.schemas.approval import ApprovalAction, ApprovalRequest
 from backend.app.schemas.event import EventBrief, EventCreateRequest, TestEventCreateRequest
 from backend.app.schemas.workflow_state import (
     ApprovalStatus,
+    TaskListResponse,
     TaskRecord,
     TaskResponse,
+    TaskSummary,
+    ToolLogResponse,
     TraceEntry,
     TraceResponse,
     WorkflowStatus,
 )
 from backend.app.services.db_service import repository
+from backend.app.services.settings import approved_actor_ids
 from backend.app.services.workflow_service import now, workflow_engine
 
 
@@ -131,6 +135,21 @@ def get_task(task_id: str) -> TaskResponse:
     return _response(task)
 
 
+def list_tasks(limit: int) -> TaskListResponse:
+    return TaskListResponse(
+        tasks=[
+            TaskSummary(
+                task_id=task.task_id,
+                event_name=task.brief.event_name,
+                workflow_status=task.workflow_status,
+                result_version=task.result_version,
+                created_at=task.created_at,
+            )
+            for task in repository.list_tasks(limit)
+        ]
+    )
+
+
 def get_trace(task_id: str) -> TraceResponse:
     traces = repository.get_traces(task_id)
     if traces is None:
@@ -138,11 +157,18 @@ def get_trace(task_id: str) -> TraceResponse:
     return TraceResponse(task_id=task_id, traces=traces)
 
 
+def get_tool_logs(task_id: str) -> ToolLogResponse:
+    tool_logs = repository.get_tool_logs(task_id)
+    if tool_logs is None:
+        raise ServiceError("TASK_NOT_FOUND", "요청한 작업을 찾을 수 없습니다.", 404, task_id)
+    return ToolLogResponse(task_id=task_id, tool_logs=tool_logs)
+
+
 def approve(task_id: str, request: ApprovalRequest) -> TaskResponse:
     task = repository.get_task(task_id)
     if task is None:
         raise ServiceError("TASK_NOT_FOUND", "요청한 작업을 찾을 수 없습니다.", 404, task_id)
-    if request.actor_id != "liveops01":
+    if request.actor_id not in approved_actor_ids():
         raise ServiceError("INVALID_ACTOR", "승인 권한이 없는 사용자입니다.", 403, task_id)
 
     approval_key = f"approval:{task_id}:{request.result_version}:{request.action.value}"

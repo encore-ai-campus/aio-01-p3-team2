@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from backend.app.schemas.workflow_state import TaskRecord, TraceEntry
+from backend.app.schemas.workflow_state import TaskRecord, ToolLogEntry, TraceEntry
 
 
 class WorkflowRepository(Protocol):
@@ -12,11 +12,17 @@ class WorkflowRepository(Protocol):
 
     def get_task(self, task_id: str) -> TaskRecord | None: ...
 
+    def list_tasks(self, limit: int) -> list[TaskRecord]: ...
+
     def save_task(self, task: TaskRecord) -> None: ...
 
     def append_trace(self, task_id: str, trace: TraceEntry) -> None: ...
 
     def get_traces(self, task_id: str) -> list[TraceEntry] | None: ...
+
+    def append_tool_log(self, task_id: str, tool_log: ToolLogEntry) -> None: ...
+
+    def get_tool_logs(self, task_id: str) -> list[ToolLogEntry] | None: ...
 
     def find_idempotency(self, key: str) -> tuple[str, str] | None: ...
 

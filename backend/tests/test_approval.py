@@ -68,3 +68,19 @@ def test_duplicate_approval_returns_original_result(client):
     traces = client.get(f"/api/tasks/{task['task_id']}/trace").json()["traces"]
     approval_traces = [item for item in traces if item["action"] == "APPROVE"]
     assert len(approval_traces) == 1
+
+
+def test_approved_actor_ids_come_from_environment(client, monkeypatch):
+    monkeypatch.setenv("APPROVED_ACTOR_IDS", "operator02,operator03")
+    task = create_task(client)
+    denied = client.post(
+        f"/api/tasks/{task['task_id']}/approval",
+        json={"actor_id": "liveops01", "result_version": 1, "action": "APPROVE"},
+    )
+    assert denied.status_code == 403
+
+    allowed = client.post(
+        f"/api/tasks/{task['task_id']}/approval",
+        json={"actor_id": "operator02", "result_version": 1, "action": "APPROVE"},
+    )
+    assert allowed.status_code == 200

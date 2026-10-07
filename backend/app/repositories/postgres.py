@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.pool import StaticPool
 
-from backend.app.schemas.workflow_state import TaskRecord, TraceEntry
+from backend.app.schemas.workflow_state import TaskRecord, ToolLogEntry, TraceEntry
 
 
 class Base(DeclarativeBase):
@@ -42,6 +42,15 @@ class IdempotencyRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class ToolLogRow(Base):
+    __tablename__ = "tool_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
 class SqlAlchemyRepository:
     def __init__(self, database_url: str, *, create_schema: bool = True) -> None:
         options: dict[str, Any] = {"pool_pre_ping": True}
@@ -58,6 +67,7 @@ class SqlAlchemyRepository:
 
     def reset(self) -> None:
         with Session(self.engine) as session, session.begin():
+            session.execute(delete(ToolLogRow))
             session.execute(delete(TraceRow))
             session.execute(delete(IdempotencyRow))
             session.execute(delete(WorkflowRunRow))
@@ -87,6 +97,13 @@ class SqlAlchemyRepository:
             row.payload = task.model_dump(mode="json")
             row.updated_at = task.updated_at
 
+    def list_tasks(self, limit: int) -> list[TaskRecord]:
+        with Session(self.engine) as session:
+            rows = session.scalars(
+                select(WorkflowRunRow).order_by(WorkflowRunRow.created_at.desc()).limit(limit)
+            )
+            return [TaskRecord.model_validate(row.payload) for row in rows]
+
     def append_trace(self, task_id: str, trace: TraceEntry) -> None:
         with Session(self.engine) as session, session.begin():
             session.add(
@@ -106,6 +123,27 @@ class SqlAlchemyRepository:
                 select(TraceRow).where(TraceRow.task_id == task_id).order_by(TraceRow.sequence)
             )
             return [TraceEntry.model_validate(row.payload) for row in rows]
+
+    def append_tool_log(self, task_id: str, tool_log: ToolLogEntry) -> None:
+        with Session(self.engine) as session, session.begin():
+            session.add(
+                ToolLogRow(
+                    task_id=task_id,
+                    sequence=tool_log.sequence,
+                    payload=tool_log.model_dump(mode="json"),
+                )
+            )
+
+    def get_tool_logs(self, task_id: str) -> list[ToolLogEntry] | None:
+        with Session(self.engine) as session:
+            if session.get(WorkflowRunRow, task_id) is None:
+                return None
+            rows = session.scalars(
+                select(ToolLogRow)
+                .where(ToolLogRow.task_id == task_id)
+                .order_by(ToolLogRow.sequence)
+            )
+            return [ToolLogEntry.model_validate(row.payload) for row in rows]
 
     def find_idempotency(self, key: str) -> tuple[str, str] | None:
         with Session(self.engine) as session:

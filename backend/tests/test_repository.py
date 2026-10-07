@@ -2,7 +2,12 @@ from datetime import datetime
 
 from backend.app.repositories.postgres import SqlAlchemyRepository
 from backend.app.schemas.event import EventBrief
-from backend.app.schemas.workflow_state import TaskRecord, TraceEntry, WorkflowStatus
+from backend.app.schemas.workflow_state import (
+    TaskRecord,
+    ToolLogEntry,
+    TraceEntry,
+    WorkflowStatus,
+)
 
 
 def test_sqlalchemy_repository_round_trip():
@@ -32,9 +37,23 @@ def test_sqlalchemy_repository_round_trip():
             status="SUCCESS",
         ),
     )
+    repository.append_tool_log(
+        task.task_id,
+        ToolLogEntry(
+            sequence=1,
+            time=timestamp,
+            tool="get_game_rules",
+            status="SUCCESS",
+            response_time_ms=12,
+            data_source="primary",
+            game_data_version="tinyheroes-1.0.0",
+        ),
+    )
     repository.save_idempotency("event:key", "hash", task.task_id)
 
     assert repository.get_task(task.task_id) == task
+    assert repository.list_tasks(20) == [task]
     assert repository.get_traces(task.task_id)[0].action == "create_task"
+    assert repository.get_tool_logs(task.task_id)[0].tool == "get_game_rules"
     assert repository.find_idempotency("event:key") == ("hash", task.task_id)
     assert repository.ready() is True

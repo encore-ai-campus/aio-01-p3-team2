@@ -62,6 +62,17 @@ PostgreSQL을 실제 실행한 통합 시험은 Compose의 DB 서비스와 Secre
 5. MCP 기반 Ready Check
 6. 조건부 추가 API 범위 확정
 
+## 3단계 조회 계약 확장
+
+- `GET /api/tasks?limit=20` 구현
+- `GET /api/tasks/{task_id}/tool-logs` 구현
+- 인메모리 및 SQLAlchemy Repository에 Task 목록과 Tool Log 저장 계약 추가
+- Backend B가 Tool Log를 기록하기 전에는 `tool_logs: []` 반환
+- `APPROVED_ACTOR_IDS` 환경변수로 Demo 승인 가능 사용자 목록 관리
+
+다른 담당자의 디렉터리는 수정하지 않았다. Tool Log 실제 생성은 Backend B가 Repository
+인터페이스의 `append_tool_log()`를 호출하도록 연동된 이후 검증한다.
+
 ## 미구현/제한
 
 - `DATABASE_URL` 미설정 시 재시작 후 상태 보존 불가
