@@ -1,0 +1,274 @@
+/* Login artwork is embedded by app.py so local and Docker runs share one layout. */
+:root {
+  --navy: #101f4c;
+  --blue: #2879f6;
+}
+
+#MainMenu,
+header[data-testid="stHeader"],
+footer,
+section[data-testid="stSidebar"] {
+  display: none !important;
+}
+
+.stApp {
+  background: linear-gradient(rgba(244, 249, 255, 0.24), rgba(244, 249, 255, 0.24)),
+    url("__BACKGROUND_DATA_URI__") center center / cover fixed;
+  color: var(--navy);
+}
+
+.stApp::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  backdrop-filter: blur(9px);
+  pointer-events: none;
+}
+
+.block-container {
+  max-width: 1510px !important;
+  padding: clamp(24px, 5vh, 62px) clamp(16px, 3.4vw, 52px) !important;
+  position: relative;
+  z-index: 1;
+}
+
+.st-key-login-shell {
+  background: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: 29px;
+  box-shadow: 0 20px 60px rgba(33, 66, 126, 0.22);
+  overflow: hidden;
+}
+
+.st-key-login-shell [data-testid="stHorizontalBlock"] {
+  gap: 0 !important;
+  align-items: stretch;
+}
+
+.st-key-login-shell [data-testid="stColumn"] {
+  min-width: 0;
+}
+
+.st-key-hero-panel {
+  min-height: min(920px, calc(100vh - 104px));
+  height: 100%;
+  padding: clamp(30px, 3.5vw, 58px) clamp(26px, 4vw, 68px);
+  background: linear-gradient(180deg, rgba(43, 143, 247, 0.12), rgba(39, 145, 242, 0.02) 55%),
+    url("__BACKGROUND_DATA_URI__") left center / cover;
+}
+
+.hero-inner {
+  max-width: 670px;
+}
+
+.hero-logo {
+  display: block;
+  width: min(440px, 78%);
+  height: auto;
+  margin: 0 auto 8px;
+  filter: drop-shadow(0 9px 12px rgba(24, 62, 103, 0.22));
+}
+
+.hero-heading {
+  margin-top: 4px;
+  color: var(--navy);
+  font-size: clamp(27px, 2.8vw, 40px);
+  font-weight: 850;
+  line-height: 1.22;
+  letter-spacing: -0.05em;
+  text-shadow: 0 2px 8px rgba(255, 255, 255, 0.55);
+}
+
+.hero-heading span {
+  color: #1667f0;
+}
+
+.hero-description {
+  margin: 15px 0 22px;
+  color: #536793;
+  font-size: clamp(15px, 1.3vw, 20px);
+  line-height: 1.5;
+  font-weight: 550;
+}
+
+.hero-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 15px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.73);
+  box-shadow: 0 8px 25px rgba(68, 102, 149, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.hero-features > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #10234d;
+  font-size: clamp(11px, 1.1vw, 16px);
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  font-size: 24px;
+}
+
+.feature-icon.blue { color: #176cf2; background: #dceaff; }
+.feature-icon.green { color: #12aa72; background: #ddf7e9; }
+.feature-icon.violet { color: #654ff5; background: #eae4ff; }
+
+.st-key-form-panel {
+  min-height: min(920px, calc(100vh - 104px));
+  padding: 39px clamp(26px, 4.1vw, 66px) 48px;
+  background: #fff;
+}
+
+.form-brand {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 850;
+  letter-spacing: -0.025em;
+}
+
+.form-brand span,
+.form-brand em {
+  color: #7c8cad;
+  font-style: normal;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.form-intro {
+  margin: clamp(110px, 13vh, 180px) 0 39px;
+}
+
+.form-intro h1 {
+  color: #101d47;
+  font-size: clamp(42px, 4vw, 58px);
+  line-height: 1.1;
+  letter-spacing: -0.06em;
+  margin: 0 0 15px;
+}
+
+.form-intro p {
+  color: #5a6e9d;
+  font-size: clamp(16px, 1.3vw, 20px);
+  font-weight: 550;
+  margin: 0;
+}
+
+.st-key-form-panel .stTextInput {
+  margin-bottom: 17px;
+}
+
+.st-key-form-panel .stTextInput label p {
+  color: #101d47;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.st-key-form-panel [data-testid="stTextInputRootElement"] {
+  background: #fff;
+  border: 1px solid #ced8e9;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(24, 49, 85, 0.04);
+}
+
+.st-key-form-panel [data-testid="stTextInputField"] {
+  height: 60px;
+  color: #14264e;
+  font-size: 16px;
+  padding: 0 17px;
+}
+
+.st-key-form-panel .stTextInput input::placeholder {
+  color: #9daecc;
+}
+
+.st-key-form-panel .stTextInput input:disabled {
+  background: #f8faff;
+  opacity: 0.78;
+}
+
+.st-key-form-panel [data-testid="stCaptionContainer"] p {
+  color: #7081a4;
+  font-size: 13px;
+  margin-top: -5px;
+  margin-bottom: 18px;
+}
+
+.st-key-login-submit button {
+  height: 68px;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(90deg, #2681ff, #3276ee);
+  box-shadow: 0 7px 16px rgba(48, 118, 234, 0.2);
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.st-key-login-submit button:hover {
+  background: linear-gradient(90deg, #136eef, #2166df);
+}
+
+.st-key-login-submit button p {
+  font-size: 21px;
+  font-weight: 750;
+}
+
+.login-notice {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-top: 33px;
+  padding: 25px 28px;
+  border-radius: 14px;
+  background: #eef5ff;
+  color: #174ca9;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.login-notice strong { font-size: 17px; }
+.login-notice span { color: #677ba3; }
+.login-notice .notice-symbol {
+  color: #176df0;
+  font-size: 24px;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .block-container { padding: 16px !important; }
+  .st-key-login-shell [data-testid="stHorizontalBlock"] { display: block !important; }
+  .st-key-login-shell [data-testid="stColumn"] { width: 100% !important; }
+  .st-key-hero-panel { min-height: 470px; background-position: left 62%; }
+  .st-key-form-panel { min-height: 0; padding: 30px; }
+  .form-intro { margin: 40px 0 30px; }
+}
+
+@media (max-width: 540px) {
+  .st-key-hero-panel { min-height: 335px; padding: 17px; background-position: left bottom; }
+  .hero-logo { width: min(205px, 70%); margin-bottom: 14px; }
+  .hero-heading {
+    padding: 9px 11px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.76);
+    font-size: 20px;
+  }
+  .hero-description, .hero-features { display: none; }
+  .st-key-form-panel { padding: 25px 22px 30px; }
+  .form-intro h1 { font-size: 42px; }
+  .login-notice { padding: 18px; font-size: 13px; }
+}
