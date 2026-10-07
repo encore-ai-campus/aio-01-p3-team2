@@ -1,8 +1,10 @@
-"""Thread-safe in-memory repository used until PostgreSQL is connected."""
+"""Repository selection and the in-memory development implementation."""
 
+import os
 from copy import deepcopy
 from threading import RLock
 
+from backend.app.repositories.interface import WorkflowRepository
 from backend.app.schemas.workflow_state import TaskRecord, TraceEntry
 
 
@@ -54,4 +56,14 @@ class InMemoryRepository:
             self._idempotency[key] = (request_hash, task_id)
 
 
-repository = InMemoryRepository()
+def build_repository() -> WorkflowRepository:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if not database_url:
+        return InMemoryRepository()
+
+    from backend.app.repositories.postgres import SqlAlchemyRepository
+
+    return SqlAlchemyRepository(database_url)
+
+
+repository = build_repository()

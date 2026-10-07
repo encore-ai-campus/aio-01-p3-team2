@@ -1,6 +1,8 @@
 """Liveness and readiness endpoints."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
+
+from backend.app.services.db_service import repository
 
 router = APIRouter()
 
@@ -11,5 +13,9 @@ def live() -> dict[str, str]:
 
 
 @router.get("/health/ready")
-def ready() -> dict[str, str]:
+def ready(response: Response) -> dict[str, str]:
+    ready_check = getattr(repository, "ready", None)
+    if callable(ready_check) and not ready_check():
+        response.status_code = 503
+        return {"status": "not_ready"}
     return {"status": "ready"}

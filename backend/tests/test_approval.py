@@ -54,3 +54,17 @@ def test_stale_version_is_rejected(client):
     )
     assert response.status_code == 409
     assert response.json()["error_code"] == "STALE_RESULT_VERSION"
+
+
+def test_duplicate_approval_returns_original_result(client):
+    task = create_task(client)
+    request = {"actor_id": "liveops01", "result_version": 1, "action": "APPROVE"}
+    first = client.post(f"/api/tasks/{task['task_id']}/approval", json=request)
+    second = client.post(f"/api/tasks/{task['task_id']}/approval", json=request)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json() == second.json()
+
+    traces = client.get(f"/api/tasks/{task['task_id']}/trace").json()["traces"]
+    approval_traces = [item for item in traces if item["action"] == "APPROVE"]
+    assert len(approval_traces) == 1

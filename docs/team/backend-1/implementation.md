@@ -40,19 +40,33 @@ ruff check backend
 ruff format --check backend
 ```
 
+## 2단계 영속화 기반
+
+- `WorkflowRepository` Protocol 추가
+- SQLAlchemy 기반 PostgreSQL Repository 추가
+- SQLite 메모리 DB를 사용한 Repository 단위 테스트 추가
+- `DATABASE_URL` 미설정 시 인메모리, 설정 시 SQLAlchemy Repository 선택
+- 생성과 승인 Idempotency Key namespace 분리
+- 동일 승인 요청 재전송 시 기존 결과 반환 및 Trace 중복 방지
+- DB Ready Check 반영
+- Backend Dockerfile과 환경변수 예시 작성
+
+PostgreSQL을 실제 실행한 통합 시험은 Compose의 DB 서비스와 Secret 규칙이 팀에서 확정된 후 진행한다.
+
 ## 다음 단계
 
 1. Backend B와 `WorkflowResult`, `run`, `revise`, Repository 계약 확정
-2. PostgreSQL Repository와 마이그레이션 도입
-3. 승인 요청 멱등성 및 동시성 처리
+2. PostgreSQL 컨테이너 통합 시험 및 마이그레이션 도구 확정
+3. 승인 동시성 잠금과 진행 중 Idempotency 정책 확정
 4. 실제 Backend B Engine 교체
-5. DB/MCP 기반 Ready Check
+5. MCP 기반 Ready Check
 6. 조건부 추가 API 범위 확정
 
 ## 미구현/제한
 
-- 재시작 후 상태 보존 불가(현재 인메모리 저장)
+- `DATABASE_URL` 미설정 시 재시작 후 상태 보존 불가
+- 실제 PostgreSQL 컨테이너 통합 시험 및 마이그레이션은 아직 미완료
 - 실제 LLM, MCP, Rule Engine, AutoHealing 미연결
-- 승인 요청의 서버 멱등성 레코드 미구현
+- 승인 동시 요청에 대한 DB Row Lock은 아직 미구현
 - Tool Log, Task 목록, 게임 데이터, 종합 Health API 미구현
 - Test API는 접근 제한만 적용하며 MockEngine이 fault를 실제 주입하지 않음

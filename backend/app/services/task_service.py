@@ -34,6 +34,13 @@ def _request_hash(request: EventCreateRequest) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _approval_hash(request: ApprovalRequest) -> str:
+    encoded = json.dumps(
+        request.model_dump(mode="json"), ensure_ascii=False, sort_keys=True
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _response(task: TaskRecord) -> TaskResponse:
     return TaskResponse(
         **task.model_dump(
@@ -70,7 +77,7 @@ def _trace(
 def generate(request: EventCreateRequest | TestEventCreateRequest) -> tuple[TaskResponse, bool]:
     validate_text(request.event_name)
     validate_text(request.objective)
-    key = str(request.idempotency_key)
+    key = f"event:{request.idempotency_key}"
     request_hash = _request_hash(request)
     existing = repository.find_idempotency(key)
     if existing:
@@ -137,6 +144,26 @@ def approve(task_id: str, request: ApprovalRequest) -> TaskResponse:
         raise ServiceError("TASK_NOT_FOUND", "요청한 작업을 찾을 수 없습니다.", 404, task_id)
     if request.actor_id != "liveops01":
         raise ServiceError("INVALID_ACTOR", "승인 권한이 없는 사용자입니다.", 403, task_id)
+
+    approval_key = f"approval:{task_id}:{request.result_version}:{request.action.value}"
+    request_hash = _approval_hash(request)
+    existing = repository.find_idempotency(approval_key)
+    if existing:
+        old_hash, stored_task_id = existing
+        if old_hash != request_hash:
+            raise ServiceError(
+                "IDEMPOTENCY_KEY_CONFLICT",
+                "동일한 승인 요청 키가 다른 요청에 이미 사용되었습니다.",
+                409,
+                task_id,
+            )
+        stored_task = repository.get_task(stored_task_id)
+        if stored_task is None:
+            raise ServiceError(
+                "INTERNAL_SERVER_ERROR", "저장된 승인 결과를 찾을 수 없습니다.", 500, task_id
+            )
+        return _response(stored_task)
+
     if task.result_version != request.result_version:
         raise ServiceError(
             "STALE_RESULT_VERSION",
@@ -182,4 +209,5 @@ def approve(task_id: str, request: ApprovalRequest) -> TaskResponse:
     task.updated_at = now()
     repository.save_task(task)
     _trace(task, "human", request.action.value, "SUCCESS", reason, request.actor_id)
+    repository.save_idempotency(approval_key, request_hash, task_id)
     return _response(task)
