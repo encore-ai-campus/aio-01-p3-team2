@@ -1,0 +1,53 @@
+# Environment variables and secrets
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+**/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Python bytecode and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Test, lint, and coverage artifacts
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Logs and local databases
+*.log
+*.sqlite3
+*.db
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.codex/
+.DS_Store
+Thumbs.db
+
+# Team member local workspaces: keep only the directory marker
+/local-workspaces/frontend/**
+!/local-workspaces/frontend/.gitkeep
+/local-workspaces/backend-1/**
+!/local-workspaces/backend-1/.gitkeep
+/local-workspaces/backend-2/**
+!/local-workspaces/backend-2/.gitkeep
+/local-workspaces/mcp/**
+!/local-workspaces/mcp/.gitkeep
