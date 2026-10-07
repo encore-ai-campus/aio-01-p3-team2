@@ -25,6 +25,8 @@ def demo_ids() -> set[str]:
 
 
 def render_login() -> None:
+    allowed_ids = demo_ids()
+    st.session_state.setdefault("login-id", min(allowed_ids) if allowed_ids else "")
     background = image_data_uri(ASSETS_DIR / "login_background.png")
     logo = image_data_uri(ASSETS_DIR / "opong_heroes_logo.png")
     css = CSS_PATH.read_text(encoding="utf-8").replace("__BACKGROUND_DATA_URI__", background)
@@ -82,11 +84,11 @@ def render_login() -> None:
                 disabled=True,
             )
             st.caption(
-                f"데모 ID: {', '.join(sorted(demo_ids()))} · 비밀번호 검증은 제공하지 않습니다."
+                f"데모 ID: {', '.join(sorted(allowed_ids))} · 비밀번호 검증은 제공하지 않습니다."
             )
 
-            if st.button("로그인  →", key="login-submit", type="primary", use_container_width=True):
-                if actor_id.strip() in demo_ids():
+            if st.button("로그인  →", key="login-submit", type="primary", width="stretch"):
+                if actor_id.strip() in allowed_ids:
                     st.session_state["logged_in"] = True
                     st.session_state["actor_id"] = actor_id.strip()
                     st.rerun()
@@ -107,14 +109,7 @@ def render_login() -> None:
 
 
 def render_signed_in() -> None:
-    st.title("OPONG HEROES LIVE OPS")
-    st.success(f"{st.session_state['actor_id']} 계정으로 데모 로그인했습니다.")
-    st.info("로그인 화면을 먼저 구현했습니다. 이벤트 생성 화면은 별도 작업으로 연결됩니다.")
-    if st.button("로그아웃"):
-        st.session_state["logged_in"] = False
-        st.session_state.pop("actor_id", None)
-        st.session_state.pop("login-id", None)
-        st.rerun()
+    st.switch_page("pages/1_event_create.py")
 
 
 def main() -> None:
