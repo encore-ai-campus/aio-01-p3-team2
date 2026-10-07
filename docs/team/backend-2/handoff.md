@@ -2,60 +2,53 @@
 
 최종 갱신: 2026-10-07 (Asia/Seoul)
 
-## 목적과 작업 방식
+## 현재 브랜치와 소유 범위
 
-이 문서는 다른 데스크탑이나 새 대화에서 백엔드 B 작업을 이어가기 위한 기록이다. 사용자가 구현 코드를 직접 파일에 붙여 넣는다. 안내자는 매 단계에 **수정할 파일의 절대 경로와 위치, 파일 전체 코드, 한글 독스트링, 확인 명령**을 제공한다. 사용자가 완료 사실을 알려주기 전에는 다음 파일이 작성되었다고 가정하지 않는다. 코드 변경은 사용자가 직접 수행하고, 이 Handoff는 진행에 맞춰 갱신한다.
+- 작업 브랜치: `youngmin`. `main`은 변경하거나 push하지 않는다. `docs/team/backend-2/handoff.md`와 `백엔드 B 개발 가이드_업데이트.md`는 이 브랜치에서만 관리한다. 확인 당시 `main`에는 이 두 문서가 없고 `.gitkeep`만 있다.
+- B 소유: `backend/app/agents/`, `orchestration/`, `rules/`, `services/llm_service.py`, `services/mcp_client.py`, `guards/tool_guard.py`, `fault_injection/`, `config/agents.yaml`, `config/security_policies.yaml` 및 B 기능 시험.
+- A 소유: FastAPI, 공통 Schema·Validation, Repository·트랜잭션, 승인·멱등성, Trace 저장·조회, 배포 의존성. B는 ORM·SQL·HTTP 응답을 직접 구현하지 않는다.
+- MCP 서버는 별도 MCP 팀의 `origin/port` 브랜치에서 구현 중이다. 이 컴퓨터의 `mcp_server/`에는 이전 단계에서 사용자가 직접 작성한 미커밋 Mock 파일이 있지만, 그 파일은 B 커밋에 포함하지 않는다. 이들 파일을 덮어쓰거나 MCP 팀 구현과 섞지 않는다.
+- `.gitignore`의 기존 미커밋 변경도 B 커밋에 포함하지 않는다.
 
-이 데스크탑의 저장소 루트는 `/Users/son/개발/multi-agent-autohealing`이다. 다른 데스크탑에서는 `pwd`로 새 절대 경로를 확인해 안내 경로를 바꾼다.
+## 구현된 B 기능
 
-## 확인한 자료와 현재 상태
+- `agents/supervisor.py`, `orchestration/routing.py`, `retry.py`: Agent Context 허용 필드, 기획 수정 최대 2회, 기술 재시도 최대 3회, Tool Fallback·Safe Stop 경로.
+- `agents/event_planner.py`, `critic.py`, `services/llm_service.py`: 필터링된 Context로 Structured Output을 받고 기본 응답 계약을 검사한다. 실제 OpenAI Responses 전송 함수 `create_openai_transport(model, agents_config)`를 제공한다. 모델 이름은 운영 설정에서 주입하며 API 키를 파일이나 Trace에 기록하지 않는다.
+- `guards/tool_guard.py`, `services/mcp_client.py`: Agent별 Tool 허용 목록, 정확한 Tool 인자, Primary 실패 후 Fallback 허용, MCP 연결·시간 초과와 Tool 오류 분리. MCP Python SDK 1.x의 Streamable HTTP 전송 함수 `create_streamable_http_transport(url)`를 제공한다.
+- `rules/game_rule_engine.py`, `agents/balance_rule.py`: Event Brief 대상·기간, Mission·Reward Day, 콘텐츠 접근 레벨, 아이템 존재 여부의 결정적 판정. MCP 팀의 실제 응답 구조인 `exists`, `user_segments`, `source`, `game_data_version`을 처리하고 없는 ID를 기획 오류로 구분한다. Primary 결과 오류 시 Fallback, 연결·Timeout 시 동일 Tool 재시도를 지원한다. 화면용 콘텐츠·아이템 이름은 검증된 MCP 응답에서만 확보한다.
+- `orchestration/handoff.py`, `engine.py`: 검증 성공 후 Agent 소유권 이전, Planner → 규칙 검증 → Critic 실행, 기획 오류의 전체 재검증, Agent·Tool 재시도, Safe Stop, Human 수정 재검증, 최소 Trace·AutoHealing 이벤트, Fault Injection 연결. 실패한 수정안을 승인 후보로 반환하지 않는다.
+- `fault_injection/fault_types.py`, `fault_manager.py`: `*_once`는 1회, `retry_limit_exceeded`는 반복 주입. A는 Test API에서만 `fault_type`을 전달해야 한다.
 
-- 저장소 기준: `AGENTS.md`, `docs/last/`의 최신 기획안 2개, `docs/frontend_backend_api_contract.md`, `docs/team/backend-2/백엔드 B 개발 가이드_업데이트.md`, `docs/team/frontend/implementation.md`.
-- 별도 전달받은 참고 자료: `frontend_backend_final_agreement.md`, `Frontend_Backend_API_Contract_수정_제안서.md`, `백엔드 A 개발 가이드.md`. 이 파일들은 이전 데스크탑의 Downloads 폴더에 있었으므로 다른 데스크탑에서 접근 가능하다고 가정하지 않는다. 아래에 구현에 필요한 결론을 기록한다. 제안서의 제안은 팀의 최종 승인으로 간주하지 않는다.
-- 2026-10-07 확인 시 `backend/app/`의 Python 파일, `backend/tests/`의 Python 파일, `backend/app/config/`의 YAML 파일, `mcp_server/`의 Python 파일과 JSON 데이터 파일은 모두 빈 뼈대였다. 실제 작업 전 다시 확인한다.
-- 확인 당시 브랜치는 `youngmin`이며 `.gitignore`에 기존 미커밋 변경이 있었다. 이 변경은 이 작업에서 만들지 않았고 건드리지 않는다. `백엔드 B 개발 가이드_업데이트.md`도 당시 Git 미추적 파일이므로 다른 데스크탑에 자동으로 전달된다고 가정하지 않는다. 핵심 계약은 이 Handoff에 따로 기록했으며, 원본 가이드가 필요하면 파일을 별도로 동기화해야 한다. 다른 데스크탑에서 브랜치와 작업 트리 상태를 다시 확인한다.
-- 문서 중 `README.md`는 초기 뼈대 단계라고 설명하며, Frontend 구현 현황은 `docs/team/frontend/implementation.md`에 별도로 기록되어 있다. 상태 판단은 실제 파일과 최신 문서를 대조한다.
+## 실행·어댑터 계약
 
-## 백엔드 B 책임과 경계
+- `WorkflowEngine.run(task_id, request, fault_type=None)`와 `revise(task_id, approval_comment)`는 **async**이며 B 내부 `WorkflowResult`를 반환한다. A는 실제 공통 Schema로 변환·검증하고 저장한다.
+- `request`는 `event_name`, `target_user`, `duration`, `objective` 네 필드만 허용한다. `actor_id`, `idempotency_key`, `fault_type`, Secret은 Agent Context에 넣지 않는다.
+- `revision_loader(task_id)`는 async이며 저장된 `user_request`, `current_result`, `revision_count`를 반환해야 한다. A가 승인 상태와 의견을 검증한 뒤 `revise`를 호출한다.
+- `trace_sink(event)`는 async이다. 이벤트에는 `event_id`, `task_id`, 시각, actor, action, 상태, 표준 오류 유형, 재시도·수정 횟수를 포함한다. A가 sequence와 **실제 저장된** `result_version`을 부여하고 `event_id`로 중복 기록을 방지해야 한다. B가 넣는 `result_version=0`은 저장 전 임시값이다. 민감정보나 전체 Prompt는 전달하지 않는다.
+- `plan_validator`, `rule_validator`, `critic_validator`는 A Output Validation을 붙이는 동기 콜백이다. 주입하지 않아도 B의 기본 구조 검사는 작동하지만, 실제 API 연결 시 A의 Pydantic 검증을 연결해야 한다.
+- 현재 `backend/requirements.txt`는 비어 있다. 실제 전송 사용 시 A의 Backend 의존성 목록에 OpenAI Python SDK와 MCP Python SDK 1.x를 추가해야 한다. `origin/port`의 MCP 서버 요구사항은 `mcp>=1.27,<2`다. 실제 SDK·서비스 호출은 이 컴퓨터에서 의존성과 API 키·서버가 없어 실행하지 않았다.
 
-B는 `backend/app/agents/`, `orchestration/`, `rules/`, `services/llm_service.py`, `services/mcp_client.py`, `guards/tool_guard.py`, `fault_injection/`, `config/agents.yaml`, `config/security_policies.yaml`의 Agent, Supervisor, Workflow, MCP 연동, Tool Guard, 규칙 판정, 복구, 장애 주입, Trace 이벤트 생성을 맡는다. A는 FastAPI, 공통 Schema·Validation, Input/Response Guard, PostgreSQL Repository·트랜잭션, 승인·멱등성, Trace 저장·조회, Health와 Backend 배포 설정을 맡는다. B는 ORM·SQL·DB 연결 및 HTTP 응답을 직접 구현하지 않는다. A 소유 파일이나 공통 Schema의 변경이 필요하면 먼저 변경 이유와 Fixture·테스트 영향을 공유한다.
+## 검증 결과
 
-Engine 진입점은 `run(task_id, request, fault_type=None) -> WorkflowResult`, `revise(task_id, approval_comment) -> WorkflowResult`이다. `request`는 `event_name`, `target_user`, `duration`, `objective`만 포함한다. `actor_id`, `idempotency_key`, `fault_type`, Secret은 Agent Context에 넣지 않는다. `revise`는 A Repository에서 해당 작업의 최신 저장 요청과 결과를 읽는다.
+- B 파일의 Ruff check 및 format check 통과.
+- `python -m unittest discover -s backend/tests`로 B 관련 23개 Mock 시험 통과: 정상 승인 대기, 신규/복귀/전체 유저 레벨, 없는 콘텐츠·아이템, 기획 수정 한도, Agent·Validation·MCP Timeout 1회 복구, Primary Fallback, Fallback 실패 Safe Stop, Trace 일시 오류, Human 수정 성공·실패, Repository 조회 재시도, Handoff 거절 시 소유권 유지, SDK 응답 어댑터.
+- `origin/port`에서 MCP 팀의 `_data.py`와 JSON을 임시 폴더로 추출해 B 규칙 판정에 연결했다. 정상 콘텐츠와 없는 콘텐츠의 판정, 버전 `tinyheroes-1.0.0`을 확인했다. 이 임시 추출 파일은 저장소 커밋에 포함하지 않는다.
+- 저장소 전체 `ruff check .`는 B 외부의 `frontend/pages/2_event_result.py:135` 문법 오류 때문에 실패한다. 전체 `ruff format --check .`도 기존 Frontend 코드와 과거 Markdown 코드 블록의 포맷 차이 때문에 실패한다. B 브랜치에서 다른 팀 파일을 임의 수정하지 않는다.
 
-## 현재 개발 기준
+## A·Frontend·MCP와 확정할 항목
 
-- `TargetUser`: `new_user`, `returning_user`, `all_user`; 기간은 1~7일.
-- 내부 및 API의 Mission·Reward는 별도 `missions[]`, `rewards[]` 배열을 사용한다. Mission의 핵심 필드는 `day`, `content_id`, `mission_type`, `target_count`; Reward는 `day`, `item_id`, `quantity`다. 화면에는 `mission_name`, MCP에서 검증한 `content_name`·`item_name`을 제공한다.
-- 프런트엔드의 `event_concept`, `operation_summary`, `missions[].day_title`, `missions[].planning_reason`은 Optional 표시 필드다. 누락이나 null만으로 Workflow를 실패시키지 않는다. `event_name`과 `objective` 원문은 A가 Event Brief에서 보존한다.
-- MVP Rule Validation은 `is_valid`, `error_type`, `reason`, `evidence`, `game_data_version`, `data_source`를 사용한다. 현행 Frontend API 계약과 A 가이드는 `checks[]`를 요구하지 않지만 B 가이드는 요구한다. **`checks[]`는 합의 전까지 필수 Schema나 성공 조건으로 확정하지 않는다.**
-- Frontend는 Mission·Reward를 같은 `day` 카드에 표시한다. 같은 Day에 여러 Mission·Reward가 있을 때 개별 항목 간 연결 의미는 미정이다. 초기 Fixture는 Day별 Mission·Reward를 하나씩 두어 모호성을 피한다. 다중 항목 연결이나 보상 복제를 임의로 구현하지 않는다.
-- Mock 콘텐츠 ID는 `HUNT_001`, `DUNGEON_001`, `RAID_001`; 아이템 ID는 `ITEM_001`~`ITEM_003`이다. 현행 저장소 계약의 Mock 데이터 버전은 `tinyheroes-1.0.0`이다. 별도 최종 정리안은 `opongheroes-1.0.0`도 권장하므로 팀 확정 전에는 저장소 계약과 일치하는 `tinyheroes-1.0.0`을 임시 기준으로 사용한다.
-- Supervisor는 Python 규칙이며 기본 상한은 `max_revisions=2`, `max_retries=3`이다. `revision_count`는 자동 기획 수정만 세고 Human 수정 요청은 세지 않는다. `retry_count`는 연속 기술 재시도 수이며 복구 시 0으로 초기화한다. Primary 게임 규칙 Tool의 실행·결과 오류는 Fallback으로, MCP 연결·Timeout은 동일 Tool 재시도로 처리한다. 검증되지 않은 결과는 승인 후보로 저장하지 않는다.
-- 첫 Critic PASS 후보가 실제 저장될 때 `result_version`은 0에서 1이 된다. Human 수정 후 새 PASS 후보가 저장될 때만 증가한다. 승인·거절과 실제 버전 저장은 A 책임이다. Human 수정 재검증 실패 시 `FAILED`로 종료하고 이전 후보는 기록으로만 보존한다.
-- MVP API는 생성 2개, Task 조회, Trace 조회, 승인, Live·Ready의 7개다. Task 목록, 별도 Tool Log, Game Data, 종합 System Health API는 후속이다. Tool 실행 기록은 Trace에 남긴다.
+1. `rule_validation.checks[]`: 현재 Frontend API 계약은 MVP 후속, B 가이드는 포함 요구. B는 항목별 `RuleCheck`를 내부에 보존하지만 공통 응답 필수 필드로 강제하지 않는다.
+2. 한 Day에 여러 Mission·Reward가 있을 때의 연결·검증 의미. 현재 B는 각 배열 항목을 개별 검증하고 Day로 보상 복제나 다대다 연결을 만들지 않는다.
+3. `evidence`는 B에서 첫 실패의 객체로 반환한다. 공통 문서의 객체/배열 혼용을 A·Frontend와 확정한다.
+4. A Repository의 async 경계, 함수별 인자·반환, Task 미존재, 재호출 중복 방지, 실패 후 반영 여부 조회. 특히 `trace_sink`의 `event_id` 멱등 저장과 후보 저장 후 `result_version` 반영 방식이 필요하다.
+5. A 공통 `WorkflowResult`, `EventPlanResult`, `RuleValidationResult`, `CriticResult`의 필드·상태값과 B 내부 dataclass 변환. 현재 A 소유 Schema·Repository 파일은 빈 뼈대라 실제 통합 시험은 아직 불가능하다.
+6. MCP 팀의 `origin/port`가 통합될 때 B의 `create_streamable_http_transport`를 서버 URL(`/mcp`)에 연결하고 실제 SDK 호출·연결 장애를 시험한다. 사용자 로컬의 미커밋 `mcp_server/` 파일은 MCP 팀 버전과 JSON 키가 다르므로 그대로 병합하지 않는다.
+7. 실제 OpenAI 모델·비용·API 키·Backend 의존성은 서비스 환경에서 확정한다. Mock 시험은 API 호출 요금이나 비밀값을 사용하지 않는다.
 
-## 통합 전 확정할 계약
+## 다른 데스크탑에서 재개하는 방법
 
-1. `rule_validation.checks[]`의 MVP 포함 여부: 현행 API/A 가이드는 후속, B 가이드는 MVP 요구. 현재 작업은 후속으로 두는 임시 기준을 따른다.
-2. 한 Day에 여러 Mission·Reward가 있을 때 연결·검증 규칙.
-3. `evidence`의 자료형과 여러 실패 근거의 표현. 문서 예시에 객체 `{}`와 목록 `[]`이 섞여 있다.
-4. A Repository의 함수별 인자·반환 타입, sync/async, Task 미존재 처리, 공통 DB 예외, 같은 쓰기 재호출의 중복 방지, 쓰기 결과가 불명확할 때 반영 확인 방식. 함수 목록: `create_workflow`, `get_workflow`, `save_checkpoint`, `update_workflow_state`, `append_trace`, `save_idempotency_result`.
-5. A·B 공통 Pydantic Schema, `WorkflowResult`, Fixture와 Trace의 저장 버전 규칙. 실제 A Repository·API 연결 전 같은 Fixture로 확인한다.
-6. Mock 데이터 버전 문자열의 팀 최종 선택. 변경한다면 Frontend·Backend·MCP·Fixture를 함께 바꾼다.
-
-## 권장 구현 순서와 진행 기록
-
-1. 공통 상수·Fault Type 등 B 소유의 독립 파일부터 사용자가 직접 작성한다.
-2. Mock 데이터/Mock MCP/Mock LLM과 In-memory Repository를 이용해 Python Rule Engine과 Agent를 작성한다. A 공통 Schema에 의존하는 부분은 A와 계약을 맞춘 뒤 연결한다.
-3. Handoff, Routing·Retry, Supervisor, 정상 Workflow를 연결한다.
-4. 기획 수정, 기술 Retry, Tool Fallback, Safe Stop, Trace·AutoHealing, Fault Injection을 추가한다.
-5. A의 공통 Schema·Repository·API 및 실제 MCP·LLM과 통합하고 문서·Fixture·테스트를 함께 갱신한다.
-
-진행 상태 (2026-10-07): **개발 안내 준비 완료, 사용자의 구현 코드 작성은 아직 확인되지 않음.** 다음 안내 후보는 `backend/app/fault_injection/fault_types.py`의 전체 코드다. 사용자가 붙여 넣고 확인 결과를 전하면 이 항목에 완료 파일·검사 결과·다음 작업을 기록한다.
-
-## 다른 데스크탑에서 재개할 때
-
-1. 저장소 루트에서 `pwd`, `git status --short --branch`, `git diff --stat`으로 위치·브랜치·기존 변경을 확인한다. `main`에 직접 작업하지 않는다.
-2. 이 문서와 `docs/team/backend-2/백엔드 B 개발 가이드_업데이트.md`, `docs/frontend_backend_api_contract.md`, `docs/team/frontend/implementation.md`를 읽고 실제 파일의 구현 상태를 대조한다.
-3. 사용자에게 다음 파일의 **절대 경로**, 파일 전체 코드, 코드의 역할, 확인 명령을 제공한다. Python 코드에는 기능과 입력·출력을 설명하는 한글 독스트링을 넣는다. 사용자가 직접 붙여 넣은 뒤 결과를 알려주면 다음 단계로 넘어간다.
-4. 변경 후 `git status`, 의도한 파일의 diff, `ruff check .`, `ruff format --check .` 및 해당 기능에 필요한 테스트를 확인한다. 검사 도구가 설치되지 않았으면 `pip install -r requirements-dev.txt`가 기준이다. 문서·코드 상태를 일치시키고 이 Handoff를 갱신한다.
+1. `youngmin` 브랜치를 체크아웃하고 `git status --short --branch`로 의도하지 않은 변경을 확인한다. `main`에 직접 작업하지 않는다.
+2. 저장소 루트에서 Python 3.11 가상환경을 각 운영체제에 새로 만든다. `.venv`는 Mac과 Windows 사이에 복사하지 않는다.
+3. macOS: `.venv/bin/python -m pip install -r requirements-dev.txt`. Windows PowerShell: `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt`.
+4. B 시험: `.venv/bin/python -m unittest discover -s backend/tests -v` (Windows는 `python.exe` 경로로 변경). B Ruff: `.venv/bin/ruff check backend/app/agents backend/app/orchestration backend/app/rules backend/app/services/llm_service.py backend/app/services/mcp_client.py backend/app/guards/tool_guard.py backend/app/fault_injection backend/tests/test_backend_b_rules.py backend/tests/test_backend_b_transports.py backend/tests/test_workflow.py` 및 같은 경로의 `ruff format --check`.
+5. A와 계약을 맞춘 뒤 어댑터를 연결하고 실제 MCP·LLM, 저장 버전·Trace, API·Frontend 시나리오를 통합 시험한다. 변경된 동작·설정은 이 문서와 공통 계약에 함께 반영한다.
