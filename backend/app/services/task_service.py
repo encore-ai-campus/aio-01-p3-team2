@@ -5,6 +5,7 @@ import json
 from uuid import uuid4
 
 from backend.app.guards.input_guard import validate_text
+from backend.app.guards.response_guard import validate_response
 from backend.app.schemas.approval import ApprovalAction, ApprovalRequest
 from backend.app.schemas.event import EventBrief, EventCreateRequest, TestEventCreateRequest
 from backend.app.schemas.workflow_state import (
@@ -46,11 +47,33 @@ def _approval_hash(request: ApprovalRequest) -> str:
 
 
 def _response(task: TaskRecord) -> TaskResponse:
-    return TaskResponse(
+    response = TaskResponse(
         **task.model_dump(
             exclude={"actor_id", "brief", "approval_comment", "created_at", "updated_at"}
         )
     )
+    try:
+        validate_response(response.model_dump_json())
+    except ValueError as exc:
+        raise ServiceError(
+            "RESPONSE_GUARD_BLOCKED",
+            "응답 안전성 검사에 실패했습니다.",
+            500,
+            task.task_id,
+        ) from exc
+    return response
+
+
+def _validate_input_text(value: str, task_id: str | None = None) -> None:
+    try:
+        validate_text(value)
+    except ValueError as exc:
+        raise ServiceError(
+            "INPUT_GUARD_BLOCKED",
+            "입력 내용이 보안 정책에 의해 차단되었습니다.",
+            400,
+            task_id,
+        ) from exc
 
 
 def _trace(
@@ -79,8 +102,8 @@ def _trace(
 
 
 def generate(request: EventCreateRequest | TestEventCreateRequest) -> tuple[TaskResponse, bool]:
-    validate_text(request.event_name)
-    validate_text(request.objective)
+    _validate_input_text(request.event_name)
+    _validate_input_text(request.objective)
     key = f"event:{request.idempotency_key}"
     request_hash = _request_hash(request)
     existing = repository.find_idempotency(key)
@@ -219,7 +242,7 @@ def approve(task_id: str, request: ApprovalRequest) -> TaskResponse:
         reason = "운영자가 결과를 거절했습니다."
     else:
         assert request.approval_comment is not None
-        validate_text(request.approval_comment)
+        _validate_input_text(request.approval_comment, task_id)
         task.approval_comment = request.approval_comment
         task.approval_status = ApprovalStatus.REVISION_REQUESTED
         task.workflow_status = WorkflowStatus.RUNNING

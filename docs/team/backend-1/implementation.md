@@ -73,6 +73,26 @@ PostgreSQL을 실제 실행한 통합 시험은 Compose의 DB 서비스와 Secre
 다른 담당자의 디렉터리는 수정하지 않았다. Tool Log 실제 생성은 Backend B가 Repository
 인터페이스의 `append_tool_log()`를 호출하도록 연동된 이후 검증한다.
 
+## 4단계 Guard·회귀 시험·마무리 문서
+
+- Input Guard 차단을 `INPUT_GUARD_BLOCKED` 공통 오류로 변환
+- Task Response 반환 전 Response Guard 적용
+- Task 없음, Test Mode 비활성, Health API 회귀 테스트 추가
+- 실제 PostgreSQL 선택 실행 테스트 추가
+- `runbook.md`에 실행·환경변수·Docker·B 연결 지점·미완료 항목 기록
+
+## 검증 결과
+
+- Backend 단위·API 테스트: 16 passed, PostgreSQL 선택 테스트 1건은 기본 실행에서 skip
+- 실제 PostgreSQL 선택 테스트: 1 passed
+- Ruff lint 및 format 검사: 통과
+- Backend Docker 이미지 빌드: 통과
+- PostgreSQL + Backend 임시 컨테이너 통합:
+  - API로 Task 생성
+  - Backend 컨테이너 제거 후 재실행
+  - 동일 Task가 `WAITING_APPROVAL` 상태로 조회됨
+- 검증용 임시 Backend·PostgreSQL 컨테이너와 Docker network는 제거함
+
 ## 미구현/제한
 
 - `DATABASE_URL` 미설정 시 재시작 후 상태 보존 불가
