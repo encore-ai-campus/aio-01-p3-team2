@@ -1,3 +1,4 @@
+-- Reference draft only. Backend A owns shared DB seed; do not apply separately.
 -- Seed the same tiny_heroes-1.0.0 catalog used by the existing MCP tools.
 -- Re-running this file updates only the tiny_heroes row.
 INSERT INTO game_data_catalog (game_id, game_data_version, data)
