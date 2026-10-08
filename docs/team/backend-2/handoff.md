@@ -74,3 +74,60 @@ Windows PowerShell에서 실서버 B 시험은 MCP 서버를 실행한 뒤 `$env
 2026-10-08 모델 `gpt-4.1-mini`로 2건이 통과했다. Planner는 전달한 `available_contents`·`reward_item_ids` 안의 ID만 선택했고, 실제 Planner·Critic 응답으로 기획 전 조회 → 초안 → 규칙 검증 → Critic PASS → `WAITING_APPROVAL`까지 진행했다. 모델 이름을 `openai/gpt-4.1-mini`로 지정하면 OpenAI가 404 `model_not_found`를 반환하고, B는 Planner 재시도 3회 뒤 `agent_failure`로 Safe Stop하며 승인 후보를 만들지 않았다. OpenAI SDK에는 접두사 없는 모델 이름을 사용한다. 이 결과는 1회 실행이며 응답 품질의 반복 측정이나 실제 MCP 서버·A API를 함께 거친 통합 검증은 아니다.
 
 Planner가 고른 ID의 목록 포함 여부를 Engine에서 따로 사전 검증하지는 않는다. 목록 밖 ID는 기존 MCP 재조회와 Python Rule Engine 판정에서 기획 오류로 처리되고, 그 경로가 `evidence`와 검증용 조회 Trace를 남기기 때문이다.
+
+## 2026-10-08 작업 종료 시점 인수인계
+
+이 절은 2026-10-08 작업을 마친 시점의 상태다. 위 절들과 내용이 다르면 이 절을 기준으로 한다.
+
+### 현재 상태
+
+- 작업 브랜치는 `backend-test`이고, 이 절을 추가하기 직전 커밋은 `81fb0c8`이고 그때까지는 `origin/backend-test`에 올라가 있다. 이 절을 담은 문서 커밋 외에 미커밋 변경은 없다.
+- B 단독으로 진행할 수 있는 작업은 끝났다. 남은 일은 A의 Loader 주입 뒤에 하는 API 통합 검증이다.
+
+### 이날 `backend-test`에 올린 커밋
+
+| 커밋 | 내용 |
+| --- | --- |
+| `abe1c03` | `WorkflowEngine`의 `planning_context_loader`, 기획 전 조회·검증, Tool Guard·MCP Client의 새 Tool 인자 |
+| `110507a` | 기획 전 조회 Mock 시험과 실제 MCP 서버 Workflow 시험 |
+| `9d30c7e` | `docs/architecture.md`의 기획 전 조회 흐름, B 가이드·handoff, `frontend_trace_handoff.md` |
+| `9c684dd` | `origin/port`의 style 커밋 3개 병합 |
+| `be71941` | 실제 OpenAI 시험 `test_backend_b_llm_live.py`와 실행 방법 문서 |
+| `59167ee` | `docs/team/mcp/planning_context.md` (B가 정리한 계약 요약, MCP 담당자 확인 대상) |
+| `81fb0c8` | `backend/.env.docker.example`의 기본 모델 이름, `mcp_server/.env.example`의 DB 주소 형식(비밀번호는 자리표시자) |
+
+### 마지막으로 확인한 검사 결과
+
+- `backend/tests`: 64 passed, 13 skipped. 건너뛴 항목은 `MCP_TEST_URL`, `LLM_TEST_MODEL`·`OPENAI_API_KEY`, 시험용 DB URL이 없을 때 실행하지 않는 시험이다.
+- `mcp_server/tests`: 32 passed, 1 skipped(DB URL 미설정).
+- `ruff check .`: 통과. `ruff format --check .`: MCP 소유 `mcp_server/tests/test_postgres_integration.py` 1건 실패. MCP 담당자에게 `ruff format` 적용을 요청해야 한다.
+- 실제 OpenAI 시험: 모델 `gpt-4.1-mini`로 2 passed(1회 실행).
+- 실제 MCP 서버 시험 `test_backend_b_mcp_live.py`는 이날 오후 7 passed였고, 이후 B 코드 변경은 없다.
+
+### 환경 설정에서 주의할 점
+
+- `backend/.env`와 `mcp_server/.env`는 `.gitignore` 대상이며 각 컴퓨터에서 직접 만든다. 이 컴퓨터의 `backend/.env`에는 `DATABASE_URL`, `MCP_DATABASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL` 등이, `mcp_server/.env`에는 `MCP_DATABASE_URL`이 설정돼 있다. 값은 문서에 적지 않는다.
+- `OPENAI_MODEL`은 `gpt-4.1-mini`처럼 접두사 없이 적는다. `openai/gpt-4.1-mini`는 404 `model_not_found`로 실패한다. 이 컴퓨터의 `backend/.env` 값이 접두사 없는 이름으로 고쳐졌는지 `live` 모드 실행 전에 확인한다.
+- 이날 사용한 OpenAI API 키는 작업 도구의 대화 기록에 노출됐다. 아직 재발급하지 않았다면 폐기하고 새 키로 바꾼다.
+- `backend/.env`에 `DATABASE_URL`이 있는 상태에서 `backend/tests`를 실행하면 `conftest.py`가 앱을 불러오며 PostgreSQL에 연결을 시도한다. DB가 꺼져 있으면 시험 수집 단계에서 연결 시간 초과로 멈춘다. 환경변수로 `.env`를 불러와 시험할 때는 필요한 변수만 설정한다.
+- 이 컴퓨터에서는 pytest 기본 임시 폴더(`%LOCALAPPDATA%\Temp\pytest-of-<사용자>`) 접근이 거부돼 `tmp_path`를 쓰는 MCP 시험 4건이 오류가 난다. `--basetemp=<쓰기 가능한 폴더>`를 지정하면 통과한다. 코드 문제가 아니다.
+- backend 가상환경에는 `pip install -r backend/requirements.txt`로 `openai` SDK를 설치해 두었다.
+
+### 결정 사항
+
+- Planner가 고른 ID의 목록 포함 여부를 Engine에서 사전 검증하지 않는다. 기존 MCP 재조회와 Python Rule Engine이 같은 오류를 잡고, 사전 검증을 넣으면 기획 오류의 `evidence`와 검증용 조회 Trace가 빈약해지며 새 Trace action에 대한 A 합의가 필요해지기 때문이다.
+- 실제 LLM 시험은 서버용 `OPENAI_MODEL`이 아닌 시험 전용 `LLM_TEST_MODEL`로 켠다. 의도하지 않은 API 요금을 막기 위해서다.
+
+### 다음 작업
+
+1. A 담당자가 `BackendBWorkflowAdapter`에서 `PlanningContextLoader(...).load`를 Engine의 `planning_context_loader`로 주입해 올리면 `backend-test`에 병합한다.
+2. `backend_b_mcp`·`backend_b_live` 모드로 API를 실행해 새 순서(기획용 조회 → Planner → 검증용 조회 → 규칙 검증 → Critic)가 응답과 Trace에 나타나는지 확인하고, B 측 오류가 있으면 수정한다.
+3. 프론트엔드가 요청한 정상·기획 오류·첫 조회 실패 사례의 실제 `{"task_id": ..., "traces": [...]}` 응답 JSON을 수집해 `frontend_trace_handoff.md`를 갱신하고 전달한다.
+4. 공용 PostgreSQL에 게임 데이터가 적용되면 JSON 기본 데이터가 아닌 DB 조회 경로로 MCP·B 시험을 다시 실행한다.
+5. MCP 담당자가 남은 포맷 1건을 고쳐 `port`에 올리면 병합하고 저장소 전체 Ruff를 다시 확인한다.
+
+### 다른 담당자에게 전달할 내용
+
+- A: `abe1c03`부터 Engine이 `planning_context_loader(target_user: str, duration: int)`를 받는다. Adapter에서 주입하고 API 통합 시험을 추가해 달라. `backend/.env.docker.example`의 `OPENAI_MODEL` 기본값이 `gpt-4.1-mini`로 바뀌었다.
+- MCP: `mcp_server/tests/test_postgres_integration.py`에 `ruff format`을 적용해 달라. `docs/team/mcp/planning_context.md`는 B가 정리한 문서이므로 실제 구현과 다르면 고쳐 달라. `mcp_server/.env.example`의 `MCP_DATABASE_URL`에 연결 형식 예시가 들어갔다.
+- Frontend: 새 순서의 실제 API Trace JSON은 A의 Loader 주입 후 제공한다. 그 전까지는 `frontend_trace_handoff.md`의 B Engine 기준 순서를 참고한다.
