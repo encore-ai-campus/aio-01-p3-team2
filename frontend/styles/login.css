@@ -1,4 +1,4 @@
-/* Login artwork is embedded by app.py so local and Docker runs share one layout. */
+/* The login backdrop is CSS-only; the logo remains a bundled image. */
 :root {
   --navy: #101f4c;
   --blue: #2879f6;
@@ -12,8 +12,12 @@ section[data-testid="stSidebar"] {
 }
 
 .stApp {
-  background: linear-gradient(rgba(244, 249, 255, 0.24), rgba(244, 249, 255, 0.24)),
-    url("__BACKGROUND_DATA_URI__") center center / cover fixed;
+  background:
+    radial-gradient(circle at 15% 16%, rgba(255, 198, 74, 0.36), transparent 27%),
+    radial-gradient(circle at 84% 19%, rgba(42, 152, 255, 0.42), transparent 30%),
+    radial-gradient(circle at 49% 88%, rgba(92, 83, 183, 0.36), transparent 43%),
+    linear-gradient(135deg, #07152d 0%, #164178 48%, #0b1b3d 100%);
+  background-attachment: fixed;
   color: var(--navy);
 }
 
@@ -50,7 +54,7 @@ section[data-testid="stSidebar"] {
 }
 
 .st-key-login-shell [data-testid="stHorizontalBlock"] > [data-testid="stColumn"]:first-child {
-  background: linear-gradient(180deg, #dceeff 0%, #f1f8ff 48%, #fff 100%);
+  background: linear-gradient(180deg, #fff 0%, #fff 64%, #f1f8ff 100%);
 }
 
 .st-key-hero-panel {
@@ -66,10 +70,10 @@ section[data-testid="stSidebar"] {
 
 .hero-logo {
   display: block;
-  width: min(660px, 100%);
+  width: min(440px, 100%);
   height: auto;
-  margin: 0 auto 28px;
-  filter: drop-shadow(0 9px 12px rgba(24, 62, 103, 0.22));
+  margin: 0 auto 12px;
+  mix-blend-mode: multiply;
 }
 
 .hero-heading {

@@ -12,6 +12,10 @@ TARGET_LABELS = {
     "returning_user": "복귀 유저",
     "all_user": "전체 유저",
 }
+SOURCE_LABELS = {
+    "clash_of_clans": "Clash of Clans 공개 데이터",
+    "opong": "오퐁 히어로즈 기존 데이터",
+}
 
 FAULT_LABELS = {
     "mission_unreachable_once": "달성 불가능 미션 1회",
@@ -34,10 +38,22 @@ def render_event_form() -> dict[str, Any] | None:
     st.session_state.setdefault("brief-target", "new_user")
     st.session_state.setdefault("brief-duration", 7)
     st.session_state.setdefault("brief-objective", "")
+    st.session_state.setdefault("brief-source", "clash_of_clans")
 
     with st.form("event-brief-form"):
         with st.container(key="panel-basic", border=True):
             section_heading(1, "이벤트 기본 정보", "어떤 이벤트를 만들지 기본 정보를 입력해주세요.")
+            game_source = st.selectbox(
+                "게임 데이터 원천 *",
+                list(SOURCE_LABELS),
+                key="brief-source",
+                format_func=SOURCE_LABELS.get,
+            )
+            if game_source == "clash_of_clans":
+                st.caption(
+                    "글로벌 공개 상위 순위 플레이어 최대 20명과 클랜 최대 3개의 표본을 사용합니다. "
+                    "전체 이용자를 대표하는 통계가 아니며 실제 Clash 계정에 이벤트를 지급하지 않습니다."
+                )
             name_col, target_col = st.columns(2)
             with name_col:
                 event_name = st.text_input(
@@ -47,12 +63,16 @@ def render_event_form() -> dict[str, Any] | None:
                     placeholder="예: 신규 유저 7일 성장 이벤트",
                 )
             with target_col:
-                target_user = st.selectbox(
-                    "이벤트 대상 *",
-                    list(TARGET_LABELS),
-                    key="brief-target",
-                    format_func=TARGET_LABELS.get,
-                )
+                if game_source == "clash_of_clans":
+                    target_user = "all_user"
+                    st.text_input("이벤트 대상", value="데모 전체 유저", disabled=True)
+                else:
+                    target_user = st.selectbox(
+                        "이벤트 대상 *",
+                        list(TARGET_LABELS),
+                        key="brief-target",
+                        format_func=TARGET_LABELS.get,
+                    )
             period_col, objective_col = st.columns(2)
             with period_col:
                 duration = st.selectbox(
@@ -109,6 +129,7 @@ def render_event_form() -> dict[str, Any] | None:
         "target_user": target_user,
         "duration": duration,
         "objective": objective.strip(),
+        "game_source": game_source,
     }
     if mode == "test" and fault_type:
         result["fault_type"] = fault_type

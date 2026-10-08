@@ -3,63 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#5f8f55">
-  <title>OPONG HEROES · 작은 영웅의 모험</title>
+  <meta name="theme-color" content="#163b32">
+  <title>OPONG HEROES · 마을 원정</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/game.js" defer></script>
 </head>
 <body>
   <div class="game-shell">
-    <header class="hud wood-panel">
-      <button type="button" id="brand-button" class="brand" aria-label="로비로 돌아가기"><span class="brand-crown">♛</span><strong>OPONG</strong><small>HEROES</small></button>
-      <div class="hero-stats"><img src="/assets/hero-mascot.png" alt="" class="hud-avatar"><div class="stats-main"><strong id="hero-level">Lv.1 오퐁 용사</strong><div class="meter exp"><span id="exp-bar"></span><b id="exp-text">0 / 20</b></div></div></div>
-      <div class="resource"><span>🪙</span><strong id="gold-count">0</strong></div>
-      <div class="resource"><span>🧪</span><strong id="potion-count">3</strong></div>
+    <header class="topbar">
+      <button type="button" class="brand" data-screen="village" aria-label="마을로 돌아가기"><span>✦</span> OPONG <b>HEROES</b></button>
+      <div class="commander"><img src="/assets/hero-mascot.png" alt=""><div><strong id="hero-level">Lv.1 대장</strong><div class="xp-track"><span id="exp-bar"></span></div><small id="exp-text">0 / 20 XP</small></div></div>
+      <div class="resources"><span class="resource">🪙 <b id="gold-count">0</b></span><span class="resource">💧 <b id="elixir-count">0</b></span><span class="resource">🏆 <b id="trophy-count">0</b></span></div>
     </header>
-
     <main class="scene" id="scene">
-      <section id="lobby-screen" class="screen lobby-screen" aria-label="게임 로비">
-        <div class="lobby-intro wood-panel"><span class="tiny-label">A LITTLE BIG ADVENTURE</span><h1>작은 영웅의<br>위대한 모험!</h1><p>몬스터를 물리치고, 레벨을 올리고,<br>승인된 라이브 이벤트 미션에 도전하세요.</p></div>
-        <nav class="lobby-menu" aria-label="게임 메뉴">
-          <button type="button" data-screen="contents">⚔️ <span>모험 시작</span></button>
-          <button type="button" data-screen="event">🎁 <span>이벤트</span><i id="event-dot" class="dot hidden"></i></button>
-          <button type="button" data-screen="inventory">🎒 <span>가방</span></button>
-        </nav>
-        <img class="lobby-hero" src="/assets/hero-mascot.png" alt="모험을 준비하는 오퐁 용사">
-        <div class="lobby-tip wood-panel">✨ <span id="lobby-tip">일반 사냥에서 슬라임을 쓰러뜨려 보세요!</span></div>
-      </section>
-
-      <section id="contents-screen" class="screen contents-screen hidden" aria-label="콘텐츠 선택">
-        <div class="title-ribbon">콘텐츠</div>
-        <div class="content-cards">
-          <button type="button" class="content-card hunt" data-mode="hunt"><img src="/assets/slime.png" alt=""><strong>일반 사냥</strong><span>초원 슬라임과 대결</span><small>Lv.1부터</small></button>
-          <button type="button" class="content-card dungeon" data-mode="dungeon"><img src="/assets/goblin.png" alt=""><strong>던전</strong><span id="dungeon-lock-text">Lv.3 달성 시 해금</span><small id="dungeon-level">Lv.3 필요</small></button>
-          <div class="content-card raid locked"><span class="content-icon">🐲</span><strong>레이드</strong><span>다음 업데이트에서 만나요</span><small>준비 중</small></div>
-        </div>
-        <div class="content-footer wood-panel">레벨을 올리면 새로운 모험이 열립니다. 이벤트 미션에서 요구하는 콘텐츠 ID도 여기서 플레이할 수 있습니다.</div>
-      </section>
-
-      <section id="battle-screen" class="screen battle-screen hidden" aria-label="몬스터 전투">
-        <div class="battle-heading wood-panel"><strong id="battle-title">일반 사냥</strong><span id="battle-subtitle">초원 슬라임 1/3</span></div>
-        <div class="combatants">
-          <div class="combatant hero-combatant"><div class="nameplate">Lv.<span id="battle-hero-level">1</span> 오퐁 용사</div><div class="meter hp"><span id="hero-hp-bar"></span><b id="hero-hp-text">30 / 30</b></div><img id="battle-hero" src="/assets/hero-mascot.png" alt="오퐁 용사"></div>
-          <div class="hit-number hidden" id="hit-number">-6</div>
-          <div class="combatant enemy-combatant"><div class="nameplate" id="enemy-name">초원 슬라임</div><div class="meter enemy-hp"><span id="enemy-hp-bar"></span><b id="enemy-hp-text">20 / 20</b></div><img id="battle-enemy" src="/assets/slime.png" alt="초원 슬라임"></div>
-        </div>
-        <div class="battle-bottom"><div id="battle-log" class="battle-log wood-panel" aria-live="polite">⚔️ 모험이 시작됐습니다. 공격해 보세요!</div><div class="battle-actions wood-panel"><button type="button" id="attack-button" class="action primary"><span>⚔️</span> 공격하기</button><button type="button" id="potion-button" class="action"><span>🧪</span> 회복 포션</button><button type="button" id="retreat-button" class="action"><span>🏃</span> 도망가기</button></div></div>
-      </section>
-
-      <section id="event-screen" class="screen event-screen hidden" aria-label="이벤트 미션">
-        <div class="event-window wood-panel"><div class="window-heading"><span>🗓️</span><div><small>LIVE EVENT</small><h2>이벤트 미션</h2></div><button type="button" class="close-button" data-screen="lobby" aria-label="닫기">✕</button></div>
-          <div class="event-body"><aside class="event-tabs"><button type="button" class="selected">🎁 승인 이벤트</button><button type="button" disabled>📜 일일 미션</button><button type="button" disabled>🏆 업적</button></aside><div class="event-main"><div class="event-title"><div><h3 id="event-name">이벤트를 연결해 주세요</h3><p id="event-meta">운영자 화면에서 승인한 Task ID를 입력하세요.</p></div><span id="event-day-count" class="event-chip">대기 중</span></div><form id="load-form" class="load-form"><label class="sr-only" for="task-id">승인된 Task ID</label><input id="task-id" placeholder="TASK-XXXXXXXXXXXX" autocomplete="off" spellcheck="false" required><button type="submit" id="load-button">이벤트 불러오기</button></form><p id="message" class="message" role="status" aria-live="polite">실제 이벤트 결과를 게임에 적용합니다. 게임 진행은 백엔드에 기록되지 않습니다.</p><div id="mission-list" class="mission-list"></div></div></div>
+      <section id="village-screen" class="screen village-screen">
+        <div class="scene-heading"><small>YOUR VILLAGE</small><h1>오퐁 마을</h1><p>자원을 모으고 병력을 준비해 적 기지로 출정하세요.</p></div>
+        <div class="village-layout">
+          <div class="village-map-frame"><div class="village-board" id="village-board" role="group" aria-label="마을 건물"></div></div>
+          <aside class="village-sidebar">
+            <div class="panel building-panel"><span class="eyebrow">선택한 건물</span><h2 id="building-name">마을회관</h2><p id="building-description"></p><p class="building-level" id="building-level"></p><button type="button" id="upgrade-button" class="gold-button">건물 업그레이드</button><button type="button" id="collect-button" class="secondary-button hidden">자원 수확</button></div>
+            <div class="panel army-panel"><span class="eyebrow">훈련소 · 출정 병력</span><h2><span id="army-count">0</span> / <span id="army-capacity">0</span> 병력</h2><div id="training-list"></div></div>
+            <button type="button" id="raid-button" class="raid-cta">⚔️ 적 기지 공격하기 <span>병력을 배치해 기지를 공략하세요 →</span></button>
+            <button type="button" class="event-cta" data-screen="event">🎁 승인 이벤트 미션 <span id="event-dot" class="dot hidden"></span></button>
+          </aside>
         </div>
       </section>
-
-      <section id="inventory-screen" class="screen inventory-screen hidden" aria-label="가방"><div class="inventory-window wood-panel"><div class="window-heading"><span>🎒</span><div><small>YOUR ITEMS</small><h2>모험 가방</h2></div><button type="button" class="close-button" data-screen="lobby" aria-label="닫기">✕</button></div><div id="inventory-list" class="inventory-list"></div><p class="inventory-note">획득한 보상은 이 브라우저 안에서만 보이는 데모 아이템입니다.</p></div></section>
-
-      <div id="modal-backdrop" class="modal-backdrop hidden"><div class="modal wood-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div id="modal-sparkles" class="modal-sparkles">✦　✧　✦</div><img src="/assets/hero-mascot.png" alt="기뻐하는 오퐁 용사"><h2 id="modal-title">LEVEL UP!</h2><p id="modal-message">Lv.2 달성!</p><div id="modal-details" class="modal-details"></div><button type="button" id="modal-close">계속 모험하기</button></div></div>
+      <section id="raid-screen" class="screen raid-screen hidden">
+        <div class="raid-top"><button type="button" class="back-button" id="retreat-button">← 마을로</button><div><small>ENEMY OUTPOST</small><h1>고블린 전초기지</h1></div><div class="raid-clock">⏱ <span id="raid-time">60</span>초</div></div>
+        <p class="raid-instruction">병력을 선택한 뒤 <strong>테두리의 밝은 칸</strong>을 클릭해 배치하세요. 적 방어탑을 피해 마을회관을 파괴하면 승리합니다.</p>
+        <div class="raid-layout"><div class="raid-board-frame"><div class="raid-board" id="raid-board" role="group" aria-label="적 기지와 병력 배치 칸"></div></div><aside class="raid-sidebar"><div class="panel"><span class="eyebrow">출정 병력</span><div id="deploy-list" class="deploy-list"></div><button type="button" id="potion-button" class="secondary-button">🧪 병력 회복 <span id="potion-count">0</span></button></div><div class="panel raid-progress"><span class="eyebrow">공격 현황</span><strong id="raid-destruction">0% 파괴</strong><p id="raid-status" role="status" aria-live="polite">병력을 배치해 공격을 시작하세요.</p></div></aside></div>
+      </section>
+      <section id="event-screen" class="screen overlay-screen hidden"><div class="window"><div class="window-heading"><div><small>LIVE EVENT</small><h2>승인 이벤트</h2></div><button type="button" class="close-button" data-screen="village" aria-label="마을로 돌아가기">✕</button></div><div class="window-body"><div class="event-title"><div><h3 id="event-name">이벤트를 연결해 주세요</h3><p id="event-meta">운영자 화면에서 승인된 Task ID를 입력하세요.</p></div><span id="event-day-count" class="chip">대기 중</span></div><form id="load-form" class="load-form"><label class="sr-only" for="task-id">승인된 Task ID</label><input id="task-id" placeholder="TASK-XXXXXXXXXXXX" autocomplete="off" spellcheck="false" required><button type="submit" class="gold-button" id="load-button">이벤트 불러오기</button></form><p id="message" class="message" role="status" aria-live="polite">승인된 이벤트의 미션과 보상을 이 마을에 적용합니다.</p><p class="event-note">Clash 공개 데이터는 기획 기준으로만 사용합니다. 여기서는 적 건물 파괴·기지 점령·데모 트로피로 미션을 진행하며, 보상과 진행도는 이 브라우저에만 저장됩니다. 실제 Clash 계정에는 반영되지 않습니다.</p><div id="mission-list" class="mission-list"></div></div></div></section>
+      <section id="inventory-screen" class="screen overlay-screen hidden"><div class="window compact-window"><div class="window-heading"><div><small>YOUR REWARDS</small><h2>보상 창고</h2></div><button type="button" class="close-button" data-screen="village" aria-label="마을로 돌아가기">✕</button></div><div class="window-body"><div id="inventory-list" class="inventory-list"></div><p class="event-note">실제 게임 계정이나 백엔드의 보상 데이터는 변경되지 않습니다.</p></div></div></section>
     </main>
-    <footer class="bottom-hint">OPONG HEROES · 승인 이벤트 플레이 데모 · 실제 계정과 보상 데이터는 변경되지 않습니다.</footer>
+    <nav class="bottom-nav" aria-label="게임 메뉴"><button type="button" data-screen="village">🏠 마을</button><button type="button" data-screen="event">🎁 이벤트</button><button type="button" data-screen="inventory">🎒 보상 창고</button></nav>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+    <div id="result-backdrop" class="result-backdrop hidden"><div class="result-card"><span id="result-stars" class="result-stars">★ ★ ★</span><h2 id="result-title">원정 완료!</h2><p id="result-message"></p><div id="result-loot" class="result-loot"></div><button type="button" id="result-close" class="gold-button">마을로 돌아가기</button></div></div>
   </div>
 </body>
 </html>

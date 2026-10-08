@@ -47,6 +47,89 @@ ROUTE_TARGET_LABELS = {
     "balance_rule_agent": "Balance & Rule",
     "critic_agent": "Critic",
 }
+RECOVERY_ACTION_LABELS = {
+    "RUN_AGENT": "기획안 재작성",
+    "RETRY": "실패 단계 재시도",
+    "TOOL_FALLBACK": "대체 Tool 전환",
+    "SAFE_STOP": "안전 종료",
+}
+
+
+def _render_recovery_path(task: dict[str, Any], trace: dict[str, Any] | None) -> None:
+    """Explain each backend-recorded repair without inventing a failure."""
+    events = [event for event in task.get("autohealing_events") or [] if isinstance(event, dict)]
+    failures = [
+        item
+        for item in trace_items(trace)
+        if str(item.get("status") or "").upper() in {"ERROR", "FAILED"}
+    ]
+    if not events:
+        if failures:
+            st.warning(
+                "실패 Trace는 있지만 AutoHealing 결정 기록이 없습니다. 상세 Trace를 확인해주세요."
+            )
+        else:
+            st.info(
+                "이번 실행은 복구가 필요한 오류 없이 진행됐습니다. 아래에서 기록된 실행 단계를 볼 수 있습니다."
+            )
+        return
+
+    st.markdown(
+        "<style>"
+        ".healing-journey{margin:12px 0 18px;display:grid;gap:11px}"
+        ".healing-journey-row{border:1px solid #dce8f8;border-radius:12px;padding:14px;background:#f9fbff}"
+        ".healing-journey-row strong{display:block;color:#153a6b;margin-bottom:10px}"
+        ".healing-journey-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}"
+        ".healing-journey-step{min-width:0;border-radius:8px;padding:10px;background:white;border:1px solid #e0e8f5}"
+        ".healing-journey-step small{display:block;color:#68809f;margin-bottom:5px}"
+        ".healing-journey-step span{display:block;font-weight:700;color:#1d355b;overflow-wrap:anywhere}"
+        ".healing-journey-step.failed{background:#fff2f4;border-color:#f1b6be}"
+        ".healing-journey-step.recovery{background:#fff9e9;border-color:#efd393}"
+        ".healing-journey-step.pass{background:#f1fff7;border-color:#aee0c4}"
+        "@media(max-width:800px){.healing-journey-steps{grid-template-columns:repeat(2,minmax(0,1fr))}}"
+        "</style>",
+        unsafe_allow_html=True,
+    )
+    rows = []
+    for index, event in enumerate(events, start=1):
+        action = str(event.get("recovery_action") or "")
+        status = str(event.get("revalidation_status") or "NOT_RUN").upper()
+        final_label = (
+            "재검증 통과"
+            if status == "PASS"
+            else "재검증 실패"
+            if status in {"FAILED", "ERROR"}
+            else "재검증 미실시"
+        )
+        steps = (
+            (
+                "1 · 오류 감지",
+                str(event.get("reason") or event.get("error_type") or "기록 없음"),
+                "failed",
+            ),
+            (
+                "2 · Supervisor 결정",
+                RECOVERY_ACTION_LABELS.get(action, action or "기록 없음"),
+                "recovery",
+            ),
+            (
+                "3 · 복구 대상",
+                ACTOR_LABELS.get(str(event.get("target")), str(event.get("target") or "없음")),
+                "recovery",
+            ),
+            ("4 · 검증 결과", final_label, "pass" if status == "PASS" else "failed"),
+        )
+        cards = "".join(
+            f'<div class="healing-journey-step {tone}"><small>{escape(label)}</small>'
+            f"<span>{escape(value)}</span></div>"
+            for label, value, tone in steps
+        )
+        rows.append(
+            '<div class="healing-journey-row">'
+            f"<strong>AutoHealing #{index} · {escape(str(event.get('error_type') or '오류'))}</strong>"
+            f'<div class="healing-journey-steps">{cards}</div></div>'
+        )
+    st.markdown(f'<div class="healing-journey">{"".join(rows)}</div>', unsafe_allow_html=True)
 
 
 def _steps(task: dict[str, Any], trace: dict[str, Any] | None) -> list[dict[str, str]]:
@@ -145,18 +228,22 @@ def _steps(task: dict[str, Any], trace: dict[str, Any] | None) -> list[dict[str,
 
 
 def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -> None:
+    _render_recovery_path(task, trace)
     steps = _steps(task, trace)
     if not steps:
         st.info("Trace가 제공되면 실제 실행 순서를 이곳에서 재생합니다.")
         return
 
+    clash_source = any(
+        item.get("action") == "get_clash_event_sample" for item in trace_items(trace)
+    )
     root_id = f"workflow-motion-{uuid4().hex}"
     nodes = "".join(
         f'<div class="flow-node" data-node="{node}" role="listitem" '
-        f'data-lane="{escape(lane)}" '
-        f'aria-label="{escape(label)}">'
-        f'<span class="flow-kicker">{escape(lane)}</span>'
-        f"<strong>{escape(label)}</strong>"
+        f'data-lane="{escape("검증 데이터" if clash_source and node == "validation_data" else lane)}" '
+        f'aria-label="{escape("Clash 표본 재사용" if clash_source and node == "validation_data" else label)}">'
+        f'<span class="flow-kicker">{escape("검증 데이터" if clash_source and node == "validation_data" else lane)}</span>'
+        f"<strong>{escape('Clash 표본 재사용' if clash_source and node == 'validation_data' else label)}</strong>"
         '<span class="flow-state">미실행</span><span class="flow-count" hidden></span></div>'
         for node, label, lane in NODES
     )
@@ -177,7 +264,7 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
 .flow-route.current{stroke-width:5;filter:drop-shadow(0 0 5px #75a9f5);stroke-dasharray:12 9;animation:flow-route 1s linear infinite}.flow-route.current.tone-failed{filter:drop-shadow(0 0 5px #ed6675)}.flow-route.current.tone-recovery{filter:drop-shadow(0 0 5px #eeb955)}
 .flow-node{position:absolute;z-index:2;width:14.5%;height:82px;box-sizing:border-box;padding:10px 12px;border:1px solid #d5e2f3;border-radius:11px;background:rgba(255,255,255,.94);box-shadow:0 5px 12px rgba(31,75,138,.05);opacity:.57;transition:transform .3s,box-shadow .3s,border-color .3s,opacity .3s}
 .flow-node[data-node="planning_data"]{left:1.5%;top:12%}.flow-node[data-node="planner"]{left:27%;top:12%}.flow-node[data-node="validation_data"]{left:52.5%;top:12%}.flow-node[data-node="approval"]{left:78%;top:12%}
-.flow-node[data-lane="진행 단계"],.flow-node[data-lane="MCP Server"],.flow-node[data-node="approval"]{width:20.5%}
+.flow-node[data-lane="진행 단계"],.flow-node[data-lane="MCP Server"],.flow-node[data-node="validation_data"],.flow-node[data-node="approval"]{width:20.5%}
 .flow-node[data-node="planner_agent"]{left:2.5%;top:60%}.flow-node[data-node="balance_agent"]{left:27.5%;top:60%}.flow-node[data-node="critic_agent"]{left:52.5%;top:60%}.flow-node[data-node="supervisor_agent"]{left:77.5%;top:60%}
 .flow-node[data-node$="_agent"]{width:20%}.flow-node[data-node$="_agent"] strong{font-size:12px}
 .flow-kicker{display:block;font-size:10px;color:#7388a9;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.flow-node.visited .flow-kicker{color:#225eae;font-weight:800}.flow-node strong{display:block;font-size:12px;line-height:1.2}.flow-state{display:inline-block;margin-top:5px;font-size:10px;font-weight:800;color:#8292aa}
@@ -186,6 +273,8 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
 .flow-node.tone-failed{border-color:#f1aab2;background:#fff1f3}.flow-node.tone-failed .flow-state{color:#ca3040}
 .flow-node.tone-recovery{border-color:#edca79;background:#fff9e9}.flow-node.tone-recovery .flow-state{color:#966100}
 .flow-node.tone-waiting{border-color:#b8cae8;background:#f5f8ff}.flow-node.tone-waiting .flow-state{color:#4b69a2}
+.motion-panel[data-clash="true"] .flow-node[data-node="validation_data"]{opacity:1;border-style:dashed;background:#f4f8ff}
+.motion-panel[data-clash="true"] .flow-node[data-node="validation_data"] .flow-state{color:#3264a8}
 .flow-node.current{transform:scale(1.065);box-shadow:0 0 0 4px rgba(45,129,244,.15),0 12px 26px rgba(31,75,138,.15)}
 .flow-node.current.tone-failed{box-shadow:0 0 0 4px rgba(237,102,117,.18),0 12px 26px rgba(138,31,52,.13)}
 .flow-node.current.tone-recovery{box-shadow:0 0 0 4px rgba(238,185,85,.22),0 12px 26px rgba(138,90,31,.13)}
@@ -202,7 +291,7 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
 @media(max-width:700px){.motion-panel{padding:14px}.motion-controls{margin-left:0}.motion-detail{align-items:flex-start}.motion-meta{display:none}}
 @media(prefers-reduced-motion:reduce){.flow-node,.motion-progress{transition:none!important}.flow-route.current{animation:none}.flow-node.current{transform:none}}
 </style>
-<div class="motion-panel" id="__ROOT__" role="group" aria-label="완료된 Workflow Trace 재생">
+<div class="motion-panel" id="__ROOT__" data-clash="__IS_CLASH__" role="group" aria-label="완료된 Workflow Trace 재생">
   <div class="motion-top">
     <div class="motion-heading"><strong>Workflow 분기 지도</strong><small>완료된 Trace 재생 · 현재 재생 위치 표시 · 실시간 진행 아님</small></div>
     <div class="motion-controls" aria-label="Trace 재생 조작">
@@ -226,6 +315,7 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
 (() => {
   const root = document.getElementById("__ROOT__");
   if (!root) return;
+  const clashSource = root.dataset.clash === "true";
   const steps = __DATA__;
   const nodes = new Map(Array.from(root.querySelectorAll(".flow-node")).map(node => [node.dataset.node, node]));
   const map = root.querySelector(".flow-map");
@@ -331,7 +421,7 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
     nodes.forEach((node, key) => {
       const visit = visits.get(key);
       node.classList.remove("visited", "current", "tone-pass", "tone-failed", "tone-recovery", "tone-waiting");
-      node.querySelector(".flow-state").textContent = visit ? statusLabels[visit.step.status] || visit.step.status : (key === "planning_data" && !hasPlanningRecord) || (key === "validation_data" && !hasValidationRecord) ? "Trace 기록 없음" : "미실행";
+      node.querySelector(".flow-state").textContent = visit ? statusLabels[visit.step.status] || visit.step.status : key === "validation_data" && clashSource ? "기획 표본 재사용" : (key === "planning_data" && !hasPlanningRecord) || (key === "validation_data" && !hasValidationRecord) ? "Trace 기록 없음" : "미실행";
       const count = node.querySelector(".flow-count");
       count.hidden = !visit || visit.count < 2;
       count.textContent = visit ? `${visit.count}회` : "";
@@ -398,6 +488,9 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
 </script>
 """
     markup = (
-        markup.replace("__ROOT__", root_id).replace("__NODES__", nodes).replace("__DATA__", data)
+        markup.replace("__ROOT__", root_id)
+        .replace("__IS_CLASH__", "true" if clash_source else "false")
+        .replace("__NODES__", nodes)
+        .replace("__DATA__", data)
     )
     st.html(markup, unsafe_allow_javascript=True)

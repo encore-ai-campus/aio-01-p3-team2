@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class TargetUser(StrEnum):
@@ -31,6 +31,7 @@ class EventCreateRequest(BaseModel):
     target_user: TargetUser
     duration: int = Field(ge=1, le=7)
     objective: str = Field(min_length=1, max_length=500)
+    game_source: Literal["opong", "clash_of_clans"] = "opong"
     idempotency_key: UUID
 
     @field_validator("actor_id", "event_name", "objective")
@@ -39,6 +40,12 @@ class EventCreateRequest(BaseModel):
         if not value.strip():
             raise ValueError("공백만 입력할 수 없습니다.")
         return value
+
+    @model_validator(mode="after")
+    def validate_clash_target(self) -> "EventCreateRequest":
+        if self.game_source == "clash_of_clans" and self.target_user != TargetUser.ALL_USER:
+            raise ValueError("Clash 공개 표본 이벤트는 전체 유저 대상으로만 생성할 수 있습니다.")
+        return self
 
 
 class TestEventCreateRequest(EventCreateRequest):
@@ -50,6 +57,7 @@ class EventBrief(BaseModel):
     target_user: TargetUser
     duration: int
     objective: str
+    game_source: Literal["opong", "clash_of_clans"] = "opong"
 
 
 class MissionResult(BaseModel):
@@ -84,6 +92,8 @@ class EventResult(BaseModel):
     target_user: TargetUser
     duration: int
     objective: str
+    game_source: Literal["opong", "clash_of_clans"] = "opong"
+    sample_summary: dict[str, Any] | None = None
     event_concept: str | None = None
     operation_summary: str | None = None
     operation_review_notes: OperationReviewNotes | None = None

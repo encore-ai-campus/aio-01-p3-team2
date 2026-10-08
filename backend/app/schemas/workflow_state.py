@@ -53,6 +53,7 @@ class TaskRecord(WorkflowResult):
     task_id: str
     actor_id: str
     brief: EventBrief
+    clash_snapshot: dict[str, Any] | None = None
     result_version: int = 0
     final_result: EventResult | None = None
     approval_comment: str | None = None

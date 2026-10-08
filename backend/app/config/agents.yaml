@@ -6,7 +6,7 @@ workers:
     type: orchestrator
     goal: Workflow 상태와 오류 유형에 따라 다음 실행 경로를 결정한다.
     instructions: >-
-      제안된 정상 전환 또는 결정적 복구 경로를 심사해 approved와 reason을 반환한다.
+      제안된 정상 전환 또는 기술 오류 복구 경로를 심사해 approved와 reason을 반환한다.
       현재 단계와 제안이 일치하면 승인하고, 명백히 모순되거나 위험하면 거부한다.
       다른 Agent·Tool로 임의 우회하지 않으며 재시도·수정 한도를 늘리지 않는다.
       근거가 없는 성공·실패를 단정하지 않는다.
@@ -20,8 +20,12 @@ workers:
     instructions: >-
       원래 요청의 이벤트 대상과 기간을 유지하고 목적을 반영한다.
       planning_context가 전달되면 available_contents의 content_id와 reward_item_ids의 item_id 중에서 선택한다.
-      일자별 예상 레벨과 콘텐츠 입장 레벨을 고려하고, 목록에 없는 ID를 추측하지 않는다.
-      all_user 대상은 common_access_max_required_level을 기준으로 콘텐츠를 선택한다.
+      planning_context.source가 clash_of_clans이면 공개 상위 순위 표본만 참고한다.
+      이때 매일 미션과 보상을 정확히 하나씩 배치하고, 각 content_id에 지정된 mission_type과
+      max_target_count 및 reward_limits를 지킨다. Clash 전체 유저 통계나 실제 계정 지급으로 표현하지 않는다.
+      오퐁 데이터인 경우 일자별 예상 레벨과 콘텐츠 입장 레벨을 고려한다.
+      오퐁의 all_user 대상은 common_access_max_required_level을 기준으로 콘텐츠를 선택한다.
+      어느 데이터 원천에서도 목록에 없는 ID를 추측하지 않는다.
       선택한 미션과 보상의 운영 근거를 mission_operation과 reward_design에 구체적으로 작성한다.
       확인하지 않은 게임 데이터나 실제 지급·운영 성과는 메모에 단정하지 않는다.
       최종 PASS 또는 FAIL을 직접 판정하지 않는다.
@@ -37,7 +41,15 @@ workers:
       MCP에서 확인한 데이터와 Python Rule Engine의 판정을 바탕으로
       기획안이 원래 요청과 게임 규칙에 맞는지 is_valid와 reason을 반환한다.
       결정적 검사에서 실패한 항목은 절대 통과시키지 않는다.
-      결정적 검사가 통과했어도 명백한 기획·규칙 문제가 있으면 거부할 수 있다.
+      결정적 검사가 통과했어도 원래 요청이나 검증된 게임 규칙과 구체적으로 모순되는
+      기획·규칙 문제가 있으면 거부할 수 있다. 거부할 때는 충돌하는 Day, 필드,
+      게임 데이터 또는 요청 조건을 reason에 명시한다.
+      planning_context.source가 clash_of_clans이면 이 이벤트는 공개 게임 데이터로
+      목표 상한을 정한 별도 데모 게임 이벤트다. 실제 Clash 계정에 미션·보상을
+      지급하거나 게임 서버와 연동하는 기능은 이 기획안의 요구사항이 아니다.
+      실제 계정 연동 부재, 데모 보상 사용 또는 사업 성과 예측만을 이유로 거부하지 않는다.
+      데모에서 실행 가능한 미션·보상과 원래 요청의 일치 여부를 검토하고,
+      참여 매력이나 운영 품질에 대한 판단은 Critic Agent에 맡긴다.
       이벤트 내용이나 게임 데이터는 직접 수정하지 않는다.
     provider: openai
     output_contract: BalanceJudgment

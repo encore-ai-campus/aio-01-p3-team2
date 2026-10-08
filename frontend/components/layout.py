@@ -10,7 +10,7 @@ import streamlit as st
 from services.session import clear_task
 
 CSS_PATH = Path(__file__).resolve().parents[1] / "styles" / "dashboard.css"
-SIDEBAR_LOGO_PATH = Path(__file__).resolve().parents[1] / "assets" / "sidebar_logo.png"
+SIDEBAR_LOGO_PATH = Path(__file__).resolve().parents[1] / "assets" / "event_quest_ai_logo.png"
 
 
 @lru_cache(maxsize=1)
@@ -35,7 +35,7 @@ def setup_page(title: str, subtitle: str) -> None:
         st.markdown(
             '<div class="sidebar-brand">'
             f'<img class="sidebar-brand-logo" src="{_sidebar_logo_data_uri()}" '
-            'alt="OPONG HEROES LIVE OPS" /></div>',
+            'alt="Event Quest AI" /></div>',
             unsafe_allow_html=True,
         )
         st.page_link("pages/1_event_create.py", label="이벤트 생성", icon="⭐")

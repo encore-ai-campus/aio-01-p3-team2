@@ -32,6 +32,7 @@ from backend.app.schemas.workflow_state import (
     WorkflowResult,
     WorkflowStatus,
 )
+from backend.app.services.clash_event import ClashEventWorkflow, ClashRun
 from backend.app.services.db_service import repository
 from backend.app.services.llm_service import LLMService, create_openai_transport
 from backend.app.services.mcp_client import MCPClient, create_streamable_http_transport
@@ -170,6 +171,13 @@ class BackendBWorkflowAdapter:
             trace_sink=self._save_trace,
             planning_context_loader=self.planning_context_loader,
         )
+        self._clash_workflow = (
+            ClashEventWorkflow(
+                mcp_transport, llm, Supervisor(security_policy, llm), self._save_trace
+            )
+            if mode in {"mcp", "live"}
+            else None
+        )
 
     def ready(self) -> bool:
         if self._real_mcp_transport is None:
@@ -188,20 +196,49 @@ class BackendBWorkflowAdapter:
         except (ConnectionError, TimeoutError, RuntimeError, TypeError, ValueError):
             return False
 
+    @property
+    def supports_clash(self) -> bool:
+        return self._clash_workflow is not None
+
     def run(self, task_id: str, brief: EventBrief, fault_type: str | None = None) -> WorkflowResult:
-        result = asyncio.run(self._engine.run(task_id, brief.model_dump(mode="json"), fault_type))
+        result = asyncio.run(
+            self._engine.run(
+                task_id, brief.model_dump(mode="json", exclude={"game_source"}), fault_type
+            )
+        )
         return self._convert(result, brief)
 
     def revise(self, task_id: str, brief: EventBrief, approval_comment: str) -> WorkflowResult:
         result = asyncio.run(self._engine.revise(task_id, approval_comment))
         return self._convert(result, brief)
 
+    def run_clash(
+        self,
+        task_id: str,
+        brief: EventBrief,
+        *,
+        snapshot: dict[str, object] | None = None,
+        previous_plan: dict[str, object] | None = None,
+        approval_comment: str | None = None,
+    ) -> ClashRun:
+        if self._clash_workflow is None:
+            raise ValueError("Clash 공개 데이터 이벤트에는 실제 MCP 연결이 필요합니다.")
+        return asyncio.run(
+            self._clash_workflow.run(
+                task_id,
+                brief,
+                snapshot=snapshot,
+                previous_plan=previous_plan,
+                approval_comment=approval_comment,
+            )
+        )
+
     async def _load_revision(self, task_id: str) -> Mapping[str, object]:
         task = repository.get_task(task_id)
         if task is None or task.current_result is None:
             raise LookupError(task_id)
         return {
-            "user_request": task.brief.model_dump(mode="json"),
+            "user_request": task.brief.model_dump(mode="json", exclude={"game_source"}),
             "current_result": task.current_result.model_dump(mode="json"),
             "revision_count": task.revision_count,
         }
@@ -271,6 +308,38 @@ class BackendBWorkflowAdapter:
         brief = context["user_request"]
         assert isinstance(brief, Mapping)
         duration = int(brief["duration"])
+        planning = context.get("planning_context")
+        if isinstance(planning, Mapping) and planning.get("source") == "clash_of_clans":
+            caps = {
+                entry["content_id"]: entry["max_target_count"]
+                for entry in planning["available_contents"]
+            }
+            content_ids = ("COC_RAID_WIN", "COC_BUILDING_DESTROY", "COC_TROPHY_GAIN")
+            mission_types = ("raid_win", "building_destroy", "trophy_gain")
+            missions = [
+                {
+                    "day": day,
+                    "content_id": content_ids[(day - 1) % 3],
+                    "mission_type": mission_types[(day - 1) % 3],
+                    "target_count": caps[content_ids[(day - 1) % 3]],
+                    "mission_name": "공개 표본 기반 데모 원정",
+                    "day_title": f"{day}일차 원정",
+                    "planning_reason": "Clash 공개 상위 순위 표본의 목표 상한을 적용했습니다.",
+                }
+                for day in range(1, duration + 1)
+            ]
+            rewards = [
+                {"day": day, "item_id": "DEMO_GOLD", "quantity": 40}
+                for day in range(1, duration + 1)
+            ]
+            return {
+                "target_user": "all_user",
+                "duration": duration,
+                "missions": missions,
+                "rewards": rewards,
+                "mission_operation": "공개 표본의 중앙값으로 데모 목표 상한을 설정했습니다.",
+                "reward_design": "데모 게임 전용 금화 보상을 지급합니다.",
+            }
         missions = []
         rewards = []
         for day in range(1, duration + 1):

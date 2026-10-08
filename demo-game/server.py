@@ -42,6 +42,8 @@ def approved_event(task: object) -> dict[str, object]:
         "missions": missions,
         "rewards": rewards,
         "game_data_version": validation.get("game_data_version"),
+        "game_source": result.get("game_source", "opong"),
+        "sample_summary": result.get("sample_summary"),
     }
 
 

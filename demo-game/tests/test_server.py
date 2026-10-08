@@ -49,6 +49,18 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             game.approved_event(failed)
 
+    def test_clash_sample_and_demo_missions_reach_game(self) -> None:
+        task = task_response()
+        task["final_result"]["game_source"] = "clash_of_clans"
+        task["final_result"]["sample_summary"] = {"player_count": 20, "clan_count": 3}
+        task["final_result"]["missions"] = [
+            {"day": 1, "content_id": "COC_RAID_WIN", "mission_type": "raid_win", "target_count": 1}
+        ]
+        event = game.approved_event(task)
+        self.assertEqual(event["game_source"], "clash_of_clans")
+        self.assertEqual(event["sample_summary"]["player_count"], 20)
+        self.assertEqual(event["missions"][0]["mission_type"], "raid_win")
+
 
 class ProxyTests(unittest.TestCase):
     @classmethod

@@ -20,8 +20,9 @@ class SupervisorDecisionError(ValueError):
 class Supervisor:
     """정책에 맞는 Agent Context를 만들고 오류의 복구 경로를 선택한다.
 
-    LLM이 정상 전환과 복구 경로를 심사한다. 허용된 복구 경로와 한도는
-    결정적 정책이 정하며, LLM은 그 경로를 승인하거나 안전 종료시킨다.
+    LLM이 정상 전환과 기술 오류 복구 경로를 심사한다. 허용된 복구 경로와
+    한도는 결정적 정책이 정한다. 기획 수정은 검증을 다시 거치는 제한된
+    경로이므로 정책이 직접 확정한다.
     """
 
     _BRIEF_KEYS: ClassVar[tuple[str, ...]] = (
@@ -89,7 +90,7 @@ class Supervisor:
         retry_count: int = 0,
         revision_count: int = 0,
     ) -> RecoveryRoute:
-        """정책상 가능한 복구안을 LLM이 심사하고 거부하면 안전 종료한다."""
+        """기획 수정은 정책으로 확정하고 다른 복구안은 LLM이 심사한다."""
         route = self.decide_failure(
             error_type,
             current_agent=current_agent,
@@ -97,6 +98,10 @@ class Supervisor:
             retry_count=retry_count,
             revision_count=revision_count,
         )
+        # A planning revision is bounded by policy and must pass full validation again.
+        # The validator reports the failure; only the planner can change the plan.
+        if route.action == "RUN_AGENT" and route.next_agent == "event_planner_agent":
+            return route
         if self._llm_service is None:
             return route
         try:

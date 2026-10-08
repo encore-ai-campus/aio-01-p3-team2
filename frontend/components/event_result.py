@@ -38,6 +38,20 @@ def render_event_result(task: dict[str, Any]) -> None:
         )
         if result.get("operation_summary"):
             st.caption(f"운영 방식: {result['operation_summary']}")
+        sample = result.get("sample_summary")
+        if result.get("game_source") == "clash_of_clans" and isinstance(sample, dict):
+            st.info(
+                "Clash 공개 상위 순위 표본 · "
+                f"플레이어 {sample.get('player_count', 0)}명 / "
+                f"클랜 {sample.get('clan_count', 0)}개 · "
+                f"수집 시각 {sample.get('sampled_at', '미확인')}. "
+                "전체 이용자를 대표하는 통계가 아닙니다."
+            )
+            st.caption(
+                f"표본 중앙값: 트로피 {sample.get('median_trophies', '—')}, "
+                f"마을회관 Lv.{sample.get('median_town_hall', '—')}, "
+                f"클랜 인원 {sample.get('median_clan_members', '—')}명"
+            )
 
         duration = result.get("duration")
         if not isinstance(duration, int) or duration < 1:

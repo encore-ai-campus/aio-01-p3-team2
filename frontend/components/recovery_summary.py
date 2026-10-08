@@ -67,6 +67,11 @@ def _summary(task: dict[str, Any], trace: dict[str, Any] | None) -> tuple[str, l
             else str(task.get("workflow_status") or "상태 없음")
         )
         kind = "recovered"
+    elif failure:
+        action = "복구 결정 기록 없음"
+        revalidation = "복구 재검증 기록 없음"
+        outcome = str(task.get("workflow_status") or "상태 없음")
+        kind = "unrecorded"
     else:
         action = "필요 없음"
         rule = task.get("rule_validation")
@@ -93,6 +98,8 @@ def render_recovery_summary(task: dict[str, Any], trace: dict[str, Any] | None) 
             st.error("복구에 실패해 Workflow를 안전 종료했습니다. 승인할 수 없습니다.")
         elif kind == "recovered":
             st.success("오류 감지 후 복구 조치와 재검증 결과가 기록됐습니다.")
+        elif kind == "unrecorded":
+            st.warning("실패 Trace가 있지만 복구 결정 기록은 없습니다. 상세 Trace를 확인해주세요.")
         else:
             st.info("이번 실행에는 오류나 AutoHealing이 기록되지 않았습니다.")
 

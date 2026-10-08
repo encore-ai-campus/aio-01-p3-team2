@@ -5,6 +5,7 @@ from typing import Any
 import streamlit as st
 
 from components.layout import card_title
+from components.trace_viewer import trace_items
 
 ACTION_LABELS = {
     "RUN_AGENT": "Agent 재실행",
@@ -27,6 +28,24 @@ def _render_change(value: Any) -> None:
         st.write(f"**콘텐츠:** {content}")
     if value.get("required_level") is not None:
         st.write(f"**필요 레벨:** Lv.{value['required_level']}")
+    missions = value.get("missions")
+    if isinstance(missions, list):
+        for mission in missions:
+            if isinstance(mission, dict):
+                st.write(
+                    f"**Day {mission.get('day', '?')} 미션:** "
+                    f"{mission.get('content_id') or '알 수 없음'} · "
+                    f"목표 {mission.get('target_count', '?')}회"
+                )
+    rewards = value.get("rewards")
+    if isinstance(rewards, list):
+        for reward in rewards:
+            if isinstance(reward, dict):
+                st.write(
+                    f"**Day {reward.get('day', '?')} 보상:** "
+                    f"{reward.get('item_id') or '알 수 없음'} · "
+                    f"수량 {reward.get('quantity', '?')}"
+                )
     with st.expander("전체 비교 데이터 보기"):
         st.json(value)
 
@@ -47,21 +66,50 @@ def _change_summary(before: Any, after: Any) -> list[str]:
         if key == "required_level":
             old, new = f"Lv.{old}", f"Lv.{new}"
         changes.append(f"{label}: {old} → {new}")
+    for group, fields in (
+        ("missions", {"content_id": "미션", "target_count": "목표 횟수"}),
+        ("rewards", {"item_id": "보상", "quantity": "보상 수량"}),
+    ):
+        old_rows, new_rows = before.get(group), after.get(group)
+        if not isinstance(old_rows, list) or not isinstance(new_rows, list):
+            continue
+        old_by_day = {row.get("day"): row for row in old_rows if isinstance(row, dict)}
+        for row in new_rows:
+            if not isinstance(row, dict):
+                continue
+            day = row.get("day")
+            old_row = old_by_day.get(day)
+            if not isinstance(old_row, dict):
+                continue
+            for key, label in fields.items():
+                old, new = old_row.get(key), row.get(key)
+                if old is not None and new is not None and old != new:
+                    changes.append(f"Day {day} {label}: {old} → {new}")
     return changes
 
 
 def render_autohealing(
     events: list[dict[str, Any]] | None,
     rule_validation: dict[str, Any] | None = None,
+    trace: dict[str, Any] | None = None,
 ) -> None:
     with st.container(key="panel-healing", border=True):
         card_title("⚙", "AutoHealing")
         valid_events = [event for event in events or [] if isinstance(event, dict)]
         if not valid_events:
-            st.success("이번 실행에는 AutoHealing이 발생하지 않았습니다.")
+            failed_trace = any(
+                str(item.get("status") or "").upper() in {"ERROR", "FAILED"}
+                for item in trace_items(trace)
+            )
+            if failed_trace:
+                st.warning("실패 Trace가 있지만 AutoHealing 조치 기록은 없습니다.")
+            else:
+                st.info(
+                    "이번 실행에는 복구가 필요한 오류가 없어 AutoHealing이 실행되지 않았습니다."
+                )
             return
 
-        safe_stop = all(event.get("recovery_action") == "SAFE_STOP" for event in valid_events)
+        safe_stop = any(event.get("recovery_action") == "SAFE_STOP" for event in valid_events)
         if safe_stop:
             st.warning(f"복구 실패·안전 종료 {len(valid_events)}건 기록")
         else:

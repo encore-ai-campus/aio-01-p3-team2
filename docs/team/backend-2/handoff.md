@@ -245,3 +245,15 @@ A 변경이 오래 걸리면 프론트엔드 담당자에게는 `frontend_trace_
 - 이어 `backend_b_live` API에서 실제 OpenAI + 실제 MCP HTTP + 시험 PostgreSQL로 정상 1일 요청 1건을 실행했다. `WAITING_APPROVAL`, Critic `PASS`, 규칙 검증 `true`, 게임 데이터 출처 `primary`, Trace 15행이었다. Supervisor의 정상 경로 결정 4행과 Balance & Rule 판정 이유에 실제 `LLM 판단:`이 기록됐다. 전체 Trace는 `trace_samples/normal_live_llm.json`에 저장했다. 실제 모델 응답 품질의 반복 측정은 아니며, `planning_error_live_llm.json`은 네 Agent 확장 전 기록이다.
 
 시험 종료 후 로컬 API·MCP 서버와 일회용 PostgreSQL 컨테이너를 중지·제거했다. 이 시험은 **격리된 임시 DB**의 검증이며 공용 PostgreSQL 적용 상태를 증명하지 않는다. 공유 DB에서 재검증하려면 여전히 A에게 카탈로그 적용 상태와 검토된 연결 정보를 확인해야 한다. `.env` 값이나 시험 DB 주소는 커밋하지 않는다.
+
+## 2026-10-09 기획 오류 복구 판단 수정
+
+`backend_b_live`에서 Balance & Rule Agent가 `event_brief_mismatch`를 보고했을 때 Supervisor LLM이 기획 수정 담당자를 검증 담당자로 오인해 안전 종료한 사례가 있었다. 결정적 복구 정책이 `RUN_AGENT → event_planner_agent`를 선택한 기획 오류는 수정 횟수 한도 안에서 그대로 실행한다. 수정안은 기존과 같이 MCP 데이터를 다시 조회하고 전체 규칙 검증과 Critic 검토를 거친다. 기술 오류 복구와 정상 단계 전환의 LLM 심사는 유지한다. 수정 한도를 넘기거나 재검증에 실패하면 여전히 안전 종료할 수 있다.
+
+## 2026-10-09 Clash 공개 표본 경로의 AutoHealing 기록
+
+Clash 이벤트 생성은 `get_clash_event_sample`로 가져온 동일한 공개 표본을 기획과 재검증에 사용한다. Event Planner의 최초 생성·자동 수정, Balance & Rule의 검증 실패·재검증, Critic 검토, Supervisor의 복구 결정과 승인 대기 판단을 각각 Trace에 남긴다. 정상 경로에서는 네 Agent의 LLM 호출이 모두 실행된다. Balance & Rule은 Python 규칙 검증이 통과한 안에 추가 판정을 내릴 수 있지만, 결정적 규칙 검증의 실패를 뒤집을 수 없다. Supervisor는 기획 오류에 기존 수정 횟수 정책을 적용하고, 재검증이 통과한 안만 Critic과 운영자 승인 단계로 보낸다. 수정 한도를 넘거나 복구 경로가 없으면 `SAFE_STOP`으로 끝난다.
+
+실제 실패가 발생한 경우에만 `autohealing_events`에 오류 원인, 선택한 조치, 수정 전후의 미션·보상 핵심 값, 재검증 결과를 기록한다. 정상 실행에는 오류를 주입하거나 AutoHealing 이벤트를 만들어 넣지 않는다. 따라서 네 Agent가 정상 경로에서 실행되더라도 AutoHealing 표시 여부는 실제 오류 발생에 달려 있다. MCP 표본 조회 실패 시에는 Supervisor가 대체 경로 유무를 판단하고, 사용할 경로가 없으면 승인 후보 없이 안전 종료한 기록을 남긴다. 관련 단위 검사는 `backend/tests/test_clash_event.py`에 있다.
+
+Clash Balance & Rule 검토의 범위는 **공개 표본으로 상한을 정한 데모 게임 이벤트**다. 실제 Clash 계정에 미션이나 보상을 발급하는 기능은 제공하지 않으며, 그 부재만을 근거로 기획안을 거부하지 않는다. Agent가 거부하려면 원래 요청, 표본 상한 또는 데모 미션·보상 규칙과 충돌하는 구체적 필드를 제시해야 한다. 이벤트의 참여 매력과 운영 품질은 Critic이 검토한다. 실제 검증 오류가 있으면 기존 Supervisor 수정 한도와 재검증을 그대로 적용한다.

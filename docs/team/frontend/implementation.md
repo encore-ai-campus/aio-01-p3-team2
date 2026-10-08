@@ -8,7 +8,7 @@
 
 현재 `frontend/`는 Streamlit 기반 데모 로그인과 이벤트 생성, 결과·승인, 운영·디버그 화면을 제공합니다. 화면은 제공된 시안의 레이아웃을 참고해 Streamlit 컴포넌트와 HTML/CSS로 구성했습니다. Backend 구현은 이 작업에 포함하지 않았습니다.
 
-사이드바는 흰색 로고 영역에 `frontend/assets/sidebar_logo.png`의 첨부 로고를 사용합니다. 로그인 화면의 로고 자산은 별도로 유지합니다.
+로그인 화면과 사이드바는 `frontend/assets/event_quest_ai_logo.png`의 Event Quest AI 로고를 함께 사용합니다. 로그인 왼쪽 소개 문구는 이벤트 기획·규칙 검증·오류 수정 기능을 안내합니다. 로그인 카드 바깥 배경은 로고 색상에 맞춘 CSS 그라데이션입니다.
 
 ## 실행과 설정
 
@@ -61,6 +61,8 @@ API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현행 M
 이 경로는 AI, MCP, Backend 및 실제 게임 규칙 검증을 실행하지 않습니다. 데모의 승인·수정 요청·거절, Task·Trace 새로고침, Backend Health 조회는 비활성화됩니다. 실제 API로 생성하려면 기존 **AI로 이벤트 생성하기** 버튼을 사용합니다.
 
 결과 화면 상단의 장애 검증 요약은 Task와 Trace에 기록된 오류 유형, 실패 단계, 복구 조치, 재검증 및 최종 상태를 보여줍니다. AutoHealing 카드는 이벤트의 `error_type`·`reason`으로 실패 이유를, `recovery_action`·`target`과 수정 전후 값으로 대응 내용을 표시합니다. 최종 복구 이벤트의 `revalidation_status=PASS`와 Task의 최종 `rule_validation.is_valid=true`가 함께 있을 때만 `rule_validation.reason`·`evidence`를 성공 근거로 표시합니다. 근거가 없으면 상세 성공 이유를 제공받지 못했다고 명시하며 다른 이벤트의 최종 검증 근거를 가져다 붙이지 않습니다. 원본 비교·검증 JSON은 펼쳐볼 수 있습니다. 7일 데모의 예상 레벨 Lv.15와 수정 전후 필요 레벨 Lv.30→Lv.10은 화면 체험용 고정 근거이며 실제 게임 규칙 검증은 수행하지 않습니다. `workflow_status=FAILED`는 안전 종료 화면으로 분기해 오류와 재시도 횟수, Trace 이동을 제공하며 기획안과 승인 기능은 숨깁니다. Workflow 재생과 운영 Trace는 실패·재시도·Fallback·재검증을 구분해 표시합니다. Trace나 API에 없는 복구 시간과 자동 복구율은 계산하거나 표시하지 않습니다.
+
+Clash 공개 표본 경로에서 복구 이벤트가 반환되면 Workflow 지도 위에 **오류 감지 → Supervisor 결정 → 복구 대상 → 재검증 결과**를 복구 횟수별로 표시합니다. AutoHealing 카드에는 Day별 미션 목표와 보상 수량의 수정 전후를 비교합니다. Clash 검증은 MCP를 다시 호출하지 않고 최초에 받은 동일 표본을 사용하므로 지도에서 검증 데이터 칸을 `Clash 표본 재사용`으로 표시합니다. 실패 Trace만 있고 복구 이벤트가 없는 과거 Task는 복구 여부를 추측하지 않고 기록 누락을 알립니다. 실패 Trace도 복구 이벤트도 없는 정상 실행은 복구가 필요하지 않았다고 표시합니다. 이 화면은 의도적 장애 주입 없이 실제 Backend 응답만 재생하며, 기존 Task의 누락된 기록을 소급 생성하지 않습니다.
 
 이벤트 생성은 완료까지 동기 응답을 기다리며 최대 180초를 설정했습니다. 연결 끊김 또는 시간 초과 후 같은 입력을 다시 제출하면 같은 `idempotency_key`를 재사용합니다. `workflow_status=FAILED` Task는 API 오류와 구분해 결과 화면에 실패 원인과 Trace 이동을 표시합니다. 승인 요청에는 현재 `result_version`을 보내고, `STALE_RESULT_VERSION`이면 Task를 다시 조회합니다.
 

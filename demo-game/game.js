@@ -1,39 +1,56 @@
 const $ = (id) => document.getElementById(id);
-const PLAYER_KEY = "opong-heroes:player:v2";
+const PLAYER_KEY = "opong-heroes:village:v1";
+const ACTIVE_EVENT_KEY = "opong-heroes:active-event";
+const DEFAULT_PLAYER = {
+  level: 1, exp: 0, gold: 360, elixir: 260, trophies: 0, potions: 1,
+  army: { guard: 3, archer: 2, giant: 0 },
+  village: { hall: 1, mine: 1, barracks: 1 },
+  lastCollected: 0, inventory: [],
+};
+const BUILDINGS = {
+  hall: { name: "마을회관", icon: "🏰", description: "마을의 중심입니다. 업그레이드하면 원정 보상이 늘어납니다.", x: 3, y: 2, cost: 180 },
+  mine: { name: "자원 채굴장", icon: "⛏️", description: "15초마다 금화와 엘릭서를 수확할 수 있습니다.", x: 1, y: 1, cost: 120 },
+  barracks: { name: "훈련소", icon: "⚔️", description: "병력을 훈련합니다. Lv.2부터 거인을 사용할 수 있습니다.", x: 5, y: 1, cost: 150 },
+};
+const TROOPS = {
+  guard: { name: "방패병", icon: "🛡️", cost: 24, hp: 34, damage: 10, range: 1, description: "튼튼한 근접 병력" },
+  archer: { name: "궁수", icon: "🏹", cost: 28, hp: 20, damage: 9, range: 2, description: "멀리서 지원 사격" },
+  giant: { name: "거인", icon: "🗿", cost: 55, hp: 78, damage: 14, range: 1, description: "방어탑을 먼저 공격" },
+};
+const ENEMY_BASE = [
+  { id: "hall", name: "고블린 회관", icon: "🏯", x: 4, y: 3, hp: 70, type: "hall" },
+  { id: "tower-left", name: "서쪽 방어탑", icon: "🏹", x: 2, y: 2, hp: 30, type: "tower" },
+  { id: "tower-right", name: "동쪽 방어탑", icon: "🏹", x: 6, y: 2, hp: 30, type: "tower" },
+  { id: "store", name: "고블린 창고", icon: "🪙", x: 3, y: 5, hp: 24, type: "store" },
+  { id: "well", name: "엘릭서 우물", icon: "💧", x: 5, y: 5, hp: 24, type: "store" },
+];
 const state = {
-  player: { level: 1, exp: 0, hp: 30, gold: 0, potions: 3, inventory: [] },
-  event: null,
-  progress: {},
-  claimedDays: [],
-  battle: null,
-  afterModal: null,
-  modalQueue: [],
+  player: structuredClone(DEFAULT_PLAYER), event: null, progress: {}, claimedDays: [],
+  selectedBuilding: "hall", raid: null, raidTimer: null, toastTimer: null,
 };
 
-function eventKey() {
-  return `opong-heroes:event:${state.event.task_id}:${state.event.result_version}`;
+function safeNumber(value, fallback, max = 999999) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(max, Math.floor(number))) : fallback;
 }
-
-function maxHp() { return 30 + (state.player.level - 1) * 6; }
-function attackPower() { return 6 + (state.player.level - 1) * 2; }
-function expGoal() { return state.player.level * 20; }
-
 function save() {
   localStorage.setItem(PLAYER_KEY, JSON.stringify(state.player));
   if (state.event) localStorage.setItem(eventKey(), JSON.stringify({ progress: state.progress, claimedDays: state.claimedDays }));
 }
-
 function restorePlayer() {
   try {
     const saved = JSON.parse(localStorage.getItem(PLAYER_KEY) || "null");
-    if (saved && Number.isInteger(saved.level) && saved.level >= 1 && saved.level <= 100) {
-      state.player = { ...state.player, ...saved };
-      state.player.hp = Math.max(0, Math.min(maxHp(), Number(state.player.hp) || 0));
-      state.player.inventory = Array.isArray(saved.inventory) ? saved.inventory : [];
+    if (!saved || typeof saved !== "object") return;
+    for (const key of ["level", "exp", "gold", "elixir", "trophies", "potions", "lastCollected"]) {
+      state.player[key] = safeNumber(saved[key], DEFAULT_PLAYER[key]);
     }
+    state.player.level = Math.max(1, Math.min(50, state.player.level));
+    for (const key of Object.keys(DEFAULT_PLAYER.army)) state.player.army[key] = safeNumber(saved.army?.[key], DEFAULT_PLAYER.army[key], 20);
+    for (const key of Object.keys(DEFAULT_PLAYER.village)) state.player.village[key] = Math.max(1, Math.min(3, safeNumber(saved.village?.[key], 1, 3)));
+    state.player.inventory = Array.isArray(saved.inventory) ? saved.inventory.filter((item) => item && typeof item.name === "string" && Number.isFinite(item.quantity)) : [];
   } catch (_) { localStorage.removeItem(PLAYER_KEY); }
 }
-
+function eventKey() { return `opong-heroes:event:${state.event.task_id}:${state.event.result_version}`; }
 function restoreEventProgress() {
   state.progress = {};
   state.claimedDays = [];
@@ -45,322 +62,356 @@ function restoreEventProgress() {
     }
   } catch (_) { localStorage.removeItem(eventKey()); }
 }
-
-function showScreen(name) {
-  for (const screen of document.querySelectorAll(".screen")) screen.classList.toggle("hidden", screen.id !== `${name}-screen`);
-  $("scene").classList.toggle("dungeon-scene", name === "battle" && state.battle?.mode === "dungeon");
-  if (name === "event") renderEvent();
-  if (name === "contents") renderContents();
-  if (name === "inventory") renderInventory();
-  if (name === "lobby") renderLobby();
+function showToast(message) {
+  const toast = $("toast");
+  toast.textContent = message;
+  toast.classList.remove("hidden");
+  clearTimeout(state.toastTimer);
+  state.toastTimer = setTimeout(() => toast.classList.add("hidden"), 3600);
 }
-
+function showScreen(name) {
+  if (state.raid && name !== "raid") { showToast("원정을 마치려면 먼저 ‘마을로’를 눌러 철수하세요."); return; }
+  for (const screen of document.querySelectorAll(".screen")) screen.classList.toggle("hidden", screen.id !== `${name}-screen`);
+  if (name === "village") renderVillage();
+  if (name === "event") renderEvent();
+  if (name === "inventory") renderInventory();
+  if (name === "raid") renderRaid();
+  window.scrollTo(0, 0);
+}
+function armyCount() { return Object.values(state.player.army).reduce((sum, count) => sum + count, 0); }
+function armyCapacity() { return 4 + state.player.village.barracks * 2; }
+function expGoal() { return state.player.level * 20; }
 function renderHud() {
-  $("hero-level").textContent = `Lv.${state.player.level} 오퐁 용사`;
-  $("exp-text").textContent = `${state.player.exp} / ${expGoal()}`;
+  $("hero-level").textContent = `Lv.${state.player.level} 오퐁 대장`;
+  $("exp-text").textContent = `${state.player.exp} / ${expGoal()} XP`;
   $("exp-bar").style.width = `${Math.min(100, state.player.exp / expGoal() * 100)}%`;
-  $("gold-count").textContent = state.player.gold;
-  $("potion-count").textContent = state.player.potions;
+  $("gold-count").textContent = state.player.gold.toLocaleString();
+  $("elixir-count").textContent = state.player.elixir.toLocaleString();
+  $("trophy-count").textContent = state.player.trophies;
   $("event-dot").classList.toggle("hidden", !state.event);
 }
-
-function renderLobby() {
-  $("lobby-tip").textContent = state.event
-    ? `${state.event.event_name} 진행 중 · 이벤트 메뉴에서 미션을 확인하세요!`
-    : "일반 사냥에서 슬라임을 쓰러뜨려 보세요!";
+function collectReady() { return Date.now() - state.player.lastCollected >= 15000; }
+function upgradeCost(key) { return BUILDINGS[key].cost * state.player.village[key]; }
+function renderVillage() {
+  const board = $("village-board");
+  board.replaceChildren();
+  for (let y = 0; y < 5; y += 1) for (let x = 0; x < 7; x += 1) {
+    const tile = document.createElement("div");
+    tile.className = "village-tile";
+    const entry = Object.entries(BUILDINGS).find(([, building]) => building.x === x && building.y === y);
+    if (entry) {
+      const [key, building] = entry;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `building ${state.selectedBuilding === key ? "selected" : ""}`;
+      button.innerHTML = `<span aria-hidden="true">${building.icon}</span><strong>${building.name}</strong><small>Lv.${state.player.village[key]}</small>`;
+      button.setAttribute("aria-label", `${building.name} 레벨 ${state.player.village[key]} 선택`);
+      button.addEventListener("click", () => { state.selectedBuilding = key; renderVillage(); });
+      tile.append(button);
+    } else if ((x + y * 3) % 8 === 0) {
+      const tree = document.createElement("span"); tree.className = "map-decor"; tree.textContent = "🌲"; tile.append(tree);
+    }
+    board.append(tile);
+  }
+  const key = state.selectedBuilding;
+  const building = BUILDINGS[key];
+  const level = state.player.village[key];
+  $("building-name").textContent = `${building.icon} ${building.name}`;
+  $("building-description").textContent = building.description;
+  $("building-level").textContent = `현재 Lv.${level} · 최대 Lv.3`;
+  $("upgrade-button").textContent = level >= 3 ? "최대 레벨" : `🪙 ${upgradeCost(key)} · Lv.${level + 1} 업그레이드`;
+  $("upgrade-button").disabled = level >= 3 || state.player.gold < upgradeCost(key);
+  $("collect-button").classList.toggle("hidden", key !== "mine");
+  renderCollectButton();
+  renderTraining();
+  renderHud();
+}
+function renderCollectButton() {
+  const seconds = Math.max(0, Math.ceil((15000 - (Date.now() - state.player.lastCollected)) / 1000));
+  const level = state.player.village.mine;
+  $("collect-button").textContent = seconds ? `자원 준비 중 · ${seconds}초` : `🪙 ${35 * level} + 💧 ${25 * level} 수확`;
+  $("collect-button").disabled = seconds > 0;
+}
+function renderTraining() {
+  $("army-count").textContent = armyCount();
+  $("army-capacity").textContent = armyCapacity();
+  const list = $("training-list");
+  list.replaceChildren();
+  for (const [key, troop] of Object.entries(TROOPS)) {
+    const locked = key === "giant" && state.player.village.barracks < 2;
+    const row = document.createElement("div"); row.className = "training-row";
+    const info = document.createElement("div");
+    info.innerHTML = `<strong>${troop.icon} ${troop.name} <em>×${state.player.army[key]}</em></strong><small>${locked ? "훈련소 Lv.2 필요" : troop.description}</small>`;
+    const button = document.createElement("button"); button.type = "button";
+    button.textContent = locked ? "잠김" : `+ 💧${troop.cost}`;
+    button.disabled = locked || armyCount() >= armyCapacity() || state.player.elixir < troop.cost;
+    button.addEventListener("click", () => trainTroop(key));
+    row.append(info, button); list.append(row);
+  }
+}
+function upgradeBuilding() {
+  const key = state.selectedBuilding;
+  const level = state.player.village[key];
+  const cost = upgradeCost(key);
+  if (level >= 3 || state.player.gold < cost) return;
+  state.player.gold -= cost;
+  state.player.village[key] += 1;
+  save(); renderVillage();
+  showToast(`${BUILDINGS[key].name}이 Lv.${level + 1}로 성장했습니다!`);
+}
+function collectResources() {
+  if (!collectReady()) return;
+  const level = state.player.village.mine;
+  state.player.gold += 35 * level;
+  state.player.elixir += 25 * level;
+  state.player.lastCollected = Date.now();
+  save(); renderVillage(); showToast("채굴장에서 자원을 수확했습니다!");
+}
+function trainTroop(key) {
+  const troop = TROOPS[key];
+  if ((key === "giant" && state.player.village.barracks < 2) || armyCount() >= armyCapacity() || state.player.elixir < troop.cost) return;
+  state.player.elixir -= troop.cost;
+  state.player.army[key] += 1;
+  save(); renderVillage(); showToast(`${troop.name} 훈련 완료!`);
 }
 
-function renderContents() {
-  const unlocked = state.player.level >= 3;
-  $("dungeon-lock-text").textContent = unlocked ? "던전 고블린에게 도전!" : "Lv.3 달성 시 해금";
-  $("dungeon-level").textContent = unlocked ? "입장 가능" : "Lv.3 필요";
-  document.querySelector("[data-mode=dungeon]").classList.toggle("locked", !unlocked);
-}
-
-function setMessage(text, error = false) {
-  $("message").textContent = text;
-  $("message").classList.toggle("error", error);
-}
-
-function missionGoal(mission) { return Math.max(1, Number(mission.target_count) || 1); }
+function missionGoal(mission) { return Math.max(1, safeNumber(mission.target_count, 1)); }
 function missionCount(index, mission) {
   if (mission.mission_type === "level_reach") return Math.min(state.player.level, missionGoal(mission));
-  return Math.min(Number(state.progress[index]) || 0, missionGoal(mission));
+  return Math.min(safeNumber(state.progress[index], 0), missionGoal(mission));
 }
-
 function dayComplete(day) {
-  const entries = state.event.missions.map((mission, index) => ({ mission, index })).filter((entry) => entry.mission.day === day);
+  const entries = state.event.missions.map((mission, index) => ({ mission, index })).filter(({ mission }) => mission.day === day);
   return entries.length > 0 && entries.every(({ mission, index }) => missionCount(index, mission) >= missionGoal(mission));
 }
-
 function activeDay() {
   if (!state.event) return 1;
-  for (let day = 1; day <= state.event.duration; day += 1) {
-    if (!dayComplete(day)) return day;
-  }
+  for (let day = 1; day <= state.event.duration; day += 1) if (!dayComplete(day)) return day;
   return state.event.duration + 1;
 }
-
 function grantReward(reward) {
   const name = reward.item_name || reward.item_id || "이벤트 보상";
-  const quantity = Math.max(1, Number(reward.quantity) || 1);
+  const quantity = Math.max(1, safeNumber(reward.quantity, 1, 999));
   if (/potion|포션/i.test(`${reward.item_id} ${name}`)) state.player.potions += quantity;
   else if (/gold|골드/i.test(`${reward.item_id} ${name}`)) state.player.gold += quantity;
+  else if (/elixir|엘릭서/i.test(`${reward.item_id} ${name}`)) state.player.elixir += quantity;
   else state.player.inventory.push({ name, quantity });
   return `${name} ×${quantity}`;
 }
-
 function checkDayRewards() {
   if (!state.event) return;
   for (let day = 1; day <= state.event.duration; day += 1) {
     if (state.claimedDays.includes(day) || !dayComplete(day)) continue;
     state.claimedDays.push(day);
-    const names = state.event.rewards.filter((reward) => reward.day === day).map(grantReward);
-    if (names.length) showModal("DAY CLEAR!", `${day}일차 미션 완료`, [`획득 보상: ${names.join(", ")}`]);
+    const rewards = state.event.rewards.filter((reward) => reward.day === day).map(grantReward);
+    showToast(`${day}일차 미션 완료! ${rewards.length ? `보상: ${rewards.join(", ")}` : ""}`);
   }
-  save();
-  renderHud();
-  renderEvent();
+  save(); renderHud();
 }
-
-function advanceMissions(type, contentId) {
+function advanceMissions(type, amount = 1, day = activeDay()) {
   if (!state.event) return;
-  const day = activeDay();
   for (const [index, mission] of state.event.missions.entries()) {
     if (mission.day !== day) continue;
-    const isHunt = type === "kill" && mission.mission_type === "monster_kill" && (!mission.content_id || mission.content_id === contentId);
-    const isDungeon = type === "dungeon" && mission.mission_type === "dungeon_clear";
-    if (isHunt || isDungeon) state.progress[index] = missionCount(index, mission) + 1;
+    if ((type === "destroy" && mission.mission_type === "monster_kill" && (!mission.content_id || mission.content_id === "HUNT_001")) ||
+        (type === "destroy" && mission.mission_type === "building_destroy" && mission.content_id === "COC_BUILDING_DESTROY") ||
+        (type === "raid" && mission.mission_type === "dungeon_clear") ||
+        (type === "raid" && mission.mission_type === "raid_win" && mission.content_id === "COC_RAID_WIN") ||
+        (type === "trophy" && mission.mission_type === "trophy_gain" && mission.content_id === "COC_TROPHY_GAIN")) {
+      state.progress[index] = missionCount(index, mission) + amount;
+    }
   }
   checkDayRewards();
 }
-
+function gainExp(amount) {
+  state.player.exp += amount;
+  while (state.player.exp >= expGoal()) {
+    state.player.exp -= expGoal();
+    state.player.level += 1;
+    showToast(`오퐁 대장이 Lv.${state.player.level}로 성장했습니다!`);
+  }
+  checkDayRewards();
+}
 function renderEvent() {
-  const list = $("mission-list");
-  list.replaceChildren();
+  const list = $("mission-list"); list.replaceChildren();
   if (!state.event) {
     $("event-name").textContent = "이벤트를 연결해 주세요";
-    $("event-meta").textContent = "운영자 화면에서 승인한 Task ID를 입력하세요.";
+    $("event-meta").textContent = "운영자 화면에서 승인된 Task ID를 입력하세요.";
     $("event-day-count").textContent = "대기 중";
     return;
   }
   $("event-name").textContent = state.event.event_name;
-  $("event-meta").textContent = `${state.event.target_user} · 게임 데이터 ${state.event.game_data_version || "미확인"} · 보상은 브라우저에만 적용`;
+  const sample = state.event.sample_summary;
+  $("event-meta").textContent = state.event.game_source === "clash_of_clans" && sample
+    ? `Clash 공개 상위 순위 표본 · 플레이어 ${sample.player_count}명 / 클랜 ${sample.clan_count}개 · ${sample.sampled_at}`
+    : `${state.event.target_user} · 게임 데이터 ${state.event.game_data_version || "미확인"}`;
   $("event-day-count").textContent = `${state.event.duration}일 이벤트`;
   for (const [index, mission] of state.event.missions.entries()) {
-    const row = document.createElement("div");
-    row.className = "mission-row";
-    const count = missionCount(index, mission);
-    const goal = missionGoal(mission);
+    const row = document.createElement("div"); row.className = "mission-row";
+    const count = missionCount(index, mission); const goal = missionGoal(mission);
     if (count >= goal) row.classList.add("complete");
     if (mission.day > activeDay()) row.classList.add("future");
-    const day = document.createElement("span");
-    day.className = "mission-day";
-    day.textContent = `Day ${mission.day}`;
-    const main = document.createElement("div");
-    main.className = "mission-main";
-    const title = document.createElement("strong");
-    title.textContent = mission.mission_name || mission.mission_type;
-    const progress = document.createElement("div");
-    progress.className = "mission-progress";
-    const fill = document.createElement("span");
-    fill.style.width = `${Math.min(100, count / goal * 100)}%`;
-    progress.append(fill);
-    main.append(title, progress);
-    const status = document.createElement("span");
-    status.className = "mission-status";
-    status.textContent = `${count} / ${goal}${count >= goal ? " ✓" : ""}`;
-    row.append(day, main, status);
-    list.append(row);
+    const adaptation = { monster_kill: "적 건물 파괴", dungeon_clear: "적 기지 점령", level_reach: "대장 레벨 달성", building_destroy: "적 건물 파괴", raid_win: "적 기지 점령", trophy_gain: "데모 트로피 획득" }[mission.mission_type] || "진행 중";
+    const info = document.createElement("div");
+    const title = document.createElement("strong"); title.textContent = `Day ${mission.day} · ${mission.mission_name || mission.mission_type}`;
+    const subtitle = document.createElement("small"); subtitle.textContent = `데모 진행 방식: ${adaptation}`;
+    const track = document.createElement("div"); track.className = "mission-track";
+    const fill = document.createElement("span"); fill.style.width = `${Math.min(100, count / goal * 100)}%`; track.append(fill);
+    info.append(title, subtitle, track);
+    const status = document.createElement("b"); status.textContent = `${count} / ${goal}`;
+    row.append(info, status); list.append(row);
   }
 }
-
 function renderInventory() {
-  const list = $("inventory-list");
-  list.replaceChildren();
-  const items = [
-    `🧪 회복 포션 ×${state.player.potions}`,
-    `🪙 골드 ×${state.player.gold}`,
-    ...state.player.inventory.map((item) => `🎁 ${item.name} ×${item.quantity}`),
-  ];
-  for (const item of items) {
-    const card = document.createElement("div");
-    card.className = "inventory-item";
-    card.textContent = item;
-    list.append(card);
+  const list = $("inventory-list"); list.replaceChildren();
+  const items = [`🪙 금화 ×${state.player.gold}`, `💧 엘릭서 ×${state.player.elixir}`, `🧪 회복 포션 ×${state.player.potions}`, ...state.player.inventory.map((item) => `🎁 ${item.name} ×${item.quantity}`)];
+  for (const item of items) { const card = document.createElement("div"); card.className = "inventory-item"; card.textContent = item; list.append(card); }
+}
+
+function isEdge(x, y) { return x === 0 || x === 8 || y === 0 || y === 6; }
+function distance(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
+function startRaid() {
+  if (armyCount() === 0) { showToast("훈련소에서 병력을 먼저 준비하세요."); return; }
+  state.raid = {
+    buildings: ENEMY_BASE.map((building) => ({ ...building, maxHp: building.hp })),
+    units: [], selected: Object.keys(TROOPS).find((key) => state.player.army[key] > 0),
+    started: false, elapsed: 0, ticks: 0, deployed: 0, destroyed: 0,
+    eventDay: activeDay(),
+  };
+  $("result-backdrop").classList.add("hidden");
+  clearInterval(state.raidTimer);
+  state.raidTimer = setInterval(tickRaid, 650);
+  showScreen("raid");
+}
+function deployTroop(x, y) {
+  const raid = state.raid;
+  if (!raid || !isEdge(x, y) || !raid.selected || state.player.army[raid.selected] <= 0) return;
+  const troop = TROOPS[raid.selected];
+  raid.units.push({ type: raid.selected, x, y, hp: troop.hp, maxHp: troop.hp });
+  state.player.army[raid.selected] -= 1;
+  raid.started = true; raid.deployed += 1;
+  if (state.player.army[raid.selected] === 0) raid.selected = Object.keys(TROOPS).find((key) => state.player.army[key] > 0) || null;
+  save(); renderRaid(); renderHud();
+}
+function chooseTarget(unit, buildings) {
+  const alive = buildings.filter((building) => building.hp > 0);
+  const targets = unit.type === "giant" && alive.some((building) => building.type === "tower") ? alive.filter((building) => building.type === "tower") : alive;
+  return targets.sort((a, b) => distance(unit, a) - distance(unit, b))[0];
+}
+function tickRaid() {
+  const raid = state.raid;
+  if (!raid || !raid.started) return;
+  raid.ticks += 1; raid.elapsed += 0.65;
+  for (const unit of raid.units) {
+    if (unit.hp <= 0) continue;
+    const target = chooseTarget(unit, raid.buildings);
+    if (!target) break;
+    const troop = TROOPS[unit.type];
+    if (distance(unit, target) <= troop.range) {
+      target.hp = Math.max(0, target.hp - troop.damage);
+      if (target.hp === 0 && !target.destroyed) {
+        target.destroyed = true; raid.destroyed += 1; advanceMissions("destroy", 1, raid.eventDay);
+      }
+    } else if (unit.x !== target.x) unit.x += Math.sign(target.x - unit.x);
+    else unit.y += Math.sign(target.y - unit.y);
+    if (raid.buildings[0].hp === 0) { finishRaid(true); return; }
   }
-}
-
-function showModal(title, message, details = [], after = null) {
-  if (!$('modal-backdrop').classList.contains('hidden')) {
-    state.modalQueue.push({ title, message, details, after });
-    return;
+  if (raid.ticks % 2 === 0) for (const tower of raid.buildings.filter((building) => building.type === "tower" && building.hp > 0)) {
+    const target = raid.units.filter((unit) => unit.hp > 0 && distance(unit, tower) <= 3).sort((a, b) => distance(a, tower) - distance(b, tower))[0];
+    if (target) target.hp = Math.max(0, target.hp - 5);
   }
-  state.afterModal = after;
-  $("modal-title").textContent = title;
-  $("modal-message").textContent = message;
-  const box = $("modal-details");
-  box.replaceChildren();
-  for (const detail of details) {
-    const row = document.createElement("div");
-    row.textContent = detail;
-    box.append(row);
-  }
-  $("modal-backdrop").classList.remove("hidden");
-  $("modal-close").focus();
+  raid.units = raid.units.filter((unit) => unit.hp > 0);
+  if (raid.elapsed >= 60 || (raid.deployed > 0 && raid.units.length === 0 && armyCount() === 0)) { finishRaid(false); return; }
+  renderRaid();
 }
-
-function gainExp(amount) {
-  state.player.exp += amount;
-  while (state.player.exp >= expGoal()) {
-    const goal = expGoal();
-    state.player.exp -= goal;
-    state.player.level += 1;
-    state.player.hp = maxHp();
-    state.player.gold += 50;
-    state.player.potions += 1;
-    showModal("LEVEL UP!", `Lv.${state.player.level} 달성!`, [
-      `❤️ 최대 HP ${maxHp() - 6} → ${maxHp()}`,
-      `⚔️ 공격력 ${attackPower() - 2} → ${attackPower()}`,
-      "🪙 골드 +50 · 🧪 회복 포션 +1",
-      ...(state.player.level === 3 ? ["🏰 던전 콘텐츠 해금!"] : []),
-    ]);
-  }
-  checkDayRewards();
-  renderHud();
+function finishRaid(won, retreated = false) {
+  const raid = state.raid;
+  if (!raid) return;
+  clearInterval(state.raidTimer); state.raidTimer = null;
+  const gold = retreated ? 0 : (won ? 90 + raid.destroyed * 12 + state.player.village.hall * 15 : raid.destroyed * 10);
+  const elixir = retreated ? 0 : (won ? 70 + raid.destroyed * 8 : raid.destroyed * 7);
+  state.player.gold += gold; state.player.elixir += elixir;
+  if (won) { state.player.trophies += 3; gainExp(15); advanceMissions("raid", 1, raid.eventDay); advanceMissions("trophy", 3, raid.eventDay); }
+  save(); renderHud();
+  $("result-stars").textContent = won ? (raid.destroyed >= 4 ? "★ ★ ★" : "★ ★ ☆") : "☆ ☆ ☆";
+  $("result-title").textContent = won ? "기지 점령 성공!" : retreated ? "원정 철수" : "기지 점령 실패";
+  $("result-message").textContent = won ? "병력 배치가 승리를 만들었습니다. 전리품으로 마을을 키워 보세요." : "병력을 다시 훈련하고 다른 위치에서 도전해 보세요.";
+  $("result-loot").textContent = `파괴 ${raid.destroyed}/${raid.buildings.length} · 🪙 +${gold} · 💧 +${elixir}${won ? " · 🏆 +3" : ""}`;
+  $("result-backdrop").classList.remove("hidden");
+  state.raid = null;
 }
-
-function startBattle(mode) {
-  if (mode === "dungeon" && state.player.level < 3) {
-    showModal("아직 잠겨 있어요", "Lv.3부터 던전에 입장할 수 있습니다.", ["일반 사냥에서 경험치를 모아보세요."]);
-    return;
-  }
-  state.battle = { mode, round: 1, hp: 0, max: 0, won: false };
-  state.player.hp = Math.max(1, state.player.hp);
-  spawnEnemy();
-  showScreen("battle");
-  save();
-}
-
-function spawnEnemy() {
-  const battle = state.battle;
-  battle.max = battle.mode === "dungeon" ? 28 + state.player.level * 2 : 18 + state.player.level * 2;
-  battle.hp = battle.max;
-  battle.won = false;
-  $("battle-title").textContent = battle.mode === "dungeon" ? "던전 고블린" : "일반 사냥";
-  $("battle-subtitle").textContent = battle.mode === "dungeon" ? "던전 전투" : `초원 슬라임 ${battle.round}번째`;
-  $("enemy-name").textContent = battle.mode === "dungeon" ? "던전 고블린" : "초원 슬라임";
-  $("battle-enemy").src = battle.mode === "dungeon" ? "/assets/goblin.png" : "/assets/slime.png";
-  $("battle-enemy").alt = battle.mode === "dungeon" ? "던전 고블린" : "초원 슬라임";
-  $("attack-button").textContent = "⚔️ 공격하기";
-  $("battle-log").textContent = battle.mode === "dungeon" ? "🏰 던전 고블린이 길을 막아섰습니다!" : "👾 초원 슬라임이 나타났습니다!";
-  renderBattle();
-}
-
-function renderBattle() {
-  if (!state.battle) return;
-  $("battle-hero-level").textContent = state.player.level;
-  $("hero-hp-text").textContent = `${state.player.hp} / ${maxHp()}`;
-  $("hero-hp-bar").style.width = `${Math.max(0, state.player.hp / maxHp() * 100)}%`;
-  $("enemy-hp-text").textContent = `${Math.max(0, state.battle.hp)} / ${state.battle.max}`;
-  $("enemy-hp-bar").style.width = `${Math.max(0, state.battle.hp / state.battle.max * 100)}%`;
-  $("potion-button").disabled = state.player.potions < 1 || state.player.hp >= maxHp() || state.battle.won;
-}
-
-function flashDamage(amount) {
-  $("hit-number").textContent = `-${amount}`;
-  $("hit-number").classList.remove("hidden", "animate");
-  void $("hit-number").offsetWidth;
-  $("hit-number").classList.add("animate");
-}
-
-function attack() {
-  const battle = state.battle;
-  if (!battle) return;
-  if (battle.won) {
-    if (battle.mode === "dungeon") { showScreen("contents"); return; }
-    battle.round += 1;
-    spawnEnemy();
-    return;
-  }
-  const damage = attackPower();
-  battle.hp = Math.max(0, battle.hp - damage);
-  flashDamage(damage);
-  if (battle.hp === 0) {
-    battle.won = true;
-    const dungeon = battle.mode === "dungeon";
-    state.player.gold += dungeon ? 80 : 8;
-    if (dungeon) advanceMissions("dungeon", "DUNGEON_001");
-    else advanceMissions("kill", "HUNT_001");
-    gainExp(dungeon ? 15 : 10);
-    $("battle-log").textContent = dungeon
-      ? "✨ 던전 고블린을 물리쳤습니다! 경험치 +15 · 골드 +80"
-      : "✨ 초원 슬라임 처치! 경험치 +10 · 골드 +8";
-    $("attack-button").textContent = dungeon ? "🏰 콘텐츠로 돌아가기" : "⚔️ 다음 몬스터";
-  } else {
-    const retaliation = battle.mode === "dungeon" ? 6 : 4;
-    state.player.hp = Math.max(0, state.player.hp - retaliation);
-    $("battle-log").textContent = `⚔️ ${damage} 피해를 주었습니다. 몬스터의 반격! HP -${retaliation}`;
-    if (state.player.hp === 0) {
-      showModal("모험 실패", "용사가 쓰러졌습니다.", ["HP를 회복하고 다시 도전하세요. 경험치와 보상은 잃지 않습니다."], () => {
-        state.player.hp = maxHp();
-        state.battle = null;
-        renderHud();
-        showScreen("lobby");
-        save();
-      });
+function renderRaid() {
+  const raid = state.raid;
+  if (!raid) return;
+  $("raid-time").textContent = Math.max(0, Math.ceil(60 - raid.elapsed));
+  $("raid-destruction").textContent = `${Math.round(raid.destroyed / raid.buildings.length * 100)}% 파괴`;
+  $("raid-status").textContent = raid.started ? `${raid.units.length}명 전투 중 · 남은 병력 ${armyCount()}명` : "병력을 선택하고 밝은 테두리 칸을 클릭하세요.";
+  const board = $("raid-board"); board.replaceChildren();
+  for (let y = 0; y < 7; y += 1) for (let x = 0; x < 9; x += 1) {
+    const tile = document.createElement("button"); tile.type = "button";
+    tile.className = `raid-tile ${isEdge(x, y) ? "deploy-zone" : ""}`;
+    const building = raid.buildings.find((item) => item.x === x && item.y === y && item.hp > 0);
+    const units = raid.units.filter((unit) => unit.x === x && unit.y === y);
+    if (building) {
+      const icon = document.createElement("span"); icon.className = "enemy-building"; icon.textContent = building.icon;
+      const hp = document.createElement("span"); hp.className = "tile-hp"; hp.style.width = `${building.hp / building.maxHp * 100}%`;
+      tile.append(icon, hp);
     }
+    if (units.length) {
+      const troop = document.createElement("span"); troop.className = "friendly-unit";
+      troop.textContent = `${TROOPS[units[0].type].icon}${units.length > 1 ? `×${units.length}` : ""}`;
+      tile.append(troop);
+    }
+    tile.setAttribute("aria-label", building ? `${building.name}, 체력 ${building.hp}` : units.length ? `아군 병력 ${units.length}명` : isEdge(x, y) ? "병력 배치 칸" : "빈 칸");
+    if (isEdge(x, y)) tile.addEventListener("click", () => deployTroop(x, y));
+    board.append(tile);
   }
-  renderHud();
-  renderBattle();
-  save();
+  const list = $("deploy-list"); list.replaceChildren();
+  for (const [key, troop] of Object.entries(TROOPS)) {
+    if (key === "giant" && state.player.village.barracks < 2 && state.player.army[key] === 0) continue;
+    const button = document.createElement("button"); button.type = "button";
+    button.className = `deploy-card ${raid.selected === key ? "selected" : ""}`;
+    button.textContent = `${troop.icon} ${troop.name} ×${state.player.army[key]}`;
+    button.disabled = state.player.army[key] === 0;
+    button.addEventListener("click", () => { raid.selected = key; renderRaid(); });
+    list.append(button);
+  }
+  $("potion-count").textContent = state.player.potions;
+  $("potion-button").disabled = state.player.potions === 0 || raid.units.length === 0;
 }
-
 function usePotion() {
-  if (!state.battle || state.battle.won || state.player.potions < 1 || state.player.hp >= maxHp()) return;
+  if (!state.raid || !state.raid.units.length || state.player.potions === 0) return;
   state.player.potions -= 1;
-  const healed = Math.min(15, maxHp() - state.player.hp);
-  state.player.hp += healed;
-  $("battle-log").textContent = `🧪 회복 포션을 사용해 HP ${healed} 회복!`;
-  renderBattle();
-  renderHud();
-  save();
+  for (const unit of state.raid.units) unit.hp = Math.min(unit.maxHp, unit.hp + 18);
+  save(); renderRaid(); showToast("출정 병력이 회복됐습니다!");
 }
-
-restorePlayer();
-renderHud();
-renderLobby();
-document.querySelectorAll("[data-screen]").forEach((button) => button.addEventListener("click", () => showScreen(button.dataset.screen)));
-document.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => startBattle(button.dataset.mode)));
-$("brand-button").addEventListener("click", () => showScreen("lobby"));
-$("attack-button").addEventListener("click", attack);
-$("potion-button").addEventListener("click", usePotion);
-$("retreat-button").addEventListener("click", () => { state.battle = null; showScreen("lobby"); save(); });
-$("modal-close").addEventListener("click", () => {
-  $("modal-backdrop").classList.add("hidden");
-  const after = state.afterModal;
-  state.afterModal = null;
-  if (after) after();
-  const next = state.modalQueue.shift();
-  if (next) showModal(next.title, next.message, next.details, next.after);
-});
-$("load-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const taskId = $("task-id").value.trim().toUpperCase();
+function setMessage(message, error = false) { $("message").textContent = message; $("message").classList.toggle("error", error); }
+async function loadEvent(taskId) {
   if (!/^TASK-[A-Z0-9]{12}$/.test(taskId)) { setMessage("Task ID 형식을 확인해 주세요.", true); return; }
-  $("load-button").disabled = true;
-  setMessage("승인된 이벤트를 불러오는 중입니다…");
+  $("load-button").disabled = true; setMessage("승인된 이벤트를 불러오는 중입니다…");
   try {
     const response = await fetch(`/game-api/task/${encodeURIComponent(taskId)}`, { cache: "no-store" });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.message || "이벤트를 불러오지 못했습니다.");
     if (!Array.isArray(payload.missions) || !payload.missions.length) throw new Error("플레이 가능한 미션이 없습니다.");
-    state.event = payload;
-    restoreEventProgress();
-    renderHud();
-    renderEvent();
-    save();
-    setMessage("이벤트가 게임에 적용됐습니다. 모험 시작에서 미션을 플레이해 보세요!");
+    state.event = payload; restoreEventProgress(); checkDayRewards();
+    localStorage.setItem(ACTIVE_EVENT_KEY, taskId);
+    $("task-id").value = taskId;
+    renderEvent(); renderHud(); save();
+    setMessage("이벤트가 마을에 적용됐습니다. 원정에서 미션을 진행해 보세요!");
   } catch (error) { setMessage(error.message || "연결 오류가 발생했습니다.", true); }
   finally { $("load-button").disabled = false; }
-});
+}
+
+restorePlayer();
+renderVillage();
+document.querySelectorAll("[data-screen]").forEach((button) => button.addEventListener("click", () => showScreen(button.dataset.screen)));
+$("upgrade-button").addEventListener("click", upgradeBuilding);
+$("collect-button").addEventListener("click", collectResources);
+$("raid-button").addEventListener("click", startRaid);
+$("retreat-button").addEventListener("click", () => finishRaid(false, true));
+$("potion-button").addEventListener("click", usePotion);
+$("result-close").addEventListener("click", () => { $("result-backdrop").classList.add("hidden"); showScreen("village"); });
+$("load-form").addEventListener("submit", (event) => { event.preventDefault(); loadEvent($("task-id").value.trim().toUpperCase()); });
+setInterval(() => { if (!$("village-screen").classList.contains("hidden")) renderCollectButton(); }, 1000);
+const activeTask = localStorage.getItem(ACTIVE_EVENT_KEY);
+if (activeTask) loadEvent(activeTask);

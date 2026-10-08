@@ -64,6 +64,12 @@ def render_approval(task: dict[str, Any], *, demo_preview: bool = False) -> None
         if demo_preview:
             st.info("데모 결과에서는 승인·수정 요청·거절을 전송하지 않습니다.")
             return
+        if task.get("workflow_status") == "COMPLETED" and task.get("approval_status") == "APPROVED":
+            st.success("승인됐습니다. 데모 게임을 실행해 볼 수 있습니다.")
+            return
+        if task.get("workflow_status") == "CANCELLED" and task.get("approval_status") == "REJECTED":
+            st.warning("거절된 이벤트입니다. 데모 게임에서 실행할 수 없습니다.")
+            return
         allowed = (
             task.get("workflow_status") == "WAITING_APPROVAL"
             and task.get("approval_status") == "PENDING"
@@ -174,7 +180,11 @@ if task.get("workflow_status") == "FAILED":
     with st.container(key="panel-summary", border=True):
         card_title("◎", "Workflow 진행 기록")
         render_workflow_status(task, st.session_state.get("trace_response"))
-    render_autohealing(task.get("autohealing_events"), task.get("rule_validation"))
+    render_autohealing(
+        task.get("autohealing_events"),
+        task.get("rule_validation"),
+        st.session_state.get("trace_response"),
+    )
     st.stop()
 
 if task.get("workflow_status") == "CANCELLED":
@@ -206,7 +216,11 @@ with right_col, st.container(key="panel-critic", border=True):
     else:
         st.info("최종 검수 결과가 없습니다.")
 
-render_autohealing(task.get("autohealing_events"), task.get("rule_validation"))
+render_autohealing(
+    task.get("autohealing_events"),
+    task.get("rule_validation"),
+    st.session_state.get("trace_response"),
+)
 render_approval(task, demo_preview=demo_preview)
 
 st.page_link("pages/3_ops_debug.py", label="전체 Trace와 Backend 상태 보기", icon="🛠️")

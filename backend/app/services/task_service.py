@@ -49,7 +49,14 @@ def _approval_hash(request: ApprovalRequest) -> str:
 def _response(task: TaskRecord) -> TaskResponse:
     response = TaskResponse(
         **task.model_dump(
-            exclude={"actor_id", "brief", "approval_comment", "created_at", "updated_at"}
+            exclude={
+                "actor_id",
+                "brief",
+                "clash_snapshot",
+                "approval_comment",
+                "created_at",
+                "updated_at",
+            }
         )
     )
     try:
@@ -111,6 +118,14 @@ def _trace(
 def generate(request: EventCreateRequest | TestEventCreateRequest) -> tuple[TaskResponse, bool]:
     _validate_input_text(request.event_name)
     _validate_input_text(request.objective)
+    if request.game_source == "clash_of_clans" and not getattr(
+        workflow_engine, "supports_clash", False
+    ):
+        raise ServiceError(
+            "CLASH_SOURCE_UNAVAILABLE",
+            "Clash 공개 데이터 이벤트에는 MCP 연결 모드가 필요합니다.",
+            503,
+        )
     key = f"event:{request.idempotency_key}"
     request_hash = _request_hash(request)
     existing = repository.find_idempotency(key)
@@ -131,7 +146,9 @@ def generate(request: EventCreateRequest | TestEventCreateRequest) -> tuple[Task
     timestamp = now()
     task_id = f"TASK-{uuid4().hex[:12].upper()}"
     brief = EventBrief(
-        **request.model_dump(include={"event_name", "target_user", "duration", "objective"})
+        **request.model_dump(
+            include={"event_name", "target_user", "duration", "objective", "game_source"}
+        )
     )
     task = TaskRecord(
         task_id=task_id,
@@ -148,7 +165,12 @@ def generate(request: EventCreateRequest | TestEventCreateRequest) -> tuple[Task
     )
 
     fault_type = request.fault_type.value if isinstance(request, TestEventCreateRequest) else None
-    result = workflow_engine.run(task_id, brief, fault_type)
+    if brief.game_source == "clash_of_clans":
+        clash_run = workflow_engine.run_clash(task_id, brief)
+        result = clash_run.result
+        task.clash_snapshot = clash_run.snapshot
+    else:
+        result = workflow_engine.run(task_id, brief, fault_type)
     for field in type(result).model_fields:
         setattr(task, field, getattr(result, field))
     task.result_version = 1 if task.current_result else 0
@@ -266,7 +288,19 @@ def approve(task_id: str, request: ApprovalRequest) -> TaskResponse:
         _trace(
             task, "human", "human_revision", "SUCCESS", request.approval_comment, request.actor_id
         )
-        result = workflow_engine.revise(task_id, task.brief, request.approval_comment)
+        if task.brief.game_source == "clash_of_clans":
+            clash_run = workflow_engine.run_clash(
+                task_id,
+                task.brief,
+                snapshot=task.clash_snapshot,
+                previous_plan=task.current_result.model_dump(mode="json")
+                if task.current_result
+                else None,
+                approval_comment=request.approval_comment,
+            )
+            result = clash_run.result
+        else:
+            result = workflow_engine.revise(task_id, task.brief, request.approval_comment)
         for field in type(result).model_fields:
             setattr(task, field, getattr(result, field))
         task.result_version += 1

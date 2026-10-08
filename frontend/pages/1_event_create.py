@@ -54,6 +54,7 @@ def load_example(example: dict[str, str | int], index: int) -> None:
     st.session_state["brief-target"] = example["target_user"]
     st.session_state["brief-duration"] = example["duration"]
     st.session_state["brief-objective"] = example["objective"]
+    st.session_state["brief-source"] = "opong"
     st.session_state["selected_example_index"] = index
 
 
