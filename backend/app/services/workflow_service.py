@@ -151,6 +151,7 @@ class BackendBWorkflowAdapter:
             Critic(llm),
             revision_loader=self._load_revision,
             trace_sink=self._save_trace,
+            planning_context_loader=self.planning_context_loader,
         )
 
     def ready(self) -> bool:
@@ -239,7 +240,7 @@ class BackendBWorkflowAdapter:
         missions = []
         rewards = []
         for day in range(1, duration + 1):
-            content_id = "HUNT_001" if day < 3 else "DUNGEON_001"
+            content_id = "HUNT_001" if day < 5 else "DUNGEON_001"
             missions.append(
                 {
                     "day": day,
@@ -262,8 +263,45 @@ class BackendBWorkflowAdapter:
         }
 
     async def _mcp_transport(
-        self, tool_name: str, arguments: dict[str, str]
+        self, tool_name: str, arguments: dict[str, object]
     ) -> Mapping[str, object]:
+        if tool_name == "get_event_planning_context":
+            target_user = str(arguments["target_user"])
+            duration = int(arguments["duration"])
+            segments = {
+                "new_user": {
+                    "validation_policy": "expected_level",
+                    "expected_levels": {"1": 3, "3": 8, "5": 12, "7": 15},
+                },
+                "returning_user": {
+                    "validation_policy": "expected_level",
+                    "expected_levels": {"1": 25, "3": 28, "5": 32, "7": 35},
+                },
+                "all_user": {
+                    "validation_policy": "content_access_only",
+                    "common_access_max_required_level": 1,
+                },
+            }
+            segment = dict(segments[target_user])
+            if target_user != "all_user":
+                segment["expected_levels"] = {
+                    day: level
+                    for day, level in segment["expected_levels"].items()
+                    if int(day) <= duration
+                }
+            return {
+                "target_user": target_user,
+                "duration": duration,
+                "contents": {
+                    "HUNT_001": {"content_name": "일반 사냥", "required_level": 1},
+                    "DUNGEON_001": {"content_name": "던전", "required_level": 10},
+                    "RAID_001": {"content_name": "레이드", "required_level": 30},
+                },
+                "items": {"ITEM_001": {"item_name": "회복 포션"}},
+                "user_segments": {target_user: segment},
+                "game_data_version": "tinyheroes-1.0.0",
+                "source": "primary",
+            }
         if tool_name == "get_item_info":
             return {
                 "item_id": arguments["item_id"],

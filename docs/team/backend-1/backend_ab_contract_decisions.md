@@ -31,7 +31,7 @@ API 응답 키는 현재 화면이 사용하는 `sequence`, `time`, `actor`, `ac
 
 A는 `backend/app/services/planning_context_loader.py`에 비동기 `load(target_user: str, duration: int) -> dict[str, object]`를 만들고 `BackendBWorkflowAdapter.planning_context_loader`에 바인딩했다. 내부 호출은 고정 Tool 이름 `get_event_planning_context`와 정수형 `duration`을 사용한다. 공유받은 응답 필수 키는 `contents`, `items`, `user_segments`, 비어 있지 않은 `game_data_version`, `source=primary|fallback_snapshot`이다. 응답에 요청 인자 `target_user`·`duration`을 되돌려줄 필요는 없다. A Trace 저장부는 성공 이벤트의 `source`를 API 응답의 `data_source`로 옮기며, 기획용 조회 실패 이벤트에는 확인되지 않은 버전·출처를 남기지 않는다. 상세 구조와 실제 응답 예시는 MCP Tool 구현 후 대조한다.
 
-연결 순서는 다음과 같다: MCP 담당자가 Tool·응답 계약을 구현 → B가 `ToolTransport`의 인자를 `dict[str, object]`로 확장하고 Tool Guard에 새 Tool을 등록 → B Engine 생성자에 `planning_context_loader` 콜백을 추가하고 Planner 전에 호출 → A가 Adapter 생성자에서 `planning_context_loader=self.planning_context_loader`를 전달한다. B는 재시도·Fallback·Trace·상세 응답 검증을 소유한다. 현재 B 생성자에는 해당 인자가 없어 A는 아직 실제 Engine 호출 경로에 주입하지 않았다. 따라서 새 Loader 자체는 단위 시험만 통과했고 새 MCP Tool의 실제 전송은 미검증이다.
+연결 순서는 다음과 같다: MCP 담당자가 Tool·응답 계약을 구현 → B가 `ToolTransport`의 인자를 `dict[str, object]`로 확장하고 Tool Guard에 새 Tool을 등록 → B Engine 생성자에 `planning_context_loader` 콜백을 추가하고 Planner 전에 호출 → A가 Adapter 생성자에서 `planning_context_loader=self.planning_context_loader`를 전달한다. B는 재시도·Trace·상세 응답 검증을 소유한다. 이 연결은 `backend-test`에서 완료됐으며, A API 통합 시험에서 정상·기획 오류 후 재검증·첫 조회 실패의 세 경로를 확인했다. 실제 MCP 서버와 공용 PostgreSQL을 사용하는 API 종단 간 시험은 `MCP_TEST_URL`·`POSTGRES_TEST_URL`을 설정한 환경에서 별도로 실행해야 한다.
 
 ## 공용 DB 소유권
 
