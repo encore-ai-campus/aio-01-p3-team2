@@ -5,6 +5,7 @@ import os
 import psycopg
 import pytest
 
+from mcp_server.tools.get_event_planning_context import get_event_planning_context
 from mcp_server.tools.get_game_rules import get_game_rules
 from mcp_server.tools.get_game_rules_fallback import get_game_rules_fallback
 from mcp_server.tools.get_item_info import get_item_info
@@ -27,9 +28,18 @@ def test_seeded_database_is_primary_and_snapshot_stays_independent(
     assert rule["source"] == "primary"
     assert get_item_info("ITEM_003")["item_name"] == "한정 코스튬"
 
+    context = get_event_planning_context("new_user", 3)
+    assert context["target_user"] == "new_user"
+    assert context["duration"] == 3
+    assert context["source"] == "primary"
+    assert context["game_data_version"] == rule["game_data_version"]
+    assert context["user_segments"]["new_user"]["expected_levels"] == {"1": 3, "3": 8}
+
     monkeypatch.setenv("MCP_DATABASE_URL", "postgresql://invalid:invalid@127.0.0.1:1/invalid")
     with pytest.raises(psycopg.OperationalError):
         get_game_rules("DUNGEON_001")
+    with pytest.raises(psycopg.OperationalError):
+        get_event_planning_context("new_user", 3)
     fallback = get_game_rules_fallback("DUNGEON_001")
     assert fallback["exists"] is True
     assert fallback["source"] == "fallback_snapshot"
