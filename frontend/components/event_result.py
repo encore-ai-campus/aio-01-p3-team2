@@ -38,6 +38,20 @@ def render_event_result(task: dict[str, Any]) -> None:
         )
         if result.get("operation_summary"):
             st.caption(f"운영 방식: {result['operation_summary']}")
+        sample = result.get("sample_summary")
+        if result.get("game_source") == "clash_of_clans" and isinstance(sample, dict):
+            st.info(
+                "Clash 공개 상위 순위 표본 · "
+                f"플레이어 {sample.get('player_count', 0)}명 / "
+                f"클랜 {sample.get('clan_count', 0)}개 · "
+                f"수집 시각 {sample.get('sampled_at', '미확인')}. "
+                "전체 이용자를 대표하는 통계가 아닙니다."
+            )
+            st.caption(
+                f"표본 중앙값: 트로피 {sample.get('median_trophies', '—')}, "
+                f"마을회관 Lv.{sample.get('median_town_hall', '—')}, "
+                f"클랜 인원 {sample.get('median_clan_members', '—')}명"
+            )
 
         duration = result.get("duration")
         if not isinstance(duration, int) or duration < 1:
@@ -93,6 +107,60 @@ def render_event_result(task: dict[str, Any]) -> None:
                 "</div>",
                 unsafe_allow_html=True,
             )
+
+        st.markdown("#### 기획안 요약")
+        with st.container(border=True):
+            st.markdown("**참여 흐름**")
+            representative_days = list(dict.fromkeys((1, (duration + 1) // 2, duration)))
+            for day in representative_days:
+                daily = missions[day]
+                title = next((m.get("day_title") for m in daily if m.get("day_title")), None)
+                names = [
+                    str(m.get("mission_name") or m.get("content_name") or m.get("content_id"))
+                    for m in daily
+                    if m.get("mission_name") or m.get("content_name") or m.get("content_id")
+                ]
+                detail = " · ".join(names) if names else "미션 정보 없음"
+                st.write(f"Day {day} · {title or '일차별 제목 없음'} — {detail}")
+            st.caption("기간 중 대표 일차의 기획안 내용을 발췌했습니다.")
+
+        with st.container(border=True):
+            st.markdown("**보상 설계 요약**")
+            reward_names = list(
+                dict.fromkeys(
+                    str(reward.get("item_name") or reward.get("item_id"))
+                    for day in range(1, duration + 1)
+                    for reward in rewards[day]
+                    if reward.get("item_name") or reward.get("item_id")
+                )
+            )
+            st.write("보상 항목: " + (" · ".join(reward_names) if reward_names else "정보 없음"))
+            final_rewards = [
+                f"{reward.get('item_name') or reward.get('item_id')} × {reward.get('quantity', '—')}"
+                for reward in rewards[duration]
+                if reward.get("item_name") or reward.get("item_id")
+            ]
+            st.write(
+                f"마지막 날 보상: {' · '.join(final_rewards) if final_rewards else '정보 없음'}"
+            )
+            st.caption("기획안에 기재된 보상만 요약한 것으로 실제 지급 여부를 뜻하지 않습니다.")
+
+        with st.container(border=True):
+            st.markdown("**운영·검토 메모**")
+            notes = result.get("operation_review_notes")
+            if isinstance(notes, dict):
+                for label, field in (
+                    ("미션 운영 방식", "mission_operation"),
+                    ("보상 설계 이유", "reward_design"),
+                    ("Critic 검토 의견", "critic_review"),
+                ):
+                    value = notes.get(field)
+                    if isinstance(value, str) and value.strip():
+                        st.write(f"**{label}** · {value}")
+                if notes.get("source") == "mock":
+                    st.caption("Mock 생성 메모입니다. 실제 AI의 기획·검토 의견이 아닙니다.")
+            else:
+                st.info("이 기획안에는 Backend의 운영·검토 메모가 제공되지 않았습니다.")
 
 
 def render_rule_validation(rule: dict[str, Any] | None) -> None:

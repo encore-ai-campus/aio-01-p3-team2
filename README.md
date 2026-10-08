@@ -10,7 +10,7 @@ Event Planner가 이벤트 초안을 만들고, Balance & Rule Agent와 Critic�
 
 ## 현재 상태
 
-**초기 프로젝트 뼈대 단계입니다.** 디렉터리와 일부 설정 파일만 준비되어 있으며 애플리케이션 코드, 컨테이너 실행 설정, CI 워크플로는 아직 구현되지 않았습니다. 현재 상태에서는 서비스를 설치하거나 실행할 수 없습니다.
+Frontend 화면과 Dockerfile, Backend A API, Backend B Workflow, MCP 서버가 저장소에 구현되어 있습니다. `feature/demo-game`에서 `backend_b_mcp` API와 실제 MCP HTTP 서버를 연결해 기획 전 조회부터 검증·Trace·복구까지 확인했습니다. 이 경로는 Mock LLM, JSON 기본 게임 데이터, 인메모리 Repository를 사용했습니다. 이후 Planner·Balance & Rule·Critic·Supervisor의 실제 LLM 선택 시험 2건과, 실제 OpenAI·MCP HTTP·격리된 임시 PostgreSQL을 함께 사용하는 정상 API 요청 1건도 통과했습니다. 공용 PostgreSQL 연동과 실제 LLM의 반복 품질 평가는 별도 검증 대상입니다. 자세한 범위는 [Backend B 작업 Handoff](docs/team/backend-2/handoff.md)를 참고하세요.
 
 ## 예정 구성
 
@@ -22,6 +22,16 @@ Event Planner가 이벤트 초안을 만들고, Balance & Rule Agent와 Critic�
 | PostgreSQL | Workflow 상태, Trace, 멱등성 및 테스트 결과 저장 |
 | Ruff | Python 린트, 포맷, import 정렬 기준 |
 | Docker Compose / GitHub Actions | 서비스 통합 실행 및 CI/CD |
+
+## `yejin` 프론트엔드 AWS 배포
+
+- `infra/frontend-yejin.yml`: ECR, SSM용 IAM Role, Security Group, 프론트엔드 EC2를 CloudFormation으로 관리한다.
+- `.github/workflows/frontend-infrastructure.yml`: 수동으로 인프라를 생성·업데이트하거나 `destroy=true`로 프로젝트 Stack을 삭제한다.
+- `.github/workflows/frontend-deploy.yml`: `yejin` 브랜치의 `frontend/**` 변경을 감지해 테스트, Docker 이미지 빌드, ECR Push, SSM 배포, Health Check를 실행한다.
+
+GitHub Environment `yejin-frontend`에는 `AWS_REGION`, `AWS_ACCOUNT_ID`, `AWS_ROLE_ARN`, `CLOUDFORMATION_ROLE_ARN`, `VPC_ID`, `SUBNET_ID`, `FRONTEND_AMI_ID`, `ALLOWED_FRONTEND_CIDR` 변수가 필요하다. `FRONTEND_ENV_FILE`은 GitHub Secret으로 저장한다.
+
+처음에는 인프라 workflow에서 `apply=true`로 실행하고, 이후 `yejin` 브랜치에 프론트엔드 변경을 Push한다. 테스트가 끝난 뒤에는 같은 인프라 workflow에서 `destroy=true`를 선택해 해당 Stack의 EC2, ECR, IAM, Security Group을 삭제한다.
 
 ## 문서 안내
 

@@ -107,6 +107,28 @@ def get_task(task_id: str) -> dict[str, Any]:
     return _request("GET", f"/api/tasks/{parse.quote(task_id, safe='')}")
 
 
+def list_tasks(*, limit: int = 20) -> dict[str, Any]:
+    """Read the latest Task summaries from the current Backend list API."""
+    if not 1 <= limit <= 20:
+        raise ValueError("limit must be between 1 and 20")
+    data = _request("GET", f"/api/tasks?{parse.urlencode({'limit': limit})}")
+    tasks = data.get("tasks")
+    if not isinstance(tasks, list) or any(
+        not isinstance(task, dict) or not isinstance(task.get("task_id"), str) for task in tasks
+    ):
+        raise ApiError("Task 목록 응답 형식이 올바르지 않습니다.", code="INVALID_RESPONSE")
+    return data
+
+
+def delete_task(task_id: str, *, actor_id: str) -> dict[str, Any]:
+    """Delete one saved Task and its related records after Backend authorization."""
+    return _request(
+        "DELETE",
+        f"/api/tasks/{parse.quote(task_id, safe='')}",
+        payload={"actor_id": actor_id},
+    )
+
+
 def get_trace(task_id: str) -> dict[str, Any]:
     return _request("GET", f"/api/tasks/{parse.quote(task_id, safe='')}/trace")
 

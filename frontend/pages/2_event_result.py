@@ -8,6 +8,7 @@ import streamlit as st
 from components.autohealing_view import render_autohealing
 from components.event_result import render_event_result, render_rule_validation
 from components.layout import card_title, setup_page
+from components.recovery_summary import render_recovery_summary
 from components.workflow_status import render_workflow_status
 from services.backend_client import ApiError, get_task, get_trace, submit_approval
 from services.session import remember_task
@@ -53,6 +54,7 @@ def perform_approval(task: dict[str, Any], action: str, comment: str | None = No
             return
     remember_task(response)
     refresh_task(str(task["task_id"]), show_error=False)
+    st.session_state["saved_task_loaded"] = False
     st.session_state["revision_open"] = False
     st.rerun()
 
@@ -62,6 +64,12 @@ def render_approval(task: dict[str, Any], *, demo_preview: bool = False) -> None
         card_title("●", "운영 담당자 최종 승인")
         if demo_preview:
             st.info("데모 결과에서는 승인·수정 요청·거절을 전송하지 않습니다.")
+            return
+        if task.get("workflow_status") == "COMPLETED" and task.get("approval_status") == "APPROVED":
+            st.success("승인됐습니다. 데모 게임을 실행해 볼 수 있습니다.")
+            return
+        if task.get("workflow_status") == "CANCELLED" and task.get("approval_status") == "REJECTED":
+            st.warning("거절된 이벤트입니다. 데모 게임에서 실행할 수 없습니다.")
             return
         allowed = (
             task.get("workflow_status") == "WAITING_APPROVAL"
@@ -151,20 +159,39 @@ with refresh_col:
         refresh_task(str(task_id))
         st.rerun()
 
-if task.get("workflow_status") == "FAILED":
-    error = task.get("error") or {}
-    st.error(f"Workflow 안전 종료: {error.get('message') or '오류 원인을 Trace에서 확인해주세요.'}")
-    st.page_link("pages/3_ops_debug.py", label="상세 Trace 보기", icon="🛠️")
-elif task.get("workflow_status") == "CANCELLED":
-    st.warning("운영자가 이 이벤트를 거절했습니다.")
-elif task.get("workflow_status") == "COMPLETED":
-    st.success("운영자 승인이 완료됐습니다. 최종 기획안이 확정됐습니다.")
-
 if not demo_preview and st.session_state.get("trace_response") is None:
     try:
         st.session_state["trace_response"] = get_trace(str(task_id))
     except ApiError as exc:
         st.caption(f"Trace를 아직 불러오지 못했습니다: {exc}")
+
+render_recovery_summary(task, st.session_state.get("trace_response"))
+
+if task.get("workflow_status") == "FAILED":
+    error = task.get("error") if isinstance(task.get("error"), dict) else {}
+    with st.container(key="panel-safe-stop", border=True):
+        card_title("✕", "Safe Stop · 안전 종료")
+        st.error(error.get("message") or "복구에 실패했습니다. 상세 Trace에서 원인을 확인해주세요.")
+        st.write(f"**오류 유형:** {error.get('error_type') or '기록 없음'}")
+        st.write(f"**기술 재시도:** {task.get('retry_count', 0)}회")
+        st.warning("검증되지 않은 기획안은 표시하거나 승인할 수 없습니다.")
+        st.page_link("pages/3_ops_debug.py", label="상세 Trace 확인", icon="🛠️")
+        st.page_link("pages/1_event_create.py", label="새 이벤트 요청 만들기", icon="⭐")
+
+    with st.container(key="panel-summary", border=True):
+        card_title("◎", "Workflow 진행 기록")
+        render_workflow_status(task, st.session_state.get("trace_response"))
+    render_autohealing(
+        task.get("autohealing_events"),
+        task.get("rule_validation"),
+        st.session_state.get("trace_response"),
+    )
+    st.stop()
+
+if task.get("workflow_status") == "CANCELLED":
+    st.warning("운영자가 이 이벤트를 거절했습니다.")
+elif task.get("workflow_status") == "COMPLETED":
+    st.success("운영자 승인이 완료됐습니다. 최종 기획안이 확정됐습니다.")
 
 with st.container(key="panel-summary", border=True):
     card_title("◎", "Workflow 진행 기록")
@@ -180,17 +207,21 @@ render_event_result(task)
 left_col, right_col = st.columns(2, gap="medium")
 with left_col:
     render_rule_validation(task.get("rule_validation"))
-    with st.container(key="panel-critic", border=True):
-        card_title("✦", "AI 최종 검수 (Critic)")
-        critic = task.get("critic_status")
-        if critic == "PASS":
-            st.success("Critic PASS")
-        elif critic:
-            st.warning(f"Critic 상태: {critic}")
-        else:
-            st.info("최종 검수 결과가 없습니다.")
-with right_col:
-    render_autohealing(task.get("autohealing_events"))
-    render_approval(task, demo_preview=demo_preview)
+with right_col, st.container(key="panel-critic", border=True):
+    card_title("✦", "AI 최종 검수 (Critic)")
+    critic = task.get("critic_status")
+    if critic == "PASS":
+        st.success("Critic PASS")
+    elif critic:
+        st.warning(f"Critic 상태: {critic}")
+    else:
+        st.info("최종 검수 결과가 없습니다.")
+
+render_autohealing(
+    task.get("autohealing_events"),
+    task.get("rule_validation"),
+    st.session_state.get("trace_response"),
+)
+render_approval(task, demo_preview=demo_preview)
 
 st.page_link("pages/3_ops_debug.py", label="전체 Trace와 Backend 상태 보기", icon="🛠️")

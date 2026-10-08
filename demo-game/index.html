@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5eddb">
+  <title>Event Quest AI · 이벤트 시연</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/game.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="site-header">
+      <img class="brand-logo" src="/assets/event-quest-ai-logo.png" alt="Event Quest AI">
+      <div class="brand-copy"><strong>Event Quest AI</strong><span>승인 이벤트 시연 게임</span></div>
+      <button id="change-task" class="quiet-button" type="button" hidden>다른 Task 입력</button>
+    </header>
+
+    <main>
+      <section id="start-screen" class="start-screen">
+        <div class="start-visual" aria-hidden="true">
+          <img src="/assets/sword-hero.png" alt="">
+        </div>
+        <div class="start-card">
+          <span class="eyebrow">APPROVED EVENT PLAYTEST</span>
+          <h1>이벤트를 골라<br>바로 시연해 보세요</h1>
+          <p>운영 담당자가 승인한 Task ID를 입력하면 그 이벤트의 Day별 기획안과 간단한 전투 시연이 열립니다.</p>
+          <form id="task-form" novalidate>
+            <label for="task-id">승인된 Task ID</label>
+            <div class="task-input-row">
+              <input id="task-id" name="task-id" type="text" placeholder="TASK-XXXXXXXXXXXX" autocomplete="off" spellcheck="false" required>
+              <button id="load-task" class="primary-button" type="submit">확인</button>
+            </div>
+          </form>
+          <p id="task-message" class="task-message" role="status" aria-live="polite">승인·규칙 검증·AI 검수를 통과한 이벤트만 불러올 수 있습니다.</p>
+        </div>
+      </section>
+
+      <section id="game-screen" class="game-screen" hidden>
+        <div class="event-heading">
+          <div>
+            <span class="eyebrow">EVENT QUEST AI · PLAYTEST</span>
+            <h1 id="event-name">이벤트</h1>
+            <p id="event-source"></p>
+          </div>
+          <span id="event-task-id" class="task-chip"></span>
+        </div>
+
+        <div class="play-layout">
+          <article class="battle-card" aria-label="몬스터 전투 시연">
+            <div class="battle-heading">
+              <div><span class="eyebrow">시연 전투</span><h2 id="battle-day">Day 1</h2></div>
+              <div class="battle-counters">
+                <span>몬스터 <strong id="monster-count">0 / 3</strong></span>
+                <span>골드 <strong id="gold-count">0</strong></span>
+              </div>
+            </div>
+            <div id="arena" class="arena">
+              <img id="hero-sprite" class="hero-sprite" src="/assets/sword-hero.png" alt="검을 든 용사">
+              <div id="monster-wrap" class="monster-wrap">
+                <div class="monster-health"><span id="monster-health-fill"></span></div>
+                <div id="monster-sprite" class="monster-sprite" role="img" aria-label="몬스터"></div>
+              </div>
+              <span id="hit-effect" class="hit-effect" aria-hidden="true">✦</span>
+            </div>
+            <div class="battle-actions">
+              <button id="attack-button" class="attack-button" type="button">⚔ 공격</button>
+              <p id="battle-message" role="status" aria-live="polite">몬스터가 가까이 오면 공격하세요.</p>
+            </div>
+            <p class="demo-note">하루 3마리 전투는 기획안을 살펴보기 위한 시연입니다. 실제 게임 계정·이벤트 미션·보상에는 반영되지 않습니다.</p>
+            <div id="day-result" class="day-result" hidden>
+              <div class="day-result-card">
+                <span id="result-kicker" class="eyebrow">DAY COMPLETE</span>
+                <h2 id="result-title">Day 1 시연 완료</h2>
+                <p id="result-summary"></p>
+                <p id="result-reward"></p>
+                <button id="next-day" class="primary-button" type="button">다음 Day</button>
+              </div>
+            </div>
+          </article>
+
+          <aside class="plan-panel" aria-label="Day별 이벤트 기획안">
+            <div class="plan-heading"><span class="eyebrow">APPROVED PLAN</span><h2>Day별 기획안</h2><p>승인된 이벤트의 미션과 보상을 확인하세요.</p></div>
+            <div id="day-list" class="day-list"></div>
+            <p class="plan-note">오른쪽의 완료 표시는 데모 전투 시연 상태입니다. 기획안의 실제 미션 달성을 뜻하지 않습니다.</p>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

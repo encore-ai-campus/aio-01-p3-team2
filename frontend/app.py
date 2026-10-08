@@ -27,9 +27,8 @@ def demo_ids() -> set[str]:
 def render_login() -> None:
     allowed_ids = demo_ids()
     st.session_state.setdefault("login-id", min(allowed_ids) if allowed_ids else "")
-    background = image_data_uri(ASSETS_DIR / "login_background.png")
-    logo = image_data_uri(ASSETS_DIR / "opong_heroes_logo.png")
-    css = CSS_PATH.read_text(encoding="utf-8").replace("__BACKGROUND_DATA_URI__", background)
+    logo = image_data_uri(ASSETS_DIR / "event_quest_ai_logo.png")
+    css = CSS_PATH.read_text(encoding="utf-8")
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
     with st.container(key="login-shell", border=False):
@@ -39,14 +38,14 @@ def render_login() -> None:
             st.markdown(
                 f"""
                 <div class="hero-inner">
-                  <img class="hero-logo" src="{logo}" alt="Opong Heroes Live Ops" />
+                  <img class="hero-logo" src="{logo}" alt="Event Quest AI" />
                   <div class="hero-heading">
-                    더 즐거운 게임 경험을 만드는<br />
-                    <span>AI 라이브 운영 파트너</span>
+                    게임 이벤트 기획부터 검수까지,<br />
+                    <span>이제 AI에게 맡겨보세요</span>
                   </div>
                   <p class="hero-description">
-                    데이터와 AI가 함께하는 스마트한 라이브 운영으로<br />
-                    지금보다 더 특별한 게임 경험을 만들어갑니다.
+                    실제 게임 데이터로 이벤트 기획안을 생성하고,<br />
+                    게임 규칙 검증부터 오류 수정까지 AI가 완성해드립니다.
                   </p>
                   <div class="hero-features" aria-label="서비스 기능">
                     <div><span class="feature-icon blue">✦</span><strong>AI 기반<br />이벤트 기획</strong></div>
