@@ -11,10 +11,9 @@ from components.trace_viewer import trace_items
 
 PHASES = {
     "event_planner_agent": ("이벤트 기획", "planner"),
-    "balance_rule_agent": ("게임 규칙 검증", "validator"),
-    "critic_agent": ("AI 최종 검수", "critic"),
+    "balance_rule_agent": ("게임 데이터 비교·검증", ""),
+    "critic_agent": ("이벤트 기획안 종합 검토", ""),
     "human": ("운영자 승인", "approval"),
-    "mcp": ("MCP · 데이터 조회", "data"),
 }
 
 ACTOR_LABELS = {
@@ -27,15 +26,14 @@ ACTOR_LABELS = {
 }
 
 NODES = (
+    ("planning_data", "MCP 기획 데이터 조회", "MCP Server"),
     ("planner", "이벤트 기획", "진행 단계"),
-    ("data", "MCP 데이터 조회", "MCP Server"),
-    ("validator", "게임 규칙 검증", "진행 단계"),
-    ("critic", "AI 최종 검수", "진행 단계"),
+    ("validation_data", "MCP 검증 데이터 조회", "MCP Server"),
     ("approval", "운영자 승인", "운영 담당자"),
-    ("planner_agent", "Event Planner Agent", "담당 에이전트"),
-    ("balance_agent", "Balance & Rule Agent", "담당 에이전트"),
-    ("critic_agent", "Critic Agent", "담당 에이전트"),
-    ("supervisor_agent", "Supervisor Agent", "담당 에이전트"),
+    ("planner_agent", "Event Planner Agent", "이벤트 기획·수정"),
+    ("balance_agent", "Balance & Rule Agent", "게임 데이터 비교·검증"),
+    ("critic_agent", "Critic Agent", "이벤트 기획안 종합 검토"),
+    ("supervisor_agent", "Supervisor Agent", "다음 단계 선택·오류 복구"),
 )
 
 AGENT_NODES = {
@@ -43,6 +41,11 @@ AGENT_NODES = {
     "balance_rule_agent": "balance_agent",
     "critic_agent": "critic_agent",
     "supervisor": "supervisor_agent",
+}
+ROUTE_TARGET_LABELS = {
+    "event_planner_agent": "Event Planner",
+    "balance_rule_agent": "Balance & Rule",
+    "critic_agent": "Critic",
 }
 
 
@@ -54,21 +57,42 @@ def _steps(task: dict[str, Any], trace: dict[str, Any] | None) -> list[dict[str,
     for item in items:
         actor = item.get("actor")
         action = str(item.get("action") or "")
+        phase = str(item.get("phase") or "")
         status = str(item.get("status") or "UNKNOWN").upper()
-        if actor == "supervisor":
-            label = {
-                "RUN_AGENT": "AutoHealing · Agent 재실행",
-                "RETRY": "기술 재시도",
-                "TOOL_FALLBACK": "대체 Tool 전환",
-                "SAFE_STOP": "안전 종료",
-            }.get(action)
+        if actor == "mcp":
+            if phase == "planning_context" or action == "get_event_planning_context":
+                label, node = "기획용 게임 데이터 조회", "planning_data"
+            else:
+                label = (
+                    "재검증용 게임 데이터 조회"
+                    if phase == "revalidation"
+                    else "검증용 게임 데이터 조회"
+                )
+                node = "validation_data"
+        elif actor == "supervisor":
             node = ""
-            if label:
-                recovery_seen = True
+            if phase == "routing":
+                target = ROUTE_TARGET_LABELS.get(str(item.get("next_agent") or ""))
+                label = (
+                    "운영자 승인 대기 결정"
+                    if action == "WAIT_APPROVAL"
+                    else f"{target}로 진행 결정"
+                    if action == "RUN_AGENT" and target
+                    else "다음 단계 결정"
+                )
+            else:
+                label = {
+                    "RUN_AGENT": "AutoHealing · Agent 재실행",
+                    "RETRY": "기술 재시도",
+                    "TOOL_FALLBACK": "대체 Tool 전환",
+                    "SAFE_STOP": "안전 종료",
+                }.get(action)
+                if label:
+                    recovery_seen = True
         elif actor == "event_planner_agent" and action == "regenerate_plan":
             label, node = "이벤트 재기획", "planner"
         elif actor == "balance_rule_agent" and action == "validate_plan" and recovery_seen:
-            label, node = "복구 후 재검증", "validator"
+            label, node = "복구 후 재검증", ""
         else:
             label, node = PHASES.get(actor, (None, None))
         if not label:
@@ -79,7 +103,7 @@ def _steps(task: dict[str, Any], trace: dict[str, Any] | None) -> list[dict[str,
             else "waiting"
             if status in {"WAITING", "PENDING"}
             else "recovery"
-            if actor == "supervisor" or action == "regenerate_plan"
+            if (actor == "supervisor" and phase != "routing") or action == "regenerate_plan"
             else "pass"
         )
         result.append(
@@ -146,16 +170,17 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
 .motion-controls button{border:1px solid #cbdcf5;border-radius:8px;background:#f4f8ff;color:#2567cb;padding:7px 10px;font-weight:700;font-size:12px;cursor:pointer}
 .motion-controls button:hover{background:#e6f1ff}.motion-controls button:focus-visible{outline:3px solid #70a8ff;outline-offset:2px}
 .motion-map-scroll{overflow-x:auto;border-radius:12px}
-.flow-map{position:relative;min-width:900px;height:350px;overflow:hidden;border:1px solid #dce8f8;border-radius:12px;background:radial-gradient(circle at 45% 42%,#eef6ff 0,transparent 44%),linear-gradient(145deg,#f9fcff,#f2f7fe)}
+.flow-map{position:relative;min-width:1050px;height:350px;overflow:hidden;border:1px solid #dce8f8;border-radius:12px;background:radial-gradient(circle at 45% 42%,#eef6ff 0,transparent 44%),linear-gradient(145deg,#f9fcff,#f2f7fe)}
 .flow-map::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed #d8e5f7;pointer-events:none}
 .flow-lines{position:absolute;inset:0;width:100%;height:100%;z-index:1;overflow:visible}
 .flow-route{fill:none;stroke:#75a9f5;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.flow-route.tone-failed{stroke:#ed6675}.flow-route.tone-recovery{stroke:#eeb955}
 .flow-route.current{stroke-width:5;filter:drop-shadow(0 0 5px #75a9f5);stroke-dasharray:12 9;animation:flow-route 1s linear infinite}.flow-route.current.tone-failed{filter:drop-shadow(0 0 5px #ed6675)}.flow-route.current.tone-recovery{filter:drop-shadow(0 0 5px #eeb955)}
-.flow-node{position:absolute;z-index:2;width:17%;height:78px;box-sizing:border-box;padding:10px 12px;border:1px solid #d5e2f3;border-radius:11px;background:rgba(255,255,255,.94);box-shadow:0 5px 12px rgba(31,75,138,.05);opacity:.57;transition:transform .3s,box-shadow .3s,border-color .3s,opacity .3s}
-.flow-node[data-node="planner"]{left:2.5%;top:12%}.flow-node[data-node="data"]{left:22%;top:12%}.flow-node[data-node="validator"]{left:41.5%;top:12%}.flow-node[data-node="critic"]{left:61%;top:12%}.flow-node[data-node="approval"]{left:80.5%;top:12%}
+.flow-node{position:absolute;z-index:2;width:14.5%;height:82px;box-sizing:border-box;padding:10px 12px;border:1px solid #d5e2f3;border-radius:11px;background:rgba(255,255,255,.94);box-shadow:0 5px 12px rgba(31,75,138,.05);opacity:.57;transition:transform .3s,box-shadow .3s,border-color .3s,opacity .3s}
+.flow-node[data-node="planning_data"]{left:1.5%;top:12%}.flow-node[data-node="planner"]{left:27%;top:12%}.flow-node[data-node="validation_data"]{left:52.5%;top:12%}.flow-node[data-node="approval"]{left:78%;top:12%}
+.flow-node[data-lane="진행 단계"],.flow-node[data-lane="MCP Server"],.flow-node[data-node="approval"]{width:20.5%}
 .flow-node[data-node="planner_agent"]{left:2.5%;top:60%}.flow-node[data-node="balance_agent"]{left:27.5%;top:60%}.flow-node[data-node="critic_agent"]{left:52.5%;top:60%}.flow-node[data-node="supervisor_agent"]{left:77.5%;top:60%}
 .flow-node[data-node$="_agent"]{width:20%}.flow-node[data-node$="_agent"] strong{font-size:12px}
-.flow-kicker{display:block;font-size:10px;color:#7388a9;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.flow-node.visited .flow-kicker{color:#225eae;font-weight:800}.flow-node strong{display:block;font-size:13px;white-space:nowrap}.flow-state{display:inline-block;margin-top:5px;font-size:10px;font-weight:800;color:#8292aa}
+.flow-kicker{display:block;font-size:10px;color:#7388a9;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.flow-node.visited .flow-kicker{color:#225eae;font-weight:800}.flow-node strong{display:block;font-size:12px;line-height:1.2}.flow-state{display:inline-block;margin-top:5px;font-size:10px;font-weight:800;color:#8292aa}
 .flow-count{position:absolute;right:9px;bottom:8px;font-size:10px;font-weight:700;color:#6d85a5}.flow-node.visited{opacity:1}
 .flow-node.tone-pass{border-color:#9bdabc;background:#f3fff8}.flow-node.tone-pass .flow-state{color:#087d44}
 .flow-node.tone-failed{border-color:#f1aab2;background:#fff1f3}.flow-node.tone-failed .flow-state{color:#ca3040}
@@ -187,7 +212,7 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
       <button type="button" data-control="replay" aria-label="처음부터 다시 보기">다시 보기</button>
     </div>
   </div>
-  <div class="motion-map-scroll"><div class="flow-map" role="list" aria-label="진행 단계 5개와 담당 에이전트 4개의 실행 경로">
+  <div class="motion-map-scroll"><div class="flow-map" role="list" aria-label="MCP 조회 단계 2개와 진행 단계 2개, 담당 에이전트 4개의 실행 경로">
     __NODES__
   </div></div>
   <div class="motion-detail" aria-live="polite" aria-atomic="true">
@@ -229,13 +254,14 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
   const stepSeconds = 1.15;
   const duration = steps.length * stepSeconds;
   const statusLabels = {SUCCESS:"성공",PASS:"통과",ERROR:"오류",FAILED:"실패",WAITING:"대기",PENDING:"대기"};
-  const hasMcpRecord = steps.some(step => step.node === "data");
+  const hasPlanningRecord = steps.some(step => step.node === "planning_data");
+  const hasValidationRecord = steps.some(step => step.node === "validation_data");
   let position = reduce ? duration : 0;
   let playing = !reduce;
   let visible = true;
   let frameId = 0;
   let lastFrame = null;
-  const routeKey = (a, b) => [a, b].sort().join(":");
+  const routeKey = (a, b) => `${a}:${b}`;
 
   function routePath(from, to) {
     const bounds = map.getBoundingClientRect();
@@ -305,7 +331,7 @@ def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -
     nodes.forEach((node, key) => {
       const visit = visits.get(key);
       node.classList.remove("visited", "current", "tone-pass", "tone-failed", "tone-recovery", "tone-waiting");
-      node.querySelector(".flow-state").textContent = visit ? statusLabels[visit.step.status] || visit.step.status : key === "data" && !hasMcpRecord ? "Trace 기록 없음" : "미실행";
+      node.querySelector(".flow-state").textContent = visit ? statusLabels[visit.step.status] || visit.step.status : (key === "planning_data" && !hasPlanningRecord) || (key === "validation_data" && !hasValidationRecord) ? "Trace 기록 없음" : "미실행";
       const count = node.querySelector(".flow-count");
       count.hidden = !visit || visit.count < 2;
       count.textContent = visit ? `${visit.count}회` : "";
