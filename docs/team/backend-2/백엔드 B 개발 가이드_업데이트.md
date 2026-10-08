@@ -222,3 +222,7 @@ Planner 지시에는 기획용 Context가 전달되면 허용된 콘텐츠·보�
 B Engine은 오류 없이 다음 단계로 넘어갈 때 `actor=supervisor`, `phase=routing`, `status=SUCCESS` 이벤트를 만든다. Agent 호출은 `action=RUN_AGENT`와 `next_agent`(`event_planner_agent`·`balance_rule_agent`·`critic_agent`)로, Critic 통과 후 승인 대기 전환은 `action=WAIT_APPROVAL`과 `next_agent=null`로 기록한다. 기획 수정 결정(`RUN_AGENT`), Tool 재시도(`RETRY`), Fallback(`TOOL_FALLBACK`), Agent 재실행(`AGENT_RETRY`), 안전 종료(`SAFE_STOP`)는 `phase=recovery`다. 이전에 `RETRY`·`TOOL_FALLBACK`에 넣던 단계 값(`planning_context`·`validation`·`revalidation`)은 `mcp` 조회 행에만 남는다. 이벤트에는 `next_agent` 키가 추가됐다.
 
 이 변경은 A의 `TraceEntry.phase` 허용 값과 `next_agent` 필드, Adapter의 전달이 함께 바뀌어야 API에서 동작한다. A 반영 전에는 `backend-test`에 병합하지 않는다. 사례별 값과 확인 범위는 같은 폴더의 `frontend_trace_handoff.md` 마지막 절에 있다.
+
+### `feature/demo-game` 병합 후 상태
+
+위의 A 반영 대기 설명은 과거 기록이다. 현재 병합 브랜치에는 A `TraceEntry`와 Adapter의 `routing`·`recovery`·`next_agent` 지원이 포함되어 있다. 실제 MCP HTTP 서버와 Backend API의 `backend_b_mcp` 실행으로 6가지 Trace를 다시 수집했다. 최신 결과와 기존 실제 LLM 기록의 구분은 `frontend_trace_handoff.md`의 마지막 절을 따른다. `backend_b_live`는 Supervisor·Balance & Rule까지 실제 LLM을 사용하며, 네 Agent 선택형 실제 LLM 시험 2건이 통과했다. 실제 OpenAI·MCP·격리된 임시 PostgreSQL을 함께 사용하는 정상 API 요청 1건도 `WAITING_APPROVAL`에 도달했다. 공용 DB와 반복 품질 평가는 별도 검증 대상이다.

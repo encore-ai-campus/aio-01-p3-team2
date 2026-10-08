@@ -83,3 +83,24 @@ B 이벤트에 추가·변경된 값은 다음과 같다.
 - 안전 종료한 Task에는 실행되지 않은 전환이 기록되지 않는다. 첫 기획용 조회가 계속 실패하면 `routing` 행이 하나도 없고, 기획 수정 한도 초과 시에는 Critic 호출과 `WAIT_APPROVAL` 행이 없다.
 
 확인 방법과 범위: B Engine 단위 시험(`backend/tests/test_workflow.py`의 경로 기록 시험 5건)으로 정상·기획 수정·조회 실패·수정 한도 초과·Tool/Agent 재시도를 확인했다. A Schema에 두 값과 `next_agent`를 임시로 추가한 상태에서 실제 MCP 서버와 API(`backend_b_mcp`)로 정상·기획 오류·검증 조회 재시도·Agent 재실행·첫 조회 실패 5개 사례를 실행해 `GET /api/tasks/{task_id}/trace`에 위 값이 나오는 것을 확인했다. 임시 변경은 되돌렸으며 A 소유 파일은 커밋하지 않았다. 위 `trace_samples/`의 JSON은 이 변경 이전 응답이므로 `routing`·`recovery`·`next_agent`가 없다. A 반영 후 다시 수집한다.
+
+## `feature/demo-game` 병합 후 재검증 (2026-10-08)
+
+이 절은 위의 과거 A 반영 대기 기록보다 최신이다. 현재 A `TraceEntry`는 `routing`·`recovery`와 `next_agent`를 허용하고 Adapter가 B 값을 저장한다. `backend_b_mcp`(Mock LLM, 실제 MCP HTTP 서버, JSON 기본 게임 데이터, 인메모리 Repository)로 API를 실행해 `GET /api/tasks/{task_id}/trace` 전체 응답을 다시 저장했다.
+
+| 파일 | 실행 결과 | Trace 행 수 | 핵심 확인 |
+| --- | --- | ---: | --- |
+| `trace_samples/normal_mock_llm.json` | `WAITING_APPROVAL` | 23 | `routing` 4행 |
+| `trace_samples/planning_error_mock_llm.json` | `WAITING_APPROVAL` | 39 | 기획 수정 `recovery`, 재검증 후 승인 대기 |
+| `trace_samples/validation_lookup_retry.json` | `WAITING_APPROVAL` | 25 | MCP 조회 오류 뒤 `recovery/RETRY` |
+| `trace_samples/primary_fallback.json` | `WAITING_APPROVAL` | 25 | Primary 오류 뒤 `recovery/TOOL_FALLBACK` |
+| `trace_samples/agent_retry.json` | `WAITING_APPROVAL` | 24 | Agent 실패 뒤 `recovery/AGENT_RETRY` |
+| `trace_samples/planning_lookup_failure.json` | `FAILED` | 10 | 기획용 MCP 조회 실패, Retry 후 Safe Stop; `routing` 없음 |
+
+위 6개 파일은 실제 API의 Trace 응답 전체이며 `phase`와 `next_agent`를 포함한다. 이 시점의 `normal_live_llm.json`과 `planning_error_live_llm.json`은 이전 실제 LLM 실행 기록으로 보존했다. 두 파일은 Supervisor 경로 결정 Trace 반영 전의 응답이므로 당시 최신 네 Agent LLM 경로의 검증 자료로 사용하지 않았다.
+
+### 임시 PostgreSQL을 사용한 최신 네 Agent 실제 LLM 확인
+
+격리된 일회용 PostgreSQL에 Backend A의 `apply_game_data_catalog.py`로 `tiny_heroes` 한 행을 적용하고, Backend 저장소와 MCP Primary 조회를 같은 DB에 연결했다. `backend_b_live` API에 실제 OpenAI, 실제 MCP HTTP 서버, PostgreSQL을 함께 사용한 정상 1일 요청이 `WAITING_APPROVAL`·Critic `PASS`·규칙 검증 `true`로 끝났다. Trace 15행에 기획 전 조회 `primary`와 Supervisor의 `routing` LLM 판단 4행이 있으며, Balance & Rule의 검증 이유에도 실제 `LLM 판단:`이 있다. 이 실행의 전체 API Trace로 `trace_samples/normal_live_llm.json`을 교체했다. 모델의 반복 품질 평가나 공용 DB 시험을 뜻하지 않는다.
+
+`trace_samples/planning_error_live_llm.json`만은 여전히 네 Agent 확장 전의 역사적 실제 LLM 응답이다. 최신 구성에서 기획 오류·복구를 실제 LLM으로 다시 수집하려면 별도 실행이 필요하다.

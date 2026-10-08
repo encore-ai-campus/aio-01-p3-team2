@@ -2,7 +2,7 @@
 
 ## 상태
 
-2026-10-08 추가 개발 흐름이다. Backend B에는 주입 가능한 기획용 조회 경계와 Mock 실행·Trace 시험이 추가됐다. MCP 서버의 `get_event_planning_context`는 `port` 병합 후 실제 HTTP 호출과 B 응답 검증을 통과했다. 최신 Backend A Adapter는 Loader를 생성하지만 B Engine에는 아직 주입하지 않아 현재 API Workflow는 Planner를 먼저 실행한다. 새 순서의 API 통합 검증은 완료되지 않았다.
+2026-10-08 추가 개발 흐름이다. 현재 `feature/demo-game`에는 Backend A Adapter의 기획용 Loader 주입이 반영되어, `backend_b_mcp` API가 MCP 기획용 조회를 Planner보다 먼저 실행한다. 실제 MCP HTTP 서버와 JSON 기본 데이터·인메모리 Repository에서 정상·복구 경로의 API Trace를 확인했다. 최신 네 Agent 실제 LLM 시험과 실제 OpenAI·MCP·격리된 임시 PostgreSQL을 함께 사용하는 정상 API 요청 1건도 통과했다. 공용 PostgreSQL과 실제 LLM의 반복 품질 평가는 별도 검증 대상이다. 이전 개발 단계의 기록은 아래 목표·실패 처리 설명과 `docs/team/backend-2/handoff.md`에 남긴다.
 
 ## 목표 실행 순서
 
