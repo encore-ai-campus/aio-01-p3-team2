@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>작은 영웅의 이벤트 모험</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/game.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">✦</span> OPONG HEROES <span class="tag">PLAY LAB</span></div>
+      <span class="demo-label">승인 이벤트 플레이 데모</span>
+    </header>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">LIVE EVENT · MINI GAME</p>
+        <h1>기획한 이벤트를<br><em>직접 플레이해 보세요.</em></h1>
+        <p>운영 화면에서 승인한 이벤트의 미션과 보상을 작은 게임에 불러옵니다. 실제 캐릭터 데이터나 보상 지급은 변경하지 않습니다.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true"><span class="star one">✦</span><span class="star two">✧</span><div class="avatar">⚔️</div><div class="orb">✦</div><span class="hero-caption">TINY HERO · BIG QUEST</span></div>
+    </section>
+
+    <section class="load-panel" aria-label="이벤트 불러오기">
+      <div><h2>이벤트 연결</h2><p>운영자 화면의 승인 완료 Task ID를 입력하세요.</p></div>
+      <form id="load-form" class="load-form">
+        <label class="sr-only" for="task-id">Task ID</label>
+        <input id="task-id" name="task-id" placeholder="TASK-XXXXXXXXXXXX" autocomplete="off" spellcheck="false" required>
+        <button type="submit" id="load-button">이벤트 불러오기 <span aria-hidden="true">→</span></button>
+      </form>
+    </section>
+
+    <p id="message" class="message" role="status" aria-live="polite">승인한 이벤트를 연결하면 모험이 시작됩니다.</p>
+
+    <section id="game" class="game hidden" aria-label="이벤트 게임">
+      <div class="game-heading"><div><p class="eyebrow">ACTIVE EVENT</p><h2 id="event-name"></h2><p id="event-meta"></p></div><button id="reset-button" class="ghost" type="button">진행 초기화</button></div>
+      <div class="game-grid">
+        <div class="arena-card">
+          <div class="arena-top"><span id="day-badge" class="pill"></span><span id="progress-text"></span></div>
+          <div class="arena"><div class="ground"></div><div class="player" aria-hidden="true">🛡️</div><button id="target-button" class="target" type="button" aria-label="미션 행동 수행">👾</button><span id="hit-effect" class="hit-effect" aria-hidden="true">+1</span></div>
+          <div class="mission-info"><p class="eyebrow">TODAY'S QUEST</p><h3 id="mission-name"></h3><p id="mission-detail"></p><div class="progress-track"><div id="progress-fill"></div></div><button id="action-button" type="button">미션 진행하기</button></div>
+        </div>
+        <aside class="side-panel"><div class="panel-block"><p class="eyebrow">EVENT ROADMAP</p><h3>모험 일정</h3><div id="days" class="days"></div></div><div class="panel-block rewards"><p class="eyebrow">REWARD BAG</p><h3>획득 보상</h3><div id="reward-list"></div></div></aside>
+      </div>
+      <div id="complete" class="complete hidden"><span>✦</span><h2>이벤트 클리어!</h2><p>모든 미션을 완료했습니다. 보상은 이 데모 화면에만 기록됩니다.</p></div>
+    </section>
+    <footer>이 게임은 API 연동 확인용입니다. 진행도와 보상은 이 브라우저에만 저장됩니다.</footer>
+  </main>
+</body>
+</html>
