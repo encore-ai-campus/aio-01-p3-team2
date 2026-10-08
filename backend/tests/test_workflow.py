@@ -10,8 +10,10 @@ from backend.app.agents.supervisor import Supervisor
 from backend.app.guards.tool_guard import ToolGuard
 from backend.app.orchestration.engine import WorkflowEngine
 from backend.app.orchestration.handoff import Handoff, HandoffStatus
+from backend.app.orchestration.planning_context import validate_planning_context
 from backend.app.services.llm_service import LLMService
-from backend.app.services.mcp_client import MCPClient
+from backend.app.services.mcp_client import MCPClient, MCPTimeoutError, MCPToolError
+from backend.app.services.planning_context_loader import PlanningContextLoader
 
 
 def payload(**overrides):
@@ -131,6 +133,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         """각 시험에서 호출 기록과 Event Brief를 새로 만든다."""
         self.tool_calls: list[str] = []
         self.trace_events: list[dict[str, object]] = []
+        self.planner_contexts: list[dict[str, object]] = []
         self.brief = {
             "event_name": "가을 이벤트",
             "target_user": "new_user",
@@ -143,6 +146,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         """Planner는 검증 가능한 계획을, Critic은 PASS를 반환한다."""
         if agent_name == "critic_agent":
             return {"status": "PASS", "error_type": None, "reason": "기획 목적에 맞습니다."}
+        self.planner_contexts.append(deepcopy(context))
         return {
             "target_user": self.brief["target_user"],
             "duration": self.brief["duration"],
@@ -189,12 +193,13 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         """Trace 저장 요청을 시험용 목록에 기록한다."""
         self.trace_events.append(deepcopy(event))
 
-    def _engine(self, *, revision_loader=None) -> WorkflowEngine:
+    def _engine(self, *, revision_loader=None, planning_context_loader=None) -> WorkflowEngine:
         """동일한 정책과 Mock 전송을 연결한 Workflow Engine을 만든다."""
         policy = {
             "context_access": {
                 "event_planner_agent": [
                     "user_request",
+                    "planning_context",
                     "event_plan",
                     "error_type",
                     "error_reason",
@@ -228,7 +233,231 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
             Critic(llm),
             revision_loader=revision_loader,
             trace_sink=self._trace,
+            planning_context_loader=planning_context_loader,
         )
+
+    @staticmethod
+    def _planning_context(version: str = "tinyheroes-1.0.0") -> dict[str, object]:
+        """확정된 MCP 응답의 ID별 자료와 요청 대상의 성장 기준이다."""
+        return {
+            "target_user": "new_user",
+            "duration": 7,
+            "contents": {
+                "HUNT_001": {"content_name": "일반 사냥", "required_level": 1},
+                "DUNGEON_001": {"content_name": "일반 던전", "required_level": 10},
+            },
+            "items": {"ITEM_001": {"item_name": "성장 상자"}},
+            "user_segments": {
+                "new_user": {
+                    "validation_policy": "expected_level",
+                    "expected_levels": {"1": 3, "3": 8, "5": 12, "7": 15},
+                }
+            },
+            "game_data_version": version,
+            "source": "primary",
+            "api_key": "MUST_NOT_REACH_PLANNER",
+        }
+
+    def test_planning_context_uses_sparse_day_levels_and_filters_content(self) -> None:
+        """3일 기획에는 1·3일 기준만 쓰고 접근 불가 콘텐츠를 제외한다."""
+        data = self._planning_context()
+        data["duration"] = 3
+        data["user_segments"]["new_user"]["expected_levels"] = {"1": 3, "3": 8}
+        result = validate_planning_context(data, "new_user", 3)
+        self.assertEqual(result["daily_expected_levels"], {"1": 3, "3": 8})
+        self.assertEqual(
+            result["available_contents"], [{"content_id": "HUNT_001", "required_level": 1}]
+        )
+        self.assertNotIn("user_segments", result)
+        self.assertNotIn("api_key", result)
+
+    def test_all_user_uses_content_access_only(self) -> None:
+        """전체 유저는 성장 레벨 대신 공통 접근 레벨로 콘텐츠를 제한한다."""
+        data = self._planning_context()
+        data["target_user"] = "all_user"
+        data["user_segments"] = {
+            "all_user": {
+                "validation_policy": "content_access_only",
+                "common_access_max_required_level": 1,
+            }
+        }
+        result = validate_planning_context(data, "all_user", 7)
+        self.assertEqual(result["common_access_max_required_level"], 1)
+        self.assertNotIn("daily_expected_levels", result)
+        self.assertEqual(len(result["available_contents"]), 1)
+
+    def test_planning_context_rejects_request_mismatch_and_unavailable_fallback(self) -> None:
+        """다른 대상의 응답과 계약되지 않은 기획용 Fallback은 사용하지 않는다."""
+        data = self._planning_context()
+        with self.assertRaises(MCPToolError):
+            validate_planning_context(data, "returning_user", 7)
+        data["source"] = "fallback_snapshot"
+        with self.assertRaises(MCPToolError):
+            validate_planning_context(data, "new_user", 7)
+
+    async def test_planning_context_precedes_planner_and_validation_queries(self) -> None:
+        """기획용 조회, 초안, ID 재조회, 규칙 검증, Critic 순서를 확인한다."""
+
+        async def load(target_user: str, duration: int) -> Mapping[str, object]:
+            self.assertEqual((target_user, duration), ("new_user", 7))
+            return self._planning_context()
+
+        result = await self._engine(planning_context_loader=load).run("task-plan", self.brief)
+        self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+        actions = [(event["actor"], event["action"]) for event in self.trace_events]
+        required = [
+            ("mcp", "get_event_planning_context"),
+            ("event_planner_agent", "create_plan"),
+            ("mcp", "get_game_rules"),
+            ("balance_rule_agent", "validate_plan"),
+            ("critic_agent", "final_review"),
+        ]
+        positions = [actions.index(value) for value in required]
+        self.assertEqual(positions, sorted(positions))
+        self.assertEqual(self.trace_events[0]["phase"], "planning_context")
+        self.assertEqual(self.trace_events[0]["data_source"], "primary")
+        self.assertEqual(
+            self.planner_contexts[0]["planning_context"]["game_data_version"], "tinyheroes-1.0.0"
+        )
+        self.assertNotIn("api_key", self.planner_contexts[0]["planning_context"])
+
+    async def test_a_loader_and_b_engine_share_planning_context_boundary(self) -> None:
+        """A의 실제 Loader가 B의 기획 전 조회·정보 제한 경계와 이어진다."""
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        async def transport(tool_name: str, arguments: dict[str, object]):
+            calls.append((tool_name, arguments))
+            return {**arguments, **self._planning_context()}
+
+        loader = PlanningContextLoader(transport).load
+        result = await self._engine(planning_context_loader=loader).run("task-a-loader", self.brief)
+        self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+        self.assertEqual(
+            calls,
+            [("get_event_planning_context", {"target_user": "new_user", "duration": 7})],
+        )
+        self.assertNotIn("api_key", self.planner_contexts[0]["planning_context"])
+        self.assertEqual(self.trace_events[0]["action"], "get_event_planning_context")
+        self.assertEqual(self.trace_events[0]["phase"], "planning_context")
+
+    async def test_a_loader_envelope_passes_but_invalid_details_stop_before_planner(self) -> None:
+        """A 최소 필드를 통과해도 B가 상세 기획 자료 누락을 차단한다."""
+        calls = 0
+
+        async def transport(_tool_name: str, arguments: dict[str, object]):
+            nonlocal calls
+            calls += 1
+            return {
+                **arguments,
+                "contents": {},
+                "items": {},
+                "user_segments": {},
+                "game_data_version": "tinyheroes-1.0.0",
+                "source": "primary",
+            }
+
+        loader = PlanningContextLoader(transport).load
+        result = await self._engine(planning_context_loader=loader).run(
+            "task-b-invalid", self.brief
+        )
+        self.assertEqual(result.workflow_status, "FAILED")
+        self.assertIsNone(result.current_result)
+        self.assertEqual(result.error["error_type"], "mcp_tool_error")
+        self.assertEqual(calls, 4)
+        self.assertEqual(self.planner_contexts, [])
+
+    async def test_planning_error_records_supervisor_and_revalidation(self) -> None:
+        """규칙 오류 뒤 수정 결정·재생성·MCP 재조회·재검증을 남긴다."""
+
+        async def load(_target_user: str, _duration: int) -> Mapping[str, object]:
+            return self._planning_context()
+
+        result = await self._engine(planning_context_loader=load).run(
+            "task-replan", self.brief, "mission_unreachable_once"
+        )
+        self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+        actions = [(event["actor"], event["action"]) for event in self.trace_events]
+        failed = actions.index(("balance_rule_agent", "validate_plan"))
+        decision = actions.index(("supervisor", "RUN_AGENT"))
+        revised = actions.index(("event_planner_agent", "regenerate_plan"))
+        requery = next(
+            index
+            for index, event in enumerate(self.trace_events)
+            if event["actor"] == "mcp" and event["phase"] == "revalidation"
+        )
+        passed = next(
+            index
+            for index, event in enumerate(self.trace_events)
+            if event["action"] == "validate_plan" and event["status"] == "SUCCESS"
+        )
+        self.assertLess(failed, decision)
+        self.assertLess(decision, revised)
+        self.assertLess(revised, requery)
+        self.assertLess(requery, passed)
+        self.assertEqual(self.trace_events[failed]["status"], "ERROR")
+
+    async def test_first_mcp_lookup_failure_stops_before_planner(self) -> None:
+        """첫 조회가 계속 실패하면 추측한 기획안을 만들지 않는다."""
+        calls = 0
+
+        async def load(_target_user: str, _duration: int) -> Mapping[str, object]:
+            nonlocal calls
+            calls += 1
+            raise MCPTimeoutError("get_event_planning_context")
+
+        result = await self._engine(planning_context_loader=load).run("task-no-data", self.brief)
+        self.assertEqual(result.workflow_status, "FAILED")
+        self.assertIsNone(result.current_result)
+        self.assertEqual(result.error["error_type"], "mcp_timeout")
+        self.assertEqual(calls, 4)
+        self.assertEqual(self.planner_contexts, [])
+        self.assertEqual(
+            [event["actor"] for event in self.trace_events if event["action"] == "RETRY"],
+            ["supervisor"] * 3,
+        )
+
+    async def test_planning_and_validation_versions_must_match(self) -> None:
+        """기획 전후 게임 데이터 버전이 다르면 승인 후보를 버린다."""
+
+        async def load(_target_user: str, _duration: int) -> Mapping[str, object]:
+            return self._planning_context("tinyheroes-2.0.0")
+
+        result = await self._engine(planning_context_loader=load).run("task-version", self.brief)
+        self.assertEqual(result.workflow_status, "FAILED")
+        self.assertIsNone(result.current_result)
+        self.assertEqual(result.error["error_type"], "mcp_tool_error")
+        self.assertTrue(
+            any(
+                event["action"] == "validate_plan" and event["status"] == "ERROR"
+                for event in self.trace_events
+            )
+        )
+
+    async def test_invalid_days_without_lookup_allow_planner_revision(self) -> None:
+        """조회 전 Day 오류는 버전 누락 장애로 오분류하지 않는다."""
+        original = self._llm
+        calls = 0
+
+        async def invalid_first_plan(agent_name: str, context: dict[str, object]):
+            nonlocal calls
+            plan = dict(await original(agent_name, context))
+            if agent_name == "event_planner_agent":
+                calls += 1
+                if calls == 1:
+                    plan["missions"][0]["day"] = 8
+                    plan["rewards"][0]["day"] = 8
+            return plan
+
+        async def load(_target_user: str, _duration: int) -> Mapping[str, object]:
+            return self._planning_context()
+
+        self._llm = invalid_first_plan
+        result = await self._engine(planning_context_loader=load).run(
+            "task-invalid-day", self.brief
+        )
+        self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+        self.assertEqual(result.revision_count, 1)
+        self.assertEqual(calls, 2)
 
     async def test_normal_path_waits_for_approval(self) -> None:
         """검증된 후보에만 표시 이름과 승인 대기 상태가 생긴다."""
@@ -253,6 +482,17 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
         self.assertEqual(result.rule_validation["data_source"], "fallback_snapshot")
         self.assertIn("get_game_rules_fallback", self.tool_calls)
+        events = [(event["actor"], event["action"], event["status"]) for event in self.trace_events]
+        failed = events.index(("mcp", "get_game_rules", "ERROR"))
+        fallback = next(
+            index
+            for index, event in enumerate(self.trace_events)
+            if event["actor"] == "supervisor" and event["action"] == "TOOL_FALLBACK"
+        )
+        restored = events.index(("mcp", "get_game_rules_fallback", "SUCCESS"))
+        self.assertLess(failed, fallback)
+        self.assertLess(fallback, restored)
+        self.assertIsNone(self.trace_events[failed]["game_data_version"])
 
     async def test_timeout_retries_same_tool(self) -> None:
         """MCP Timeout은 Planner를 재실행하지 않고 같은 Tool을 재시도한다."""
@@ -263,6 +503,56 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertNotIn("get_game_rules_fallback", self.tool_calls)
         self.assertEqual(result.retry_count, 0)
+        events = [(event["actor"], event["action"], event["status"]) for event in self.trace_events]
+        failed = events.index(("mcp", "get_game_rules", "ERROR"))
+        retry = events.index(("supervisor", "RETRY", "SUCCESS"))
+        recovered = events.index(("mcp", "get_game_rules", "SUCCESS"))
+        self.assertLess(failed, retry)
+        self.assertLess(retry, recovered)
+        self.assertEqual(self.trace_events[failed]["phase"], "validation")
+        self.assertEqual(self.trace_events[failed]["error_type"], "mcp_timeout")
+        self.assertIsNone(self.trace_events[failed]["game_data_version"])
+
+    async def test_reward_lookup_failure_records_retry_then_succeeds(self) -> None:
+        """보상 Tool 오류도 MCP 실패와 Supervisor 결정을 별개로 기록한다."""
+        original = self._mcp
+        calls = 0
+
+        async def timeout_item_once(tool_name: str, arguments: dict[str, str]):
+            nonlocal calls
+            if tool_name == "get_item_info":
+                calls += 1
+                if calls == 1:
+                    raise TimeoutError("일시적 보상 조회 시간 초과")
+            return await original(tool_name, arguments)
+
+        self._mcp = timeout_item_once
+        result = await self._engine().run("task-reward-timeout", self.brief)
+        self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+        events = [(event["actor"], event["action"], event["status"]) for event in self.trace_events]
+        failed = events.index(("mcp", "get_item_info", "ERROR"))
+        retry = events.index(("supervisor", "RETRY", "SUCCESS"))
+        recovered = events.index(("mcp", "get_item_info", "SUCCESS"))
+        self.assertLess(failed, retry)
+        self.assertLess(retry, recovered)
+        self.assertEqual(self.trace_events[failed]["error_type"], "mcp_timeout")
+
+    async def test_reward_without_version_cannot_be_approved(self) -> None:
+        """보상 조회의 버전 누락은 다른 조회 버전으로 대신하지 않는다."""
+        original = self._mcp
+
+        async def item_without_version(tool_name: str, arguments: dict[str, str]):
+            result = dict(await original(tool_name, arguments))
+            if tool_name == "get_item_info":
+                result.pop("game_data_version")
+            return result
+
+        self._mcp = item_without_version
+        result = await self._engine().run("task-no-item-version", self.brief)
+        self.assertEqual(result.workflow_status, "FAILED")
+        self.assertIsNone(result.current_result)
+        self.assertEqual(result.error["error_type"], "mcp_tool_error")
+        self.assertFalse(any(event["actor"] == "critic_agent" for event in self.trace_events))
 
     async def test_missing_item_stops_after_revision_limit(self) -> None:
         """없는 아이템을 끝내 고치지 못하면 미검증 후보 없이 종료한다."""

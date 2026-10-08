@@ -18,6 +18,34 @@ from backend.app.services.mcp_client import (
 class TransportTests(unittest.IsolatedAsyncioTestCase):
     """SDK 응답의 구조화 데이터와 Tool 오류를 분리해 확인한다."""
 
+    async def test_planning_context_tool_uses_backend_permission(self) -> None:
+        """Planner 권한 없이 Backend의 검증 담당 Tool 정책으로 기획 자료를 조회한다."""
+        calls: list[tuple[str, dict[str, object]]] = []
+
+        async def transport(tool_name: str, arguments: dict[str, object]):
+            calls.append((tool_name, arguments))
+            return {"game_data_version": "tinyheroes-1.0.0"}
+
+        guard = ToolGuard(
+            {
+                "workers": {
+                    "balance_rule_agent": {"allowed_tools": ["get_event_planning_context"]},
+                    "event_planner_agent": {"allowed_tools": []},
+                }
+            }
+        )
+        client = MCPClient(transport, guard, 1)
+        result = await client.get_event_planning_context("balance_rule_agent", "new_user", 7)
+        self.assertEqual(result["game_data_version"], "tinyheroes-1.0.0")
+        self.assertEqual(
+            calls, [("get_event_planning_context", {"target_user": "new_user", "duration": 7})]
+        )
+        with self.assertRaises(PermissionError):
+            await client.get_event_planning_context("event_planner_agent", "new_user", 7)
+        with self.assertRaises(PermissionError):
+            await client.get_event_planning_context("balance_rule_agent", "new_user", 8)
+        self.assertEqual(len(calls), 1)
+
     async def test_openai_transport_requests_strict_json_schema(self) -> None:
         """Planner 요청에 Agent 지시와 엄격한 JSON Schema를 함께 전달한다."""
         calls: list[dict[str, object]] = []
