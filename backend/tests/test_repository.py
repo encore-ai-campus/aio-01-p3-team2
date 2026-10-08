@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pytest
 from backend.app.repositories.postgres import SqlAlchemyRepository
 from backend.app.schemas.event import EventBrief
 from backend.app.schemas.workflow_state import (
@@ -8,6 +9,7 @@ from backend.app.schemas.workflow_state import (
     TraceEntry,
     WorkflowStatus,
 )
+from backend.app.services.db_service import InMemoryRepository
 
 
 def test_sqlalchemy_repository_round_trip():
@@ -57,3 +59,32 @@ def test_sqlalchemy_repository_round_trip():
     assert repository.get_tool_logs(task.task_id)[0].tool == "get_game_rules"
     assert repository.find_idempotency("event:key") == ("hash", task.task_id)
     assert repository.ready() is True
+
+
+@pytest.mark.parametrize(
+    "repository_factory", [InMemoryRepository, lambda: SqlAlchemyRepository("sqlite://")]
+)
+def test_task_list_uses_creation_order_when_timestamps_match(repository_factory):
+    repository = repository_factory()
+    timestamp = datetime.now().astimezone()
+    tasks = [
+        TaskRecord(
+            task_id=task_id,
+            actor_id="liveops01",
+            brief=EventBrief(
+                event_name=task_id,
+                target_user="new_user",
+                duration=3,
+                objective="생성 순서 검증",
+            ),
+            workflow_status=WorkflowStatus.RUNNING,
+            created_at=timestamp,
+            updated_at=timestamp,
+        )
+        for task_id in ("TASK-Z-FIRST", "TASK-A-SECOND")
+    ]
+    for task in tasks:
+        repository.create_task(task)
+
+    assert repository.list_tasks(1) == [tasks[1]]
+    assert repository.list_tasks(2) == tasks[::-1]

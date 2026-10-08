@@ -14,6 +14,8 @@ class InMemoryRepository:
         self._traces: dict[str, list[TraceEntry]] = {}
         self._tool_logs: dict[str, list[ToolLogEntry]] = {}
         self._idempotency: dict[str, tuple[str, str]] = {}
+        self._creation_order: dict[str, int] = {}
+        self._next_creation_order = 0
         self._lock = RLock()
 
     def reset(self) -> None:
@@ -22,10 +24,14 @@ class InMemoryRepository:
             self._traces.clear()
             self._tool_logs.clear()
             self._idempotency.clear()
+            self._creation_order.clear()
+            self._next_creation_order = 0
 
     def create_task(self, task: TaskRecord) -> None:
         with self._lock:
             self._tasks[task.task_id] = deepcopy(task)
+            self._next_creation_order += 1
+            self._creation_order[task.task_id] = self._next_creation_order
             self._traces[task.task_id] = []
             self._tool_logs[task.task_id] = []
 
@@ -42,7 +48,11 @@ class InMemoryRepository:
 
     def list_tasks(self, limit: int) -> list[TaskRecord]:
         with self._lock:
-            tasks = sorted(self._tasks.values(), key=lambda item: item.created_at, reverse=True)
+            tasks = sorted(
+                self._tasks.values(),
+                key=lambda item: (item.created_at, self._creation_order[item.task_id]),
+                reverse=True,
+            )
             return deepcopy(tasks[:limit])
 
     def append_trace(self, task_id: str, trace: TraceEntry) -> None:

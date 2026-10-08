@@ -24,6 +24,13 @@ class WorkflowRunRow(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class TaskCreationOrderRow(Base):
+    __tablename__ = "task_creation_order"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_id: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+
+
 class TraceRow(Base):
     __tablename__ = "traces"
 
@@ -64,12 +71,27 @@ class SqlAlchemyRepository:
         self.engine = create_engine(database_url, **options)
         if create_schema:
             Base.metadata.create_all(self.engine)
+            self._backfill_creation_order()
+
+    def _backfill_creation_order(self) -> None:
+        with Session(self.engine) as session, session.begin():
+            rows = session.scalars(
+                select(WorkflowRunRow)
+                .outerjoin(
+                    TaskCreationOrderRow, WorkflowRunRow.task_id == TaskCreationOrderRow.task_id
+                )
+                .where(TaskCreationOrderRow.id.is_(None))
+                .order_by(WorkflowRunRow.created_at, WorkflowRunRow.task_id)
+            )
+            for row in rows:
+                session.add(TaskCreationOrderRow(task_id=row.task_id))
 
     def reset(self) -> None:
         with Session(self.engine) as session, session.begin():
             session.execute(delete(ToolLogRow))
             session.execute(delete(TraceRow))
             session.execute(delete(IdempotencyRow))
+            session.execute(delete(TaskCreationOrderRow))
             session.execute(delete(WorkflowRunRow))
 
     def create_task(self, task: TaskRecord) -> None:
@@ -83,6 +105,7 @@ class SqlAlchemyRepository:
                     updated_at=task.updated_at,
                 )
             )
+            session.add(TaskCreationOrderRow(task_id=task.task_id))
 
     def get_task(self, task_id: str) -> TaskRecord | None:
         with Session(self.engine) as session:
@@ -100,7 +123,10 @@ class SqlAlchemyRepository:
     def list_tasks(self, limit: int) -> list[TaskRecord]:
         with Session(self.engine) as session:
             rows = session.scalars(
-                select(WorkflowRunRow).order_by(WorkflowRunRow.created_at.desc()).limit(limit)
+                select(WorkflowRunRow)
+                .join(TaskCreationOrderRow, WorkflowRunRow.task_id == TaskCreationOrderRow.task_id)
+                .order_by(WorkflowRunRow.created_at.desc(), TaskCreationOrderRow.id.desc())
+                .limit(limit)
             )
             return [TaskRecord.model_validate(row.payload) for row in rows]
 

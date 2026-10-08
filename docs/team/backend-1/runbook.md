@@ -19,6 +19,11 @@ python -m uvicorn backend.app.main:app --reload
 `DATABASE_URL`이 비어 있으면 인메모리 Repository를 사용한다. 프로세스를 다시 시작하면 데이터가
 사라지므로 실제 연동 환경에서는 PostgreSQL URL을 설정한다.
 
+Task 목록은 생성 시각 내림차순으로 반환한다. 생성 시각이 같으면 저장소가 기록한 생성 순번의
+내림차순을 적용한다. PostgreSQL 사용 시 `task_creation_order` 테이블이 자동 생성되며, 기존
+`workflow_runs` 데이터에 순번이 없으면 시작할 때 생성 시각과 Task ID 순으로 순번을 채운다.
+기존 데이터의 실제 생성 순서는 기록되어 있지 않아 동률 시각의 과거 Task 순서는 복원할 수 없다.
+
 ## 환경변수
 
 | 이름 | 용도 | 기본 동작 |

@@ -36,3 +36,33 @@ def test_postgres_persists_across_repository_instances():
     second = SqlAlchemyRepository(database_url)
     assert second.get_task(task.task_id) == task
     second.reset()
+
+
+@pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
+def test_postgres_lists_same_timestamp_by_creation_order():
+    repository = SqlAlchemyRepository(os.environ["POSTGRES_TEST_URL"])
+    repository.reset()
+    timestamp = datetime.now().astimezone()
+    for task_id in ("TASK-Z-FIRST", "TASK-A-SECOND"):
+        repository.create_task(
+            TaskRecord(
+                task_id=task_id,
+                actor_id="liveops01",
+                brief=EventBrief(
+                    event_name=task_id,
+                    target_user="new_user",
+                    duration=1,
+                    objective="생성 순서 검증",
+                ),
+                workflow_status=WorkflowStatus.RUNNING,
+                created_at=timestamp,
+                updated_at=timestamp,
+            )
+        )
+
+    reopened = SqlAlchemyRepository(os.environ["POSTGRES_TEST_URL"])
+    assert [task.task_id for task in reopened.list_tasks(2)] == [
+        "TASK-A-SECOND",
+        "TASK-Z-FIRST",
+    ]
+    reopened.reset()
