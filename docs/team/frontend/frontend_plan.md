@@ -141,10 +141,7 @@ Supervisor / Agent / MCP / DB
 ## 3-2. 화면 Layout 기준
 전체 페이지는 Wide Layout을 사용합니다.
 ```python
-st.set_page_config(
-    page_title="OPONG HEROES LIVE OPS",
-    layout="wide"
-)
+st.set_page_config(page_title="OPONG HEROES LIVE OPS", layout="wide")
 ```
 Page 1 이벤트 생성 화면은 메인 입력 영역과 보조 정보 영역을 약 70:30 비율로 구성합니다.
 ```python
