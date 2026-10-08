@@ -1,5 +1,7 @@
 """Shared dashboard shell for authenticated Streamlit pages."""
 
+import base64
+from functools import lru_cache
 from html import escape
 from pathlib import Path
 
@@ -8,6 +10,13 @@ import streamlit as st
 from services.session import clear_task
 
 CSS_PATH = Path(__file__).resolve().parents[1] / "styles" / "dashboard.css"
+SIDEBAR_LOGO_PATH = Path(__file__).resolve().parents[1] / "assets" / "sidebar_logo.png"
+
+
+@lru_cache(maxsize=1)
+def _sidebar_logo_data_uri() -> str:
+    encoded = base64.b64encode(SIDEBAR_LOGO_PATH.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
 
 
 def setup_page(title: str, subtitle: str) -> None:
@@ -24,8 +33,9 @@ def setup_page(title: str, subtitle: str) -> None:
 
     with st.sidebar:
         st.markdown(
-            '<div class="sidebar-brand"><span class="brand-crown">♛</span>'
-            "<div><strong>OPONG HEROES</strong><small>LIVE OPS</small></div></div>",
+            '<div class="sidebar-brand">'
+            f'<img class="sidebar-brand-logo" src="{_sidebar_logo_data_uri()}" '
+            'alt="OPONG HEROES LIVE OPS" /></div>',
             unsafe_allow_html=True,
         )
         st.page_link("pages/1_event_create.py", label="이벤트 생성", icon="⭐")

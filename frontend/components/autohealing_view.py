@@ -6,40 +6,133 @@ import streamlit as st
 
 from components.layout import card_title
 
+ACTION_LABELS = {
+    "RUN_AGENT": "Agent 재실행",
+    "RETRY": "기술 재시도",
+    "TOOL_FALLBACK": "대체 Tool 사용",
+    "SAFE_STOP": "복구 실패 후 안전 종료",
+}
 
-def render_autohealing(events: list[dict[str, Any]] | None) -> None:
+
+def _render_change(value: Any) -> None:
+    if not isinstance(value, dict) or not value:
+        st.caption("비교 데이터가 없습니다. 실행 시도는 상세 Trace에서 확인해주세요.")
+        return
+    if value.get("day") is not None:
+        st.write(f"**날짜:** Day {value['day']}")
+    if value.get("mission_name"):
+        st.write(f"**미션:** {value['mission_name']}")
+    content = value.get("content_name") or value.get("content_id")
+    if content:
+        st.write(f"**콘텐츠:** {content}")
+    if value.get("required_level") is not None:
+        st.write(f"**필요 레벨:** Lv.{value['required_level']}")
+    with st.expander("전체 비교 데이터 보기"):
+        st.json(value)
+
+
+def _change_summary(before: Any, after: Any) -> list[str]:
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return []
+    labels = {
+        "content_name": "콘텐츠",
+        "mission_name": "미션",
+        "required_level": "필요 레벨",
+    }
+    changes = []
+    for key, label in labels.items():
+        old, new = before.get(key), after.get(key)
+        if old is None or new is None or old == new:
+            continue
+        if key == "required_level":
+            old, new = f"Lv.{old}", f"Lv.{new}"
+        changes.append(f"{label}: {old} → {new}")
+    return changes
+
+
+def render_autohealing(
+    events: list[dict[str, Any]] | None,
+    rule_validation: dict[str, Any] | None = None,
+) -> None:
     with st.container(key="panel-healing", border=True):
         card_title("⚙", "AutoHealing")
-        if not events:
+        valid_events = [event for event in events or [] if isinstance(event, dict)]
+        if not valid_events:
             st.success("이번 실행에는 AutoHealing이 발생하지 않았습니다.")
             return
 
-        st.warning(f"AutoHealing {len(events)}회 기록")
-        for index, event in enumerate(events, start=1):
-            if not isinstance(event, dict):
-                continue
+        safe_stop = all(event.get("recovery_action") == "SAFE_STOP" for event in valid_events)
+        if safe_stop:
+            st.warning(f"복구 실패·안전 종료 {len(valid_events)}건 기록")
+        else:
+            st.info(f"AutoHealing {len(valid_events)}회 기록")
+        for index, event in enumerate(valid_events, start=1):
             sequence = event.get("sequence", index)
+            status = str(event.get("revalidation_status") or "").upper()
+            status_label = "미실시" if status == "NOT_RUN" else status or "기록 없음"
             with st.expander(
-                f"#{sequence} · {event.get('error_type') or '오류'} · "
-                f"{event.get('revalidation_status') or '재검증 대기'}",
+                f"#{sequence} · {event.get('error_type') or '오류'} · {status_label}",
                 expanded=index == 1,
             ):
+                st.markdown("**왜 실패했나**")
                 if event.get("reason"):
-                    st.error(event["reason"])
-                st.caption(
-                    f"복구 조치: {event.get('recovery_action') or '정보 없음'} · "
+                    st.error(str(event["reason"]))
+                else:
+                    st.caption("실패 이유가 기록되지 않았습니다. 상세 Trace를 확인해주세요.")
+                st.caption(f"오류 유형: {event.get('error_type') or '기록 없음'}")
+
+                st.markdown("**어떻게 대응했나**")
+                action_code = str(event.get("recovery_action") or "")
+                st.info(
+                    f"복구 조치: {ACTION_LABELS.get(action_code, action_code or '정보 없음')} · "
                     f"대상: {event.get('target') or '정보 없음'}"
                 )
-                before, after = st.columns(2)
-                with before:
-                    st.markdown("**수정 전**")
-                    if event.get("before") is not None:
-                        st.json(event["before"])
+                if event.get("attempts") is not None:
+                    st.caption(f"기술 재시도: {event['attempts']}회")
+                for change in _change_summary(event.get("before"), event.get("after")):
+                    st.write(f"- {change}")
+                if event.get("before") is not None or event.get("after") is not None:
+                    before, after = st.columns(2)
+                    with before:
+                        st.markdown("#### 수정 전")
+                        _render_change(event.get("before"))
+                    with after:
+                        st.markdown("#### 수정 후")
+                        _render_change(event.get("after"))
+                else:
+                    st.caption(
+                        "수정 전후 비교는 없습니다. 기술 재시도 과정은 상세 Trace에 기록됩니다."
+                    )
+
+                st.markdown("**재검증 결과와 이유**")
+                if status == "PASS":
+                    st.success("재검증 PASS로 기록됐습니다.")
+                    final_rule = (
+                        rule_validation
+                        if index == len(valid_events) and isinstance(rule_validation, dict)
+                        else None
+                    )
+                    if final_rule and final_rule.get("is_valid") is True:
+                        if final_rule.get("reason"):
+                            st.write(str(final_rule["reason"]))
+                        else:
+                            st.caption("최종 규칙 검증의 상세 성공 이유가 제공되지 않았습니다.")
+                        evidence = final_rule.get("evidence")
+                        if isinstance(evidence, dict) and evidence:
+                            expected = evidence.get("expected_level")
+                            required = evidence.get("required_level")
+                            if expected is not None and required is not None:
+                                st.caption(
+                                    f"검증 수치: 대상 유저 예상 Lv.{expected} · "
+                                    f"수정 후 콘텐츠 필요 Lv.{required}"
+                                )
+                            with st.expander("재검증 근거 데이터 보기"):
+                                st.json(evidence)
                     else:
-                        st.caption("비교 데이터 없음")
-                with after:
-                    st.markdown("**수정 후**")
-                    if event.get("after") is not None:
-                        st.json(event["after"])
-                    else:
-                        st.caption("비교 데이터 없음")
+                        st.caption("PASS 기록은 있으나 상세 성공 근거는 제공되지 않았습니다.")
+                elif status in {"ERROR", "FAILED"}:
+                    st.error("재검증 실패 · Workflow 최종 상태를 확인해주세요.")
+                elif status == "NOT_RUN":
+                    st.warning("재검증 미실시 · 통과 여부를 확인할 수 없습니다.")
+                else:
+                    st.caption("재검증 결과가 기록되지 않았습니다.")

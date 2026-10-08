@@ -20,25 +20,190 @@ class DayPlan(NamedTuple):
 
 DAY_PLANS = {
     "new_user": (
-        DayPlan("모험 시작", "일반 사냥 20회", "HUNT_001", "일반 사냥", "monster_kill", 20, "ITEM_001", "회복 포션", 10, "기본 전투 방식에 익숙해지도록 구성"),
-        DayPlan("사냥 적응", "일반 사냥 30회", "HUNT_001", "일반 사냥", "monster_kill", 30, "ITEM_002", "성장 상자", 1, "초기 전투 참여를 이어가도록 구성"),
-        DayPlan("첫 번째 도전", "일반 던전 1회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 1, "ITEM_001", "회복 포션", 10, "던전 콘텐츠를 처음 경험하도록 구성"),
-        DayPlan("던전 성장", "일반 던전 2회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 2, "ITEM_002", "성장 상자", 1, "반복 플레이로 성장 흐름을 익히도록 구성"),
-        DayPlan("성장 가속", "일반 던전 3회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 3, "ITEM_003", "기념 배지", 1, "중간 달성 보상으로 참여를 유지하도록 구성"),
-        DayPlan("성장 마무리", "일반 던전 3회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 3, "ITEM_002", "성장 상자", 1, "마지막 날을 준비하는 반복 미션"),
-        DayPlan("7일 성장 완료", "일반 던전 3회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 3, "ITEM_004", "한정 코스튬", 1, "입장 제한이 높은 레이드 대신 일반 던전으로 구성"),
+        DayPlan(
+            "모험 시작",
+            "일반 사냥 20회",
+            "HUNT_001",
+            "일반 사냥",
+            "monster_kill",
+            20,
+            "ITEM_001",
+            "회복 포션",
+            10,
+            "기본 전투 방식에 익숙해지도록 구성",
+        ),
+        DayPlan(
+            "사냥 적응",
+            "일반 사냥 30회",
+            "HUNT_001",
+            "일반 사냥",
+            "monster_kill",
+            30,
+            "ITEM_002",
+            "성장 상자",
+            1,
+            "초기 전투 참여를 이어가도록 구성",
+        ),
+        DayPlan(
+            "첫 번째 도전",
+            "일반 던전 1회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            1,
+            "ITEM_001",
+            "회복 포션",
+            10,
+            "던전 콘텐츠를 처음 경험하도록 구성",
+        ),
+        DayPlan(
+            "던전 성장",
+            "일반 던전 2회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            2,
+            "ITEM_002",
+            "성장 상자",
+            1,
+            "반복 플레이로 성장 흐름을 익히도록 구성",
+        ),
+        DayPlan(
+            "성장 가속",
+            "일반 던전 3회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            3,
+            "ITEM_003",
+            "기념 배지",
+            1,
+            "중간 달성 보상으로 참여를 유지하도록 구성",
+        ),
+        DayPlan(
+            "성장 마무리",
+            "일반 던전 3회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            3,
+            "ITEM_002",
+            "성장 상자",
+            1,
+            "마지막 날을 준비하는 반복 미션",
+        ),
+        DayPlan(
+            "7일 성장 완료",
+            "일반 던전 3회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            3,
+            "ITEM_004",
+            "한정 코스튬",
+            1,
+            "입장 제한이 높은 레이드 대신 일반 던전으로 구성",
+        ),
     ),
     "returning_user": (
-        DayPlan("다시 시작", "일반 사냥 20회", "HUNT_001", "일반 사냥", "monster_kill", 20, "ITEM_001", "회복 포션", 10, "전투 감각을 되찾도록 구성"),
-        DayPlan("콘텐츠 복습", "일반 던전 1회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 1, "ITEM_002", "성장 상자", 1, "기본 던전 흐름을 다시 경험하도록 구성"),
-        DayPlan("적응 도전", "일반 던전 2회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 2, "ITEM_001", "회복 포션", 10, "반복 플레이에 적응하도록 구성"),
-        DayPlan("참여 확대", "일반 사냥 30회", "HUNT_001", "일반 사냥", "monster_kill", 30, "ITEM_002", "성장 상자", 1, "일일 플레이 참여를 늘리도록 구성"),
-        DayPlan("복귀 완료", "일반 던전 3회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 3, "ITEM_003", "기념 배지", 1, "복귀 적응을 마무리하도록 구성"),
+        DayPlan(
+            "다시 시작",
+            "일반 사냥 20회",
+            "HUNT_001",
+            "일반 사냥",
+            "monster_kill",
+            20,
+            "ITEM_001",
+            "회복 포션",
+            10,
+            "전투 감각을 되찾도록 구성",
+        ),
+        DayPlan(
+            "콘텐츠 복습",
+            "일반 던전 1회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            1,
+            "ITEM_002",
+            "성장 상자",
+            1,
+            "기본 던전 흐름을 다시 경험하도록 구성",
+        ),
+        DayPlan(
+            "적응 도전",
+            "일반 던전 2회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            2,
+            "ITEM_001",
+            "회복 포션",
+            10,
+            "반복 플레이에 적응하도록 구성",
+        ),
+        DayPlan(
+            "참여 확대",
+            "일반 사냥 30회",
+            "HUNT_001",
+            "일반 사냥",
+            "monster_kill",
+            30,
+            "ITEM_002",
+            "성장 상자",
+            1,
+            "일일 플레이 참여를 늘리도록 구성",
+        ),
+        DayPlan(
+            "복귀 완료",
+            "일반 던전 3회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            3,
+            "ITEM_003",
+            "기념 배지",
+            1,
+            "복귀 적응을 마무리하도록 구성",
+        ),
     ),
     "all_user": (
-        DayPlan("주말 시작", "일반 사냥 20회", "HUNT_001", "일반 사냥", "monster_kill", 20, "ITEM_001", "회복 포션", 10, "짧은 참여 미션으로 시작"),
-        DayPlan("주말 도전", "일반 던전 2회 완료", "DUNGEON_001", "일반 던전", "dungeon_clear", 2, "ITEM_002", "성장 상자", 1, "주요 콘텐츠 참여를 유도"),
-        DayPlan("주말 마무리", "일반 사냥 30회", "HUNT_001", "일반 사냥", "monster_kill", 30, "ITEM_003", "기념 배지", 1, "참여를 마무리하는 보상 제공"),
+        DayPlan(
+            "주말 시작",
+            "일반 사냥 20회",
+            "HUNT_001",
+            "일반 사냥",
+            "monster_kill",
+            20,
+            "ITEM_001",
+            "회복 포션",
+            10,
+            "짧은 참여 미션으로 시작",
+        ),
+        DayPlan(
+            "주말 도전",
+            "일반 던전 2회 완료",
+            "DUNGEON_001",
+            "일반 던전",
+            "dungeon_clear",
+            2,
+            "ITEM_002",
+            "성장 상자",
+            1,
+            "주요 콘텐츠 참여를 유도",
+        ),
+        DayPlan(
+            "주말 마무리",
+            "일반 사냥 30회",
+            "HUNT_001",
+            "일반 사냥",
+            "monster_kill",
+            30,
+            "ITEM_003",
+            "기념 배지",
+            1,
+            "참여를 마무리하는 보상 제공",
+        ),
     ),
 }
 
@@ -76,22 +241,49 @@ def build_demo_result(brief: dict[str, str | int]) -> tuple[dict[str, Any], dict
         )
 
     has_healing = target == "new_user"
+    has_safe_stop = target == "all_user"
     autohealing_events = (
         [
             {
                 "sequence": 1,
                 "error_type": "mission_unreachable",
-                "reason": "데모 시나리오: 신규 유저의 예상 레벨보다 레이드 입장 레벨이 높습니다.",
+                "reason": "데모 시나리오: Day 7 레이드 필요 레벨 Lv.30이 신규 유저 예상 레벨 Lv.15보다 높아 미션을 달성할 수 없습니다.",
                 "recovery_action": "RUN_AGENT",
                 "target": "event_planner_agent",
-                "before": {"day": 7, "content_id": "RAID_001", "mission_name": "레이드 보스 1회 처치", "required_level": 30},
-                "after": {"day": 7, "content_id": "DUNGEON_001", "mission_name": "일반 던전 3회 완료", "required_level": 10},
+                "before": {
+                    "day": 7,
+                    "content_id": "RAID_001",
+                    "content_name": "레이드",
+                    "mission_name": "레이드 보스 1회 처치",
+                    "required_level": 30,
+                },
+                "after": {
+                    "day": 7,
+                    "content_id": "DUNGEON_001",
+                    "content_name": "일반 던전",
+                    "mission_name": "일반 던전 3회 완료",
+                    "required_level": 10,
+                },
                 "revalidation_status": "PASS",
             }
         ]
         if has_healing
         else []
     )
+    if has_safe_stop:
+        autohealing_events = [
+            {
+                "sequence": 1,
+                "error_type": "mcp_timeout",
+                "reason": "데모 시나리오: MCP 규칙 데이터 조회가 반복해서 시간 초과됐습니다.",
+                "recovery_action": "SAFE_STOP",
+                "target": "mcp",
+                "attempts": 3,
+                "before": None,
+                "after": None,
+                "revalidation_status": "NOT_RUN",
+            }
+        ]
     result = {
         "event_name": brief["event_name"],
         "target_user": target,
@@ -104,45 +296,112 @@ def build_demo_result(brief: dict[str, str | int]) -> tuple[dict[str, Any], dict
     }
 
     task_id = f"DEMO-{uuid4().hex[:8].upper()}"
-    result_version = 2 if has_healing else 1
+    result_version = 0 if has_safe_stop else 2 if has_healing else 1
     task = {
         "task_id": task_id,
-        "workflow_status": "WAITING_APPROVAL",
-        "critic_status": "PASS",
-        "approval_status": "PENDING",
+        "workflow_status": "FAILED" if has_safe_stop else "WAITING_APPROVAL",
+        "critic_status": None if has_safe_stop else "PASS",
+        "approval_status": None if has_safe_stop else "PENDING",
         "result_version": result_version,
-        "retry_count": 0,
+        "retry_count": 3 if has_safe_stop else 0,
         "revision_count": 1 if has_healing else 0,
-        "current_result": result,
+        "current_result": None if has_safe_stop else result,
         "final_result": None,
-        "rule_validation": {
+        "rule_validation": None
+        if has_safe_stop
+        else {
             "is_valid": True,
             "error_type": None,
-            "reason": "화면 체험용 검증 결과입니다. 실제 게임 규칙 검증은 수행하지 않았습니다.",
-            "evidence": {"mode": "demo_preview", "backend_checked": False},
+            "reason": (
+                "데모 시나리오: Day 7을 일반 던전으로 바꾼 뒤 필요 레벨 Lv.10이 "
+                "신규 유저 예상 레벨 Lv.15 이하라 재검증 PASS로 표시합니다. "
+                "실제 게임 규칙 검증은 수행하지 않았습니다."
+                if has_healing
+                else "화면 체험용 검증 결과입니다. 실제 게임 규칙 검증은 수행하지 않았습니다."
+            ),
+            "evidence": (
+                {
+                    "mode": "demo_preview",
+                    "backend_checked": False,
+                    "day": 7,
+                    "expected_level": 15,
+                    "required_level": 10,
+                    "content_id": "DUNGEON_001",
+                }
+                if has_healing
+                else {"mode": "demo_preview", "backend_checked": False}
+            ),
             "game_data_version": None,
             "data_source": "demo_fixture",
         },
         "autohealing_events": autohealing_events,
-        "error": None,
+        "error": {
+            "error_type": "mcp_timeout",
+            "message": "MCP 호출이 3회 재시도 후에도 시간 초과되어 Workflow를 안전 종료했습니다.",
+        }
+        if has_safe_stop
+        else None,
         "_demo_preview": True,
     }
 
-    start = datetime.now().astimezone().replace(microsecond=0) - timedelta(seconds=30)
     events = [("event_planner_agent", "create_plan", "SUCCESS", "예시 기획안 생성")]
-    if has_healing:
+    if not has_safe_stop:
         events.extend(
             [
-                ("balance_rule_agent", "validate_plan", "ERROR", "데모 오류: mission_unreachable"),
-                ("supervisor", "RUN_AGENT", "SUCCESS", "데모 AutoHealing 재실행"),
-                ("event_planner_agent", "regenerate_plan", "SUCCESS", "예시 기획안 수정"),
+                ("mcp", "get_game_rules", "SUCCESS", "시연용 게임 규칙 데이터 조회"),
+                ("mcp", "get_item_info", "SUCCESS", "시연용 보상 아이템 정보 조회"),
             ]
         )
-    events.extend(
-        [
-            ("balance_rule_agent", "validate_plan", "SUCCESS", "시연용 규칙 검증 결과"),
-            ("critic_agent", "final_review", "SUCCESS", "시연용 Critic PASS"),
-        ]
+    if has_safe_stop:
+        events.extend(
+            [
+                ("mcp", "get_game_rules", "ERROR", "MCP Timeout · 첫 호출 실패"),
+                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 1회 결정"),
+                ("mcp", "get_game_rules", "ERROR", "MCP Timeout · 재시도 1회 실패"),
+                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 2회 결정"),
+                ("mcp", "get_game_rules", "ERROR", "MCP Timeout · 재시도 2회 실패"),
+                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 3회 결정"),
+                ("mcp", "get_game_rules", "ERROR", "MCP Timeout · 재시도 3회 실패"),
+                ("supervisor", "SAFE_STOP", "FAILED", "재시도 한도 초과 · 안전 종료"),
+            ]
+        )
+    elif has_healing:
+        events.extend(
+            [
+                (
+                    "balance_rule_agent",
+                    "validate_plan",
+                    "ERROR",
+                    "데모 오류: Day 7 레이드 Lv.30이 신규 유저 예상 Lv.15를 초과함",
+                ),
+                ("supervisor", "RUN_AGENT", "SUCCESS", "데모 AutoHealing 재실행"),
+                ("event_planner_agent", "regenerate_plan", "SUCCESS", "예시 기획안 수정"),
+                ("mcp", "get_game_rules", "SUCCESS", "수정안의 시연용 게임 규칙 재조회"),
+                ("mcp", "get_item_info", "SUCCESS", "수정안의 시연용 보상 아이템 재조회"),
+            ]
+        )
+    if not has_safe_stop:
+        events.extend(
+            [
+                (
+                    "balance_rule_agent",
+                    "validate_plan",
+                    "SUCCESS",
+                    "수정한 Day 7 일반 던전 Lv.10 ≤ 신규 유저 예상 Lv.15 · 시연용 재검증 PASS"
+                    if has_healing
+                    else "시연용 규칙 검증 결과",
+                ),
+                ("critic_agent", "final_review", "SUCCESS", "시연용 Critic PASS"),
+            ]
+        )
+    start = datetime.now().astimezone().replace(microsecond=0) - timedelta(seconds=len(events) * 5)
+    revision_sequence = next(
+        (
+            sequence
+            for sequence, (actor, action, _, _) in enumerate(events, start=1)
+            if actor == "event_planner_agent" and action == "regenerate_plan"
+        ),
+        None,
     )
     traces = [
         {
@@ -152,9 +411,11 @@ def build_demo_result(brief: dict[str, str | int]) -> tuple[dict[str, Any], dict
             "action": action,
             "status": status,
             "reason": reason,
-            "error_type": "mission_unreachable" if status == "ERROR" else None,
-            "retry_count": 0,
-            "revision_count": 1 if has_healing and sequence >= 3 else 0,
+            "error_type": ("mcp_timeout" if has_safe_stop else "mission_unreachable")
+            if status in {"ERROR", "FAILED"}
+            else None,
+            "retry_count": min((sequence - 1) // 2, 3) if has_safe_stop else 0,
+            "revision_count": 1 if revision_sequence and sequence >= revision_sequence else 0,
             "result_version": result_version if actor == "critic_agent" else 0,
             "data_source": "demo_fixture",
         }

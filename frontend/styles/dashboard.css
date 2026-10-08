@@ -39,22 +39,22 @@ section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 0 -12px 17px;
-  padding: 17px 20px;
-  min-height: 70px;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 196px;
+  margin: 0 0 17px -29px;
+  padding: 9px 10px;
+  min-height: 112px;
   color: #fff;
-  background: linear-gradient(140deg, #172947, #253b60);
+  background: #fff;
 }
 
-.sidebar-brand strong,
-.sidebar-brand small {
+.sidebar-brand-logo {
   display: block;
+  width: 100%;
+  max-height: 102px;
+  object-fit: contain;
 }
-
-.sidebar-brand strong { font-size: 15px; letter-spacing: -0.02em; }
-.sidebar-brand small { margin-top: 2px; font-size: 11px; opacity: .82; }
-.brand-crown { color: #ffcc3f; font-size: 26px; }
 
 section[data-testid="stSidebar"] [data-testid="stPageLink"] a {
   min-height: 44px;

@@ -31,6 +31,7 @@ EXAMPLES = (
         "objective": "모든 유저가 주말 동안 게임의 기본 콘텐츠에 참여할 수 있도록 짧은 미션을 구성합니다.",
     },
 )
+DEMO_SCENARIOS = ("복구 성공", "정상 실행", "복구 실패·안전 종료")
 
 
 def load_example(example: dict[str, str | int], index: int) -> None:
@@ -126,10 +127,12 @@ with side_col:
 
     with st.container(key="panel-examples", border=True):
         card_title("▤", "이벤트 입력 예시")
-        st.caption("예시를 선택하면 입력칸이 채워집니다. 데모 실행은 실제 Backend를 호출하지 않습니다.")
+        st.caption(
+            "예시를 선택하면 입력칸이 채워집니다. 데모 실행은 실제 Backend를 호출하지 않습니다."
+        )
         for index, example in enumerate(EXAMPLES):
             st.button(
-                f"{example['event_name']}  ·  {TARGET_LABELS[str(example['target_user'])]} / {example['duration']}일",
+                f"{example['event_name']}  ·  {TARGET_LABELS[str(example['target_user'])]} / {example['duration']}일  ·  {DEMO_SCENARIOS[index]}",
                 key=f"example-{index}",
                 width="stretch",
                 on_click=load_example,
@@ -137,7 +140,10 @@ with side_col:
             )
         selected_index = st.session_state.get("selected_example_index")
         if isinstance(selected_index, int) and 0 <= selected_index < len(EXAMPLES):
-            st.caption(f"선택한 예시: {EXAMPLES[selected_index]['event_name']}")
+            st.caption(
+                f"선택한 예시: {EXAMPLES[selected_index]['event_name']} · "
+                f"{DEMO_SCENARIOS[selected_index]} 시나리오"
+            )
         if st.button(
             "선택한 예시로 체험하기",
             key="run-demo",
@@ -145,7 +151,9 @@ with side_col:
             disabled=not isinstance(selected_index, int),
         ):
             run_demo()
-        st.caption("미리 준비한 기획안·검증·Trace를 표시합니다. 실제 AI 실행이나 승인 처리는 아닙니다.")
+        st.caption(
+            "미리 준비한 기획안·검증·Trace를 표시합니다. 실제 AI 실행이나 승인 처리는 아닙니다."
+        )
 
     with st.container(key="panel-data", border=True):
         card_title("▰", "Backend 연결 상태")

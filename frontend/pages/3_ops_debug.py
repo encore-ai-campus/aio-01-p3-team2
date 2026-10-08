@@ -12,6 +12,9 @@ from services.session import remember_task
 
 
 def refresh_execution(task_id: str) -> None:
+    if task_id.startswith("DEMO-"):
+        st.info("데모 Trace는 Backend에서 다시 조회하지 않습니다.")
+        return
     try:
         remember_task(get_task(task_id))
     except ApiError as exc:
@@ -36,14 +39,23 @@ setup_page("운영 · 디버그", "현재 Task의 실행 기록과 Backend 상�
 
 task_id = st.session_state.get("task_id")
 task: dict[str, Any] | None = st.session_state.get("task_response")
+demo_preview = (isinstance(task, dict) and task.get("_demo_preview") is True) or str(
+    task_id or ""
+).startswith("DEMO-")
 if task_id and not isinstance(task, dict):
+    if demo_preview:
+        st.warning("데모 결과가 현재 세션에 없습니다. 이벤트 생성 화면에서 다시 실행해주세요.")
+        st.stop()
     refresh_execution(str(task_id))
     task = st.session_state.get("task_response")
-if task_id and st.session_state.get("trace_response") is None:
+if task_id and not demo_preview and st.session_state.get("trace_response") is None:
     try:
         st.session_state["trace_response"] = get_trace(str(task_id))
     except ApiError:
         pass
+
+if demo_preview:
+    st.warning("데모 데이터입니다. 이 Trace는 실제 Agent·MCP·Backend 실행 기록이 아닙니다.")
 
 header_col, action_col = st.columns([4, 1])
 with header_col:
@@ -53,7 +65,12 @@ with header_col:
         unsafe_allow_html=True,
     )
 with action_col:
-    if st.button("Task · Trace 새로고침", key="ops-refresh", width="stretch", disabled=not task_id):
+    if st.button(
+        "Task · Trace 새로고침",
+        key="ops-refresh",
+        width="stretch",
+        disabled=not task_id or demo_preview,
+    ):
         refresh_execution(str(task_id))
         st.rerun()
 
@@ -70,7 +87,7 @@ with summary_col, st.container(key="panel-summary", border=True):
             '<div class="kv-grid">'
             f'<div class="kv-item"><small>Workflow 상태</small>{escape(str(task.get("workflow_status") or "알 수 없음"))}</div>'
             f'<div class="kv-item"><small>Result Version</small>v{escape(str(task.get("result_version", 0)))}</div>'
-            f'<div class="kv-item"><small>AutoHealing</small>{len(task.get("autohealing_events") or [])}회</div>'
+            f'<div class="kv-item"><small>복구 기록</small>{len(task.get("autohealing_events") or [])}건</div>'
             f'<div class="kv-item"><small>Trace 건수</small>{len(items)}건</div>'
             f'<div class="kv-item"><small>첫 Trace 시각</small>{escape(first_time)}</div>'
             f'<div class="kv-item"><small>마지막 Trace 시각</small>{escape(last_time)}</div>'
@@ -83,12 +100,15 @@ with summary_col, st.container(key="panel-summary", border=True):
 
 with health_col, st.container(key="panel-health", border=True):
     card_title("⛨", "Backend Health")
-    if st.button("Live / Ready 확인", key="ops-health", width="stretch"):
+    if st.button("Live / Ready 확인", key="ops-health", width="stretch", disabled=demo_preview):
         check_health()
     health = st.session_state.get("health_results", {})
     st.write(f"Live: **{health.get('live', '확인 전')}**")
     st.write(f"Ready: **{health.get('ready', '확인 전')}**")
-    st.caption("Ready는 Backend 준비 상태입니다. MCP 개별 연결 상태를 뜻하지 않습니다.")
+    if demo_preview:
+        st.caption("데모 결과에서는 Backend 상태를 조회하지 않습니다.")
+    else:
+        st.caption("Ready는 Backend 준비 상태입니다. MCP 개별 연결 상태를 뜻하지 않습니다.")
 
 overview_tab, trace_tab, input_tab, mcp_tab, system_tab = st.tabs(
     ["실행 개요", "상세 Trace", "입력 데이터", "MCP 실행 기록", "시스템 실행 기록"]
