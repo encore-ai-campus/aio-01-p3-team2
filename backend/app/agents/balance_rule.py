@@ -238,7 +238,7 @@ class BalanceRuleAgent:
             raise MCPToolError("get_item_info")
 
         version = result.get("game_data_version")
-        if version is not None and (not isinstance(version, str) or not version.strip()):
+        if not isinstance(version, str) or not version.strip():
             raise MCPToolError("get_item_info")
         name = result.get("item_name")
         if result["exists"] and (not isinstance(name, str) or not name.strip()):

@@ -77,10 +77,17 @@ def decide_recovery(
             )
         if failed_tool == "get_item_info":
             return _retry(None, retry_count, revision_count, max_retries, "get_item_info")
+        if failed_tool == "get_event_planning_context":
+            return _retry(None, retry_count, revision_count, max_retries, failed_tool)
         return _safe_stop("사용 가능한 Tool 대체 경로가 없습니다.", retry_count, revision_count)
 
     if error_type == "mcp_timeout":
-        if failed_tool not in {"get_game_rules", "get_game_rules_fallback", "get_item_info"}:
+        if failed_tool not in {
+            "get_event_planning_context",
+            "get_game_rules",
+            "get_game_rules_fallback",
+            "get_item_info",
+        }:
             return _safe_stop("재호출할 Tool을 확인할 수 없습니다.", retry_count, revision_count)
         return _retry(None, retry_count, revision_count, max_retries, failed_tool)
 

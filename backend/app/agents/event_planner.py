@@ -27,6 +27,7 @@ class EventPlanner:
             "error_reason",
             "approval_comment",
             "revision_count",
+            "planning_context",
         }
     )
 

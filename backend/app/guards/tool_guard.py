@@ -16,6 +16,7 @@ class ToolGuard:
     """
 
     _ARGUMENT_KEYS: ClassVar[dict[str, str]] = {
+        "get_event_planning_context": "target_user",
         "get_game_rules": "content_id",
         "get_game_rules_fallback": "content_id",
         "get_item_info": "item_id",
@@ -61,9 +62,20 @@ class ToolGuard:
         if tool_name == "get_game_rules_fallback" and not primary_failed:
             raise ToolGuardError("Primary Tool 실패 없이 Fallback을 호출할 수 없습니다.")
 
-        if not isinstance(arguments, Mapping) or set(arguments) != {expected_key}:
+        expected_keys = (
+            {"target_user", "duration"}
+            if tool_name == "get_event_planning_context"
+            else {expected_key}
+        )
+        if not isinstance(arguments, Mapping) or set(arguments) != expected_keys:
             raise ToolGuardError("Tool 인자 이름이 올바르지 않습니다.")
 
         value = arguments[expected_key]
         if not isinstance(value, str) or not value.strip():
             raise ToolGuardError("Tool 인자는 비어 있지 않은 문자열이어야 합니다.")
+        if tool_name == "get_event_planning_context":
+            if value not in {"new_user", "returning_user", "all_user"}:
+                raise ToolGuardError("이벤트 대상이 올바르지 않습니다.")
+            duration = arguments["duration"]
+            if type(duration) is not int or not 1 <= duration <= 7:
+                raise ToolGuardError("이벤트 기간은 1~7일이어야 합니다.")

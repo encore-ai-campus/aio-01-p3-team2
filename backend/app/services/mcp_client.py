@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Mapping
 
 from ..guards.tool_guard import ToolGuard
 
-ToolTransport = Callable[[str, dict[str, str]], Awaitable[Mapping[str, object]]]
+ToolTransport = Callable[[str, dict[str, object]], Awaitable[Mapping[str, object]]]
 
 
 class MCPTimeoutError(TimeoutError):
@@ -54,7 +54,7 @@ class MCPClient:
         self,
         agent_name: str,
         tool_name: str,
-        arguments: Mapping[str, str],
+        arguments: Mapping[str, object],
         *,
         primary_failed: bool = False,
     ) -> dict[str, object]:
@@ -84,6 +84,16 @@ class MCPClient:
         """콘텐츠 ID로 Primary 게임 규칙을 조회한다."""
         return await self.call_tool(agent_name, "get_game_rules", {"content_id": content_id})
 
+    async def get_event_planning_context(
+        self, agent_name: str, target_user: str, duration: int
+    ) -> dict[str, object]:
+        """Backend가 Planner 실행 전에 기획용 게임 데이터를 조회한다."""
+        return await self.call_tool(
+            agent_name,
+            "get_event_planning_context",
+            {"target_user": target_user, "duration": duration},
+        )
+
     async def get_game_rules_fallback(
         self, agent_name: str, content_id: str, *, primary_failed: bool
     ) -> dict[str, object]:
@@ -112,7 +122,7 @@ def create_streamable_http_transport(url: str) -> ToolTransport:
     from mcp import ClientSession
     from mcp.client.streamable_http import streamablehttp_client
 
-    async def transport(tool_name: str, arguments: dict[str, str]) -> Mapping[str, object]:
+    async def transport(tool_name: str, arguments: dict[str, object]) -> Mapping[str, object]:
         """SDK 세션을 열고 구조화된 Tool 결과만 반환한다."""
         try:
             async with (

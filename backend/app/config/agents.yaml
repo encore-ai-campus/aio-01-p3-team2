@@ -14,6 +14,9 @@ workers:
     goal: 이벤트 초안을 만들고 기획 오류나 운영자 의견에 따라 수정한다.
     instructions: >-
       원래 요청의 이벤트 대상과 기간을 유지하고 목적을 반영한다.
+      planning_context가 전달되면 available_contents의 content_id와 reward_item_ids의 item_id 중에서 선택한다.
+      일자별 예상 레벨과 콘텐츠 입장 레벨을 고려하고, 목록에 없는 ID를 추측하지 않는다.
+      all_user 대상은 common_access_max_required_level을 기준으로 콘텐츠를 선택한다.
       최종 PASS 또는 FAIL을 직접 판정하지 않는다.
       Tool을 직접 호출하지 않는다.
     provider: openai
@@ -29,6 +32,7 @@ workers:
     provider: openai
     output_contract: RuleValidationResult
     allowed_tools:
+      - get_event_planning_context
       - get_game_rules
       - get_game_rules_fallback
       - get_item_info

@@ -16,10 +16,12 @@ from ..guards.tool_guard import ToolGuardError
 from ..services.llm_service import LLMExecutionError, LLMTimeoutError
 from ..services.mcp_client import MCPTimeoutError, MCPToolError
 from .handoff import Handoff
+from .planning_context import validate_planning_context
 
 RevisionLoader = Callable[[str], Awaitable[Mapping[str, object]]]
 TraceSink = Callable[[dict[str, object]], Awaitable[None]]
 OutputValidator = Callable[[Mapping[str, object]], Mapping[str, object]]
+PlanningContextLoader = Callable[[str, int], Awaitable[Mapping[str, object]]]
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,7 @@ class WorkflowEngine:
         plan_validator: OutputValidator | None = None,
         rule_validator: OutputValidator | None = None,
         critic_validator: OutputValidator | None = None,
+        planning_context_loader: PlanningContextLoader | None = None,
     ) -> None:
         """Agent와 A 연동에 필요한 선택적 어댑터를 보관한다."""
         self._supervisor = supervisor
@@ -88,6 +91,7 @@ class WorkflowEngine:
         self._plan_validator = plan_validator
         self._rule_validator = rule_validator
         self._critic_validator = critic_validator
+        self._planning_context_loader = planning_context_loader
 
     async def run(
         self,
@@ -167,11 +171,19 @@ class WorkflowEngine:
         owner = "supervisor"
         try:
             while True:
+                planning_context = None
+                if self._planning_context_loader is not None:
+                    owner = "supervisor"
+                    planning_context = await self._load_planning_context(
+                        task_id, brief, faults, healing, revision_count
+                    )
                 state: dict[str, object] = {
                     "task_id": task_id,
                     "user_request": brief,
                     "revision_count": revision_count,
                 }
+                if planning_context is not None:
+                    state["planning_context"] = planning_context
                 if previous_plan is not None:
                     state["event_plan"] = previous_plan
                 if approval_comment is not None:
@@ -202,6 +214,48 @@ class WorkflowEngine:
                     task_id, brief, plan, faults, healing, revision_count
                 )
                 rule_validation = self._validate_rule(evaluation.rule_validation)
+                if (
+                    planning_context is not None
+                    and (
+                        rule_validation["is_valid"]
+                        or rule_validation.get("game_data_version") is not None
+                    )
+                    and rule_validation.get("game_data_version")
+                    != planning_context["game_data_version"]
+                ):
+                    await self._emit(
+                        task_id,
+                        "validate_plan",
+                        owner,
+                        "mcp_tool_error",
+                        faults,
+                        revision_count=revision_count,
+                        phase="revalidation" if revision_count else "validation",
+                        reason="기획 후 게임 데이터 버전이 없거나 기획 전 버전과 다릅니다.",
+                    )
+                    raise WorkflowFailure(
+                        "mcp_tool_error",
+                        "기획 후 게임 데이터 버전이 없거나 기획 전 버전과 다릅니다.",
+                        owner,
+                    )
+                await self._emit(
+                    task_id,
+                    "validate_plan",
+                    owner,
+                    str(rule_validation["error_type"])
+                    if rule_validation["is_valid"] is False
+                    else None,
+                    faults,
+                    revision_count=revision_count,
+                    phase="revalidation" if revision_count else "validation",
+                    game_data_version=str(rule_validation["game_data_version"])
+                    if rule_validation.get("game_data_version")
+                    else None,
+                    data_source=str(rule_validation["data_source"])
+                    if rule_validation.get("data_source")
+                    else None,
+                    reason=str(rule_validation["reason"]),
+                )
                 if rule_validation["is_valid"] is False:
                     error_type = str(rule_validation["error_type"])
                     error_reason = str(rule_validation["reason"])
@@ -222,11 +276,13 @@ class WorkflowEngine:
                     )
                     await self._emit(
                         task_id,
-                        "PLANNER_REVISION",
-                        owner,
+                        "RUN_AGENT",
+                        "supervisor",
                         error_type,
                         faults,
                         revision_count=revision_count,
+                        status="SUCCESS",
+                        reason=route.reason,
                     )
                     previous_plan = plan
                     continue
@@ -298,11 +354,13 @@ class WorkflowEngine:
                 )
                 await self._emit(
                     task_id,
-                    "PLANNER_REVISION",
-                    owner,
+                    "RUN_AGENT",
+                    "supervisor",
                     error_type,
                     faults,
                     revision_count=revision_count,
+                    status="SUCCESS",
+                    reason=route.reason,
                 )
                 previous_plan = evaluation.event_plan
         except WorkflowFailure as exc:
@@ -310,7 +368,7 @@ class WorkflowEngine:
                 await self._emit(
                     task_id,
                     "SAFE_STOP",
-                    exc.owner_agent,
+                    "supervisor",
                     exc.error_type,
                     FaultManager(),
                     retry_count=exc.retry_count,
@@ -329,6 +387,92 @@ class WorkflowEngine:
                 None,
                 healing,
                 {"error_type": exc.error_type, "reason": exc.reason},
+            )
+
+    async def _load_planning_context(
+        self,
+        task_id: str,
+        brief: Mapping[str, object],
+        faults: FaultManager,
+        healing: list[dict[str, object]],
+        revision_count: int,
+    ) -> dict[str, object]:
+        """Planner 실행 전에 기획 자료를 조회하고 기술 오류만 제한적으로 재시도한다."""
+        assert self._planning_context_loader is not None
+        retry_count = 0
+        while True:
+            try:
+                result = await self._planning_context_loader(
+                    str(brief["target_user"]), int(brief["duration"])
+                )
+                if not isinstance(result, Mapping):
+                    raise MCPToolError("get_event_planning_context")
+                context = validate_planning_context(
+                    result, str(brief["target_user"]), int(brief["duration"])
+                )
+                await self._emit(
+                    task_id,
+                    "get_event_planning_context",
+                    "mcp",
+                    None,
+                    faults,
+                    revision_count=revision_count,
+                    phase="planning_context",
+                    tool_name="get_event_planning_context",
+                    data_source=str(context["source"]),
+                    game_data_version=str(context["game_data_version"]),
+                    reason="기획용 게임 데이터 조회 완료",
+                )
+                return context
+            except (MCPTimeoutError, TimeoutError, ConnectionError) as exc:
+                error_type = "mcp_timeout"
+                cause = exc
+            except (MCPToolError, TypeError, ValueError) as exc:
+                error_type = "mcp_tool_error"
+                cause = exc
+            await self._emit(
+                task_id,
+                "get_event_planning_context",
+                "mcp",
+                error_type,
+                faults,
+                retry_count=retry_count,
+                revision_count=revision_count,
+                phase="planning_context",
+                tool_name="get_event_planning_context",
+                reason="기획용 게임 데이터 조회 실패",
+            )
+            route = self._supervisor.decide_failure(
+                error_type,
+                failed_tool="get_event_planning_context",
+                retry_count=retry_count,
+                revision_count=revision_count,
+            )
+            if route.action == "SAFE_STOP":
+                raise WorkflowFailure(
+                    error_type, route.reason, "supervisor", retry_count
+                ) from cause
+            retry_count = route.retry_count
+            healing.append(
+                {
+                    "action": "RETRY",
+                    "error_type": error_type,
+                    "tool": "get_event_planning_context",
+                    "retry_count": retry_count,
+                }
+            )
+            await self._emit(
+                task_id,
+                "RETRY",
+                "supervisor",
+                error_type,
+                faults,
+                retry_count=retry_count,
+                revision_count=revision_count,
+                phase="planning_context",
+                tool_name="get_event_planning_context",
+                status="SUCCESS",
+                reason=route.reason,
             )
 
     async def _plan_with_retry(
@@ -358,6 +502,8 @@ class WorkflowEngine:
                     None,
                     faults,
                     revision_count=int(state["revision_count"]),
+                    action="regenerate_plan" if "event_plan" in state else "create_plan",
+                    reason="기획안 생성 및 형식 검증 완료",
                 )
                 return result
             except LLMTimeoutError:
@@ -416,23 +562,67 @@ class WorkflowEngine:
                         fault_manager=faults,
                     )
                     if entry.data_source == "fallback_snapshot":
+                        await self._emit(
+                            task_id,
+                            "get_game_rules",
+                            "mcp",
+                            "mcp_tool_error",
+                            faults,
+                            revision_count=revision_count,
+                            tool_name="get_game_rules",
+                            phase="revalidation" if revision_count else "validation",
+                            reason="Primary 검증용 MCP 조회 실패",
+                        )
                         healing.append({"action": "TOOL_FALLBACK", "tool": "get_game_rules"})
                         await self._emit(
                             task_id,
                             "TOOL_FALLBACK",
-                            "balance_rule_agent",
+                            "supervisor",
                             "mcp_tool_error",
                             faults,
                             revision_count=revision_count,
                             tool_name="get_game_rules_fallback",
                             data_source=entry.data_source,
                             game_data_version=entry.game_data_version,
+                            phase="revalidation" if revision_count else "validation",
+                            status="SUCCESS",
+                            reason="Primary 조회 실패 후 검증된 Snapshot 사용",
+                        )
+                    if entry.game_data_version is not None:
+                        await self._emit(
+                            task_id,
+                            "get_game_rules_fallback"
+                            if entry.data_source == "fallback_snapshot"
+                            else "get_game_rules",
+                            "mcp",
+                            None,
+                            faults,
+                            revision_count=revision_count,
+                            tool_name="get_game_rules_fallback"
+                            if entry.data_source == "fallback_snapshot"
+                            else "get_game_rules",
+                            data_source=entry.data_source,
+                            game_data_version=entry.game_data_version,
+                            phase="revalidation" if revision_count else "validation",
+                            reason="미션 콘텐츠 검증용 조회 완료",
                         )
                     return entry
                 except (MCPTimeoutError, MCPToolError) as exc:
                     error_type = (
                         "mcp_timeout" if isinstance(exc, MCPTimeoutError) else "mcp_tool_error"
                     )
+                    await self._emit(
+                        task_id,
+                        exc.tool_name,
+                        "mcp",
+                        error_type,
+                        faults,
+                        retry_count=retry_count,
+                        revision_count=revision_count,
+                        tool_name=exc.tool_name,
+                        phase="revalidation" if revision_count else "validation",
+                        reason="미션 검증용 MCP 조회 실패",
+                    )
                     route = self._supervisor.decide_failure(
                         error_type,
                         current_agent="balance_rule_agent",
@@ -455,22 +645,53 @@ class WorkflowEngine:
                     await self._emit(
                         task_id,
                         "TOOL_RETRY",
-                        "balance_rule_agent",
+                        "supervisor",
                         error_type,
                         faults,
                         retry_count=retry_count,
                         revision_count=revision_count,
                         tool_name=exc.tool_name,
+                        phase="revalidation" if revision_count else "validation",
+                        status="SUCCESS",
+                        reason=route.reason,
+                        action="RETRY",
                     )
 
         async def reward_runner(reward: Mapping[str, object], duration: int) -> EvaluatedEntry:
             retry_count = 0
             while True:
                 try:
-                    return await self._balance_rule.validate_reward(reward, duration=duration)
+                    entry = await self._balance_rule.validate_reward(reward, duration=duration)
+                    if entry.game_data_version is not None:
+                        await self._emit(
+                            task_id,
+                            "get_item_info",
+                            "mcp",
+                            None,
+                            faults,
+                            revision_count=revision_count,
+                            tool_name="get_item_info",
+                            data_source=entry.data_source,
+                            game_data_version=entry.game_data_version,
+                            phase="revalidation" if revision_count else "validation",
+                            reason="보상 아이템 검증용 조회 완료",
+                        )
+                    return entry
                 except (MCPTimeoutError, MCPToolError) as exc:
                     error_type = (
                         "mcp_timeout" if isinstance(exc, MCPTimeoutError) else "mcp_tool_error"
+                    )
+                    await self._emit(
+                        task_id,
+                        exc.tool_name,
+                        "mcp",
+                        error_type,
+                        faults,
+                        retry_count=retry_count,
+                        revision_count=revision_count,
+                        tool_name=exc.tool_name,
+                        phase="revalidation" if revision_count else "validation",
+                        reason="보상 검증용 MCP 조회 실패",
                     )
                     route = self._supervisor.decide_failure(
                         error_type,
@@ -494,12 +715,16 @@ class WorkflowEngine:
                     await self._emit(
                         task_id,
                         "TOOL_RETRY",
-                        "balance_rule_agent",
+                        "supervisor",
                         error_type,
                         faults,
                         retry_count=retry_count,
                         revision_count=revision_count,
                         tool_name=exc.tool_name,
+                        phase="revalidation" if revision_count else "validation",
+                        status="SUCCESS",
+                        reason=route.reason,
+                        action="RETRY",
                     )
 
         try:
@@ -553,6 +778,8 @@ class WorkflowEngine:
                     None,
                     faults,
                     revision_count=revision_count,
+                    action="final_review",
+                    reason="기획안 품질 검토 완료",
                 )
                 return dict(validated)
             except LLMTimeoutError:
@@ -633,6 +860,10 @@ class WorkflowEngine:
         tool_name: str | None = None,
         data_source: str | None = None,
         game_data_version: str | None = None,
+        phase: str | None = None,
+        status: str | None = None,
+        reason: str | None = None,
+        action: str | None = None,
     ) -> None:
         """민감정보 없는 Trace 이벤트를 기록하고 DB 연결 오류만 재시도한다."""
         if self._trace_sink is None:
@@ -647,14 +878,15 @@ class WorkflowEngine:
             "actor": agent or "supervisor",
             "actor_id": None,
             "owner_agent": agent,
-            "action": event_type,
-            "status": "ERROR" if reason_code else "SUCCESS",
+            "action": action or event_type,
+            "status": status or ("ERROR" if reason_code else "SUCCESS"),
             "error_type": reason_code,
-            "reason": reason_code,
+            "reason": reason if reason is not None else reason_code,
             "retry_count": retry_count,
             "revision_count": revision_count,
             "result_version": 0,
             "tool_name": tool_name,
+            "phase": phase,
             "data_source": data_source,
             "game_data_version": game_data_version,
         }
