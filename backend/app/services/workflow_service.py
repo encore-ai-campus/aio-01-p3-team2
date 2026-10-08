@@ -35,6 +35,7 @@ from backend.app.schemas.workflow_state import (
 from backend.app.services.db_service import repository
 from backend.app.services.llm_service import LLMService, create_openai_transport
 from backend.app.services.mcp_client import MCPClient, create_streamable_http_transport
+from backend.app.services.planning_context_loader import PlanningContextLoader
 
 CONTENT = {
     1: ("HUNT_001", "일반 사냥", "monster_kill"),
@@ -142,6 +143,7 @@ class BackendBWorkflowAdapter:
             mcp_transport = self._real_mcp_transport
         llm = LLMService(llm_transport, 30 if mode == "live" else 5)
         mcp = MCPClient(mcp_transport, ToolGuard(agents_config), 5)
+        self.planning_context_loader = PlanningContextLoader(mcp_transport).load
         self._engine = BackendBEngine(
             Supervisor(security_policy),
             EventPlanner(llm),

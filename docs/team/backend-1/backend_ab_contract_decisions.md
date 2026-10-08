@@ -26,3 +26,9 @@
 ## 프론트엔드 Trace 추가 요청
 
 API 응답 키는 현재 화면이 사용하는 `sequence`, `time`, `actor`, `action`, `status`, `reason`, `error_type`을 유지한다. A는 선택 필드 `phase`(`planning_context`·`validation`·`revalidation`)와 `tool_name`을 추가하고 B Trace Sink의 값을 보존한다. `game_data_version`·`data_source`는 확인된 값만 저장한다. 목표 실행 순서와 정상·기획 오류·첫 MCP 조회 실패의 축약 JSON은 `docs/team/backend-1/trace_contract_examples.md`에 있다. 기획 전 조회·검증용 조회·재검증의 실제 Trace 발생은 B Engine과 새 MCP Tool 연동 후 검증한다.
+
+## 기획용 조회 Loader 연결점
+
+A는 `backend/app/services/planning_context_loader.py`에 비동기 `load(target_user: str, duration: int) -> dict[str, object]`를 만들고 `BackendBWorkflowAdapter.planning_context_loader`에 바인딩했다. 내부 호출은 고정 Tool 이름 `get_event_planning_context`와 정수형 `duration`을 사용한다. 현재 최소 응답 Envelope은 요청과 일치하는 `target_user`·`duration`, 비어 있지 않은 `game_data_version`, `source=primary|fallback_snapshot`이다. 상세 콘텐츠·아이템·일자별 성장 기준은 MCP 담당자의 확정 응답 계약을 기다린다. 이 최소 Envelope 역시 MCP 담당자와 최종 대조해야 한다.
+
+연결 순서는 다음과 같다: MCP 담당자가 Tool·응답 계약을 구현 → B가 `ToolTransport`의 인자를 `dict[str, object]`로 확장하고 Tool Guard에 새 Tool을 등록 → B Engine 생성자에 `planning_context_loader` 콜백을 추가하고 Planner 전에 호출 → A가 Adapter 생성자에서 `planning_context_loader=self.planning_context_loader`를 전달한다. B는 재시도·Fallback·Trace·상세 응답 검증을 소유한다. 현재 B 생성자에는 해당 인자가 없어 A는 아직 실제 Engine 호출 경로에 주입하지 않았다. 따라서 새 Loader 자체는 단위 시험만 통과했고 새 MCP Tool의 실제 전송은 미검증이다.

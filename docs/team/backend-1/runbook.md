@@ -45,6 +45,10 @@ B Engine과 실제 MCP·OpenAI 전송을 사용하며 모델과 키가 없으면
 확인한다. OpenAI API 호출로 준비 상태를 검사하지 않는다. 예시 `.env` 파일은 자동으로
 로드되지 않으므로 실제 실행 환경에 환경변수를 설정해야 한다.
 
+기획 전 MCP 조회 Loader는 A Adapter에 준비되어 있으나, B Engine 생성자의 콜백 인자와
+MCP 서버의 `get_event_planning_context` Tool이 아직 없어 실제 Workflow에서는 호출되지 않는다.
+연결 조건과 최소 응답 형식은 `backend_ab_contract_decisions.md`를 참조한다.
+
 로컬 실제 MCP 연결 예시:
 
 ```powershell
