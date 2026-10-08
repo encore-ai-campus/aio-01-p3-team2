@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from ..fault_injection.fault_manager import FaultManager
 from ..fault_injection.fault_types import FaultType
 from ..rules.game_rule_engine import GameDataError, GameRuleEngine, RuleCheck
+from ..services.llm_service import LLMService
 from ..services.mcp_client import MCPClient, MCPTimeoutError, MCPToolError
 
 
@@ -30,7 +31,7 @@ class PlanEvaluation:
 
 
 class BalanceRuleAgent:
-    """게임 데이터 Tool을 호출하고 결정적 규칙 판정을 수행한다.
+    """게임 데이터를 결정적으로 검사하고 LLM의 추가 판단을 적용한다.
 
     콘텐츠 조회 또는 결과 검증 실패 시에만 Fallback을 사용한다. MCP 연결
     장애는 상위 Workflow의 같은 Tool 재시도 경로로 전달한다.
@@ -42,6 +43,7 @@ class BalanceRuleAgent:
         self,
         mcp_client: MCPClient,
         user_segments: Mapping[str, object] | None = None,
+        llm_service: LLMService | None = None,
     ) -> None:
         """MCP Client와 선택적 Mock 성장 기준을 보관한다.
 
@@ -50,6 +52,7 @@ class BalanceRuleAgent:
         """
         self._mcp_client = mcp_client
         self._user_segments = user_segments
+        self._llm_service = llm_service
 
     async def validate_plan(
         self,
@@ -129,6 +132,42 @@ class BalanceRuleAgent:
                 else None
             ),
         }
+        if self._llm_service is not None:
+            judgment = await self._llm_service.generate(
+                self.AGENT_NAME,
+                {
+                    "user_request": dict(brief),
+                    "event_plan": enriched,
+                    "rule_checks": [
+                        {
+                            "is_valid": check.is_valid,
+                            "error_type": check.error_type,
+                            "reason": check.reason,
+                            "evidence": check.evidence,
+                        }
+                        for check in checks
+                    ],
+                    "deterministic_validation": rule_validation,
+                },
+            )
+            decision = judgment.get("is_valid")
+            reason = judgment.get("reason")
+            if type(decision) is not bool or not isinstance(reason, str) or not reason.strip():
+                raise ValueError("Balance & Rule LLM 판정 형식이 올바르지 않습니다.")
+            deterministic_passed = rule_validation["is_valid"] is True
+            if not decision and deterministic_passed:
+                rule_validation.update(
+                    is_valid=False,
+                    error_type="event_brief_mismatch",
+                    evidence={"source": "balance_rule_llm"},
+                )
+            source = "LLM" if self._llm_service.source == "live" else "Mock"
+            if deterministic_passed:
+                rule_validation["reason"] = f"{source} 판단: {reason.strip()}"
+            else:
+                rule_validation["reason"] = (
+                    f"{rule_validation['reason']} ({source} 검토: {reason.strip()})"
+                )
         return PlanEvaluation(enriched, rule_validation, tuple(checks))
 
     async def validate_mission(

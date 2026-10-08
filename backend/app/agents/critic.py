@@ -72,4 +72,15 @@ class Critic:
         if status == "FAIL" and error_type is not None and not isinstance(error_type, str):
             raise CriticOutputError("FAIL의 오류 유형이 올바르지 않습니다.")
 
-        return {"status": status, "error_type": error_type, "reason": reason}
+        review_note = result.get("review_note")
+        if review_note is not None and (
+            not isinstance(review_note, str) or not review_note.strip()
+        ):
+            raise CriticOutputError("Critic 검토 메모가 올바르지 않습니다.")
+
+        return {
+            "status": status,
+            "error_type": error_type,
+            "reason": reason,
+            **({"review_note": review_note} if review_note is not None else {}),
+        }

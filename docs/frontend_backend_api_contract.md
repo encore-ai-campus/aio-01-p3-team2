@@ -447,6 +447,12 @@ Frontend 이벤트 결과 화면에서 사용하는 Event Result Schema입니다
   "objective": "신규 유저가 초반 콘텐츠에 적응하고 자연스럽게 성장할 수 있도록 한다.",
   "event_concept": "7일 동안 영웅 성장하기",
   "operation_summary": "매일 지정된 성장 미션을 완료하면 보상을 획득합니다.",
+  "operation_review_notes": {
+    "mission_operation": "초반에는 일반 사냥, 후반에는 접근 가능한 던전 미션을 배치합니다.",
+    "reward_design": "일차별 미션 보상으로 성장에 필요한 아이템을 배치합니다.",
+    "critic_review": "규칙 검증을 통과한 기획안의 목표와 미션 흐름을 검토했습니다.",
+    "source": "live"
+  },
   "missions": [
     {
       "day": 1,
@@ -514,6 +520,12 @@ Frontend 이벤트 결과 화면에서 사용하는 Event Result Schema입니다
 <td>표시용 운영 방식 요약</td>
 </tr>
 <tr>
+<td>`operation_review_notes`</td>
+<td>object/null</td>
+<td>N</td>
+<td>Planner의 미션 운영 방식·보상 설계 이유와 Critic의 최종 검토 의견. 기존 Task나 실패한 Workflow에는 null</td>
+</tr>
+<tr>
 <td>`missions`</td>
 <td>array</td>
 <td>Y</td>
@@ -526,6 +538,7 @@ Frontend 이벤트 결과 화면에서 사용하는 Event Result Schema입니다
 <td>Day별 보상 목록</td>
 </tr>
 </table>
+`operation_review_notes`가 있으면 `mission_operation`, `reward_design`, `critic_review`는 비어 있지 않은 문자열이고 `source`는 `mock` 또는 `live`입니다. `backend_b_live`에서는 Planner가 앞의 두 항목을 생성하고 Critic이 PASS 기획안의 검토 의견을 생성합니다. Mock 실행에서는 실제 AI 의견으로 오해하지 않도록 `source=mock`을 반환합니다. Frontend는 이 객체가 없으면 메모를 추측해 만들지 않습니다.
 ## Mission 필드
 <table header-row="true">
 <tr>
@@ -1515,6 +1528,10 @@ Frontend 화면 갱신
 # 38. 추가 확정 규칙
 ## 38-1. Trace 확장 필드
 Trace는 Agent뿐 아니라 Supervisor, MCP Tool, DB 관련 Retry/Fallback 실행도 기록할 수 있습니다.
+`backend_b_live`에서는 Supervisor가 정상 전환과 정책상 허용된 복구안을 LLM으로 심사하고,
+Balance & Rule이 MCP·규칙 엔진 판정에 LLM 검토를 더합니다. 해당 판정의 `reason`에는
+`LLM 판단:` 또는 `LLM 검토:` 문구가 포함될 수 있습니다. 이 문구가 없는 기존 Task·Mock
+Trace를 실제 AI 판정으로 표시하지 않습니다. 기존 `action`·`phase`·`next_agent` 값은 유지합니다.
 ```json
 {
   "sequence": 4,
@@ -1689,4 +1706,3 @@ ITEM_003
 2. 추가 화면 요소의 데이터·권한·오류 계약을 확정한 뒤 확장 API를 별도 변경으로 구현합니다.
 3. `backend/app/api/event.py`는 생성, Test Mode 생성, Task 조회, 승인, Trace 라우트를 담당하고 `backend/app/api/health.py`는 Live·Ready 라우트를 담당합니다. 라우트가 비어 있는 현재 저장소 상태를 완료로 표시하지 않습니다.
 4. Frontend는 실제 응답이 없는 항목에 가짜 연결 상태, 건수, 검증 PASS, 실행 시간을 표시하지 않습니다.
-

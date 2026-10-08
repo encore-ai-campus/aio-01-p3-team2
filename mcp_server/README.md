@@ -1,6 +1,6 @@
 # Opong Heroes MCP 서버
 
-게임 이벤트 기획·검수에 필요한 작은 Mock 게임 데이터를 조회합니다. `MCP_DATABASE_URL`을 설정하면 기본 조회는 PostgreSQL의 `game_data_catalog`를 사용하고, 설정하지 않으면 기존 JSON 파일을 사용합니다. Fallback Tool은 DB 설정과 무관하게 별도 JSON Snapshot을 읽습니다. 게임 규칙의 최종 판정, 재시도, Primary에서 Fallback으로의 전환은 백엔드가 담당합니다.
+게임 이벤트 기획·검수에 필요한 게임 데이터를 조회합니다. `MCP_DATABASE_URL`을 설정하면 기본 조회는 PostgreSQL의 `game_data_catalog`를 사용하고, 설정하지 않으면 기존 JSON 파일을 사용합니다. 저장소 루트에서 `python -m mcp_server.server`로 직접 실행하면 `mcp_server/.env`를 읽으며, 이미 셸에 설정한 환경변수가 우선합니다. Fallback Tool은 DB 설정과 무관하게 별도 JSON Snapshot을 읽습니다. 게임 규칙의 최종 판정, 재시도, Primary에서 Fallback으로의 전환은 백엔드가 담당합니다.
 
 ## 데이터와 Tool
 

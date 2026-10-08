@@ -38,6 +38,11 @@ def test_generate_lookup_and_trace(client):
     assert task["result_version"] == 1
     assert task["final_result"] is None
     assert len(task["current_result"]["missions"]) == 3
+    notes = task["current_result"]["operation_review_notes"]
+    assert notes["source"] == "mock"
+    assert "Day 1" in notes["mission_operation"]
+    assert "Day 3" in notes["reward_design"]
+    assert "Mock" in notes["critic_review"]
 
     task_id = task["task_id"]
     assert client.get(f"/api/tasks/{task_id}").json() == task
