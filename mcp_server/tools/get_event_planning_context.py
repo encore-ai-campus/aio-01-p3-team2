@@ -16,9 +16,7 @@ def get_event_planning_context(target_user: str, duration: int) -> dict:
     segment = data["user_segments"][target_user].copy()
     if target_user != "all_user":
         segment["expected_levels"] = {
-            day: level
-            for day, level in segment["expected_levels"].items()
-            if int(day) <= duration
+            day: level for day, level in segment["expected_levels"].items() if int(day) <= duration
         }
 
     return {
