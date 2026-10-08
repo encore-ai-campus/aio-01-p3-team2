@@ -46,6 +46,7 @@ def test_api_planning_lookup_precedes_planner_and_validation(client, monkeypatch
     assert task["workflow_status"] == "WAITING_APPROVAL"
     notes = task["current_result"]["operation_review_notes"]
     assert notes["source"] == "mock"
+    assert "Mock 판단:" in task["rule_validation"]["reason"]
     assert "Day 1" in notes["mission_operation"]
     assert "ITEM_001" in notes["reward_design"]
     assert "Mock" in notes["critic_review"]
@@ -56,6 +57,7 @@ def test_api_planning_lookup_precedes_planner_and_validation(client, monkeypatch
         ("RUN_AGENT", "critic_agent"),
         ("WAIT_APPROVAL", None),
     ]
+    assert all("Mock 판단:" in entry["reason"] for entry in routing)
     actions = [(entry["actor"], entry["action"]) for entry in traces]
     required = [
         ("mcp", "get_event_planning_context"),

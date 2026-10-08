@@ -215,3 +215,33 @@ Trace는 JSON payload로 저장되므로 DB 테이블 변경은 필요 없다.
 5. MCP 담당자가 포맷 1건을 고쳐 `port`에 올리면 병합하고 전체 Ruff를 다시 확인한다.
 
 A 변경이 오래 걸리면 프론트엔드 담당자에게는 `frontend_trace_handoff.md` 마지막 절의 형식 표를 먼저 전달한다. A 반영 전의 미리보기 응답은 저장소에 보관하지 않았다.
+
+## `feature/demo-game` 병합 후 확인 상태 (2026-10-08)
+
+이 절은 위의 과거 브랜치·A 반영 대기·MCP 포맷 오류 기록보다 최신이다. 현재 작업 브랜치는 `feature/demo-game`이다. A `TraceEntry`에 `routing`·`recovery`와 `next_agent`가 반영됐고 Adapter도 B Trace의 `next_agent`를 저장한다. MCP 담당자의 PostgreSQL 테스트 포맷 수정 커밋 `d913b7a`도 병합되어 있다.
+
+### 완료한 확인과 산출물
+
+- Python 3.11 가상환경을 `backend/.venv`, `mcp_server/.venv`, `frontend/.venv`에 각각 만들고 해당 서비스 의존성과 Ruff를 설치했다. MCP 환경에는 문서의 시험 도구인 pytest도 설치했다. `.venv`는 Git에서 제외한다.
+- 기본 실행에서 `backend/tests` 74 passed, 13 skipped, `mcp_server/tests` 32 passed, 1 skipped. Skip은 실제 LLM 키·MCP 시험 URL·시험 DB URL이 없는 선택 통합 시험이다. `ruff check .` 통과. A Adapter의 줄바꿈 1곳을 Ruff 형식으로 정리해 전체 `ruff format --check .`도 확인한다.
+- 실제 MCP HTTP 서버와 Backend API를 로컬에서 실행했다. `backend_b_mcp`, JSON 기본 게임 데이터, 인메모리 Repository에서 정상·기획 수정·검증 조회 재시도·Primary Fallback·Agent 재시도·첫 기획용 조회 실패 6가지 API Trace를 다시 수집했다. `docs/team/backend-2/trace_samples/`의 Mock 4종과 실패 1종을 교체하고 Agent 재시도 1종을 추가했다. 행 수와 새 필드 확인 범위는 `frontend_trace_handoff.md` 최신 절에 있다.
+- 실제 OpenAI 선택 시험 `backend/tests/test_backend_b_llm_live.py`는 Supervisor·Balance & Rule·Planner·Critic 모두 같은 실제 LLM 전송을 쓰도록 갱신했다. Supervisor `routing` 이유와 Balance & Rule 판정에 실제 LLM 표시가 있는지도 검사한다. 키가 아직 없어 실행 결과는 없으며 기본 시험에서는 skip이다. 과거 `normal_live_llm.json`과 `planning_error_live_llm.json`은 이전 두 Agent 중심 실행 기록이다.
+
+### 남은 외부 연동 확인
+
+1. 사용자가 `backend/.env`에 `OPENAI_API_KEY`를 준비한 뒤 시험 전용 `LLM_TEST_MODEL`을 명시하면 네 Agent 실제 LLM 선택 시험을 실행하고, 모델·결과·검증 범위를 이 문서에 기록한다. 시험은 명시적으로 켰을 때만 `backend/.env`의 키를 읽으며, 기존 셸 환경변수를 덮어쓰지 않는다. macOS: `LLM_TEST_MODEL=gpt-4.1-mini backend/.venv/bin/python -m pytest backend/tests/test_backend_b_llm_live.py -q -rs`. Windows PowerShell: `$env:LLM_TEST_MODEL="gpt-4.1-mini"` 설정 후 `backend\.venv\Scripts\python.exe -m pytest backend/tests/test_backend_b_llm_live.py -q -rs`. `.env` 값과 키는 출력·커밋하지 않는다. API 전체 `backend_b_live` 재검증에는 추가로 MCP 서버와 `MCP_URL`이 필요하다.
+2. **Backend A 담당자 요청:** 공유 DB를 임의로 초기화하지 않고, 격리된 시험용 PostgreSQL 주소와 `game_data_catalog` 적용 상태를 확인해 달라. 스키마와 초기 데이터는 A의 `backend/scripts/apply_game_data_catalog.py`로 A가 적용한다. 테스트 DB라면 `POSTGRES_TEST_URL`과 Backend용 `DATABASE_URL`을, MCP 담당자와 공유할 동일 DB의 읽기 연결 주소를 알려 달라. `backend/tests/test_postgres_integration.py`는 `reset()`을 실행하므로 공유 DB 주소로 실행하면 안 된다.
+3. **MCP 담당자 요청:** 같은 시험 DB를 가리키는 `MCP_DATABASE_URL`로 서버를 구동하고 기획용 조회·ID별 조회의 `game_data_version`과 `source`가 DB 자료를 반영하는지 확인해 달라. B는 A·MCP 준비 후 `backend_b_mcp` API에서 기획 전 조회 → 재조회·검증 → Trace·복구 경로를 다시 검증한다.
+4. Frontend 담당자에게 `frontend_trace_handoff.md` 최신 절과 현재 Mock API Trace 6종을 전달한다. 실제 LLM Trace 2종은 최신 필드가 없는 과거 자료로 표시한다.
+
+### 격리된 PostgreSQL·최신 실제 LLM 검증 결과 (2026-10-08)
+
+위의 LLM 키·PostgreSQL 미검증 설명은 이 시험 이전 기록이다. 이 컴퓨터에는 이 저장소와 관계없는 `/Users/son/개발/연습장/backend`의 `backend-db-1` 컨테이너가 이미 있었으며, 그 DB는 조회·수정하지 않았다. 별도의 일회용 `postgres:16-alpine` 컨테이너를 localhost 자동 포트로 띄워 `backend_b_test` 시험 DB를 만들었다. 공유 DB나 팀 환경의 데이터는 변경하지 않았다.
+
+- A의 `python -m backend.scripts.apply_game_data_catalog`를 시험 DB에 적용해 `game_data_catalog`에 `tiny_heroes` 한 행(`tinyheroes-1.0.0`)을 넣었다. DB JSON은 저장소의 `mcp_server/data/tiny_heroes.json`과 일치한다. Primary와 Fallback Snapshot JSON도 현재 동일하다.
+- A의 카탈로그·Repository PostgreSQL 선택 시험은 4 passed, MCP의 DB Primary·Fallback 독립성 시험은 1 passed였다.
+- Mock LLM + 실제 MCP HTTP + 시험 PostgreSQL의 `backend_b_mcp` API에서 정상 요청(`WAITING_APPROVAL`, `primary`, Trace 19행)과 Primary 오류 주입(`WAITING_APPROVAL`, `fallback_snapshot`, Trace 21행)이 통과했다. Backend 재시작 뒤에도 정상 Task와 Trace 19행을 다시 조회했다.
+- `backend/.env`의 키·모델을 값 노출 없이 사용해 네 Agent 실제 LLM 선택 시험 `backend/tests/test_backend_b_llm_live.py` 2건이 통과했다. 이 시험의 MCP 응답은 고정 자료다.
+- 이어 `backend_b_live` API에서 실제 OpenAI + 실제 MCP HTTP + 시험 PostgreSQL로 정상 1일 요청 1건을 실행했다. `WAITING_APPROVAL`, Critic `PASS`, 규칙 검증 `true`, 게임 데이터 출처 `primary`, Trace 15행이었다. Supervisor의 정상 경로 결정 4행과 Balance & Rule 판정 이유에 실제 `LLM 판단:`이 기록됐다. 전체 Trace는 `trace_samples/normal_live_llm.json`에 저장했다. 실제 모델 응답 품질의 반복 측정은 아니며, `planning_error_live_llm.json`은 네 Agent 확장 전 기록이다.
+
+시험 종료 후 로컬 API·MCP 서버와 일회용 PostgreSQL 컨테이너를 중지·제거했다. 이 시험은 **격리된 임시 DB**의 검증이며 공용 PostgreSQL 적용 상태를 증명하지 않는다. 공유 DB에서 재검증하려면 여전히 A에게 카탈로그 적용 상태와 검토된 연결 정보를 확인해야 한다. `.env` 값이나 시험 DB 주소는 커밋하지 않는다.

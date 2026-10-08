@@ -155,7 +155,8 @@ class BackendBWorkflowAdapter:
             self._real_mcp_transport = create_streamable_http_transport(mcp_url)
             mcp_transport = self._real_mcp_transport
         llm = LLMService(
-            llm_transport, 30 if mode == "live" else 5,
+            llm_transport,
+            30 if mode == "live" else 5,
             source="live" if mode == "live" else "mock",
         )
         mcp = MCPClient(mcp_transport, ToolGuard(agents_config), 5)

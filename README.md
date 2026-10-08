@@ -10,7 +10,7 @@ Event Planner가 이벤트 초안을 만들고, Balance & Rule Agent와 Critic�
 
 ## 현재 상태
 
-Frontend 화면과 Dockerfile, Backend A API, Backend B Workflow, MCP 서버가 저장소에 구현되어 있습니다. `backend-test`에서 MCP 서버와 백엔드 `MCPClient`의 Streamable HTTP 직접 연결을 검증했습니다. 다만 현재 API Workflow는 Mock 전송을 사용하므로 실제 MCP 서버와 OpenAI 모델을 거치는 전체 흐름은 아직 검증되지 않았습니다. 자세한 결과는 [Backend A/B 통합 및 MCP 연결 시험](docs/team/backend-1/backend_ab_integration_test.md)을 참고하세요.
+Frontend 화면과 Dockerfile, Backend A API, Backend B Workflow, MCP 서버가 저장소에 구현되어 있습니다. `feature/demo-game`에서 `backend_b_mcp` API와 실제 MCP HTTP 서버를 연결해 기획 전 조회부터 검증·Trace·복구까지 확인했습니다. 이 경로는 Mock LLM, JSON 기본 게임 데이터, 인메모리 Repository를 사용했습니다. 이후 Planner·Balance & Rule·Critic·Supervisor의 실제 LLM 선택 시험 2건과, 실제 OpenAI·MCP HTTP·격리된 임시 PostgreSQL을 함께 사용하는 정상 API 요청 1건도 통과했습니다. 공용 PostgreSQL 연동과 실제 LLM의 반복 품질 평가는 별도 검증 대상입니다. 자세한 범위는 [Backend B 작업 Handoff](docs/team/backend-2/handoff.md)를 참고하세요.
 
 ## 예정 구성
 

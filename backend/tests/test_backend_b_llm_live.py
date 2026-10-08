@@ -1,8 +1,8 @@
-"""실제 OpenAI 응답으로 Backend B의 Planner·Critic 경로를 검증한다.
+"""실제 OpenAI 응답으로 Backend B의 네 Agent 경로를 검증한다.
 
-LLM_TEST_MODEL과 OPENAI_API_KEY가 모두 설정된 경우에만 실행한다. 호출마다
-API 요금이 발생하므로 기본 백엔드 테스트에서는 건너뛴다. MCP 응답은
-파일 안의 고정 자료를 사용해 LLM 응답만 실제 서비스로 확인한다.
+LLM_TEST_MODEL을 명시하고 OPENAI_API_KEY가 환경변수 또는 backend/.env에
+있는 경우에만 실행한다. 호출마다 API 요금이 발생하므로 기본 백엔드
+테스트에서는 건너뛴다. MCP 응답은 파일 안의 고정 자료를 사용한다.
 """
 
 import os
@@ -20,8 +20,13 @@ from backend.app.orchestration.engine import WorkflowEngine
 from backend.app.orchestration.planning_context import validate_planning_context
 from backend.app.services.llm_service import LLMService, create_openai_transport
 from backend.app.services.mcp_client import MCPClient
+from dotenv import dotenv_values
 
 LLM_TEST_MODEL = os.getenv("LLM_TEST_MODEL", "").strip()
+if LLM_TEST_MODEL:
+    api_key = dotenv_values(Path(__file__).resolve().parents[1] / ".env").get("OPENAI_API_KEY")
+    if api_key:
+        os.environ.setdefault("OPENAI_API_KEY", api_key)
 GAME_DATA_VERSION = "tinyheroes-1.0.0"
 CONTENTS = {
     "HUNT_001": {"content_name": "일반 사냥", "required_level": 1},
@@ -67,7 +72,11 @@ class LiveLLMTests(unittest.IsolatedAsyncioTestCase):
             self.agents_config = yaml.safe_load(config_file)
         with (config_path / "security_policies.yaml").open(encoding="utf-8") as config_file:
             self.security_policy = yaml.safe_load(config_file)
-        self.llm = LLMService(create_openai_transport(LLM_TEST_MODEL, self.agents_config), 60)
+        self.llm = LLMService(
+            create_openai_transport(LLM_TEST_MODEL, self.agents_config),
+            60,
+            source="live",
+        )
 
     @staticmethod
     async def _load(target_user: str, duration: int) -> Mapping[str, object]:
@@ -138,16 +147,19 @@ class LiveLLMTests(unittest.IsolatedAsyncioTestCase):
         self._assert_plan_uses_listed_ids(plan, planning_context)
 
     async def test_live_llm_workflow_reaches_approval_candidate(self) -> None:
-        """실제 Planner·Critic 응답이 규칙 검증을 거쳐 승인 후보가 된다."""
+        """네 Agent의 실제 판단이 규칙 검증을 거쳐 승인 후보가 된다."""
         traces: list[dict[str, object]] = []
 
         async def trace_sink(event: dict[str, object]) -> None:
             traces.append(event)
 
         engine = WorkflowEngine(
-            Supervisor(self.security_policy),
+            Supervisor(self.security_policy, self.llm),
             EventPlanner(self.llm),
-            BalanceRuleAgent(MCPClient(self._mcp, ToolGuard(self.agents_config), 5)),
+            BalanceRuleAgent(
+                MCPClient(self._mcp, ToolGuard(self.agents_config), 5),
+                llm_service=self.llm,
+            ),
             Critic(self.llm),
             planning_context_loader=self._load,
             trace_sink=trace_sink,
@@ -159,5 +171,21 @@ class LiveLLMTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.critic_status, "PASS")
         self.assertTrue(result.rule_validation["is_valid"])
         self.assertEqual(result.rule_validation["game_data_version"], GAME_DATA_VERSION)
+        self.assertIn("LLM 판단:", result.rule_validation["reason"])
+        routing = [
+            event
+            for event in traces
+            if event["actor"] == "supervisor" and event["phase"] == "routing"
+        ]
+        self.assertEqual(
+            [(event["action"], event["next_agent"]) for event in routing],
+            [
+                ("RUN_AGENT", "event_planner_agent"),
+                ("RUN_AGENT", "balance_rule_agent"),
+                ("RUN_AGENT", "critic_agent"),
+                ("WAIT_APPROVAL", None),
+            ],
+        )
+        self.assertTrue(all("LLM 판단:" in event["reason"] for event in routing))
         planning_context = validate_planning_context(await self._load("new_user", 5), "new_user", 5)
         self._assert_plan_uses_listed_ids(result.current_result, planning_context)
