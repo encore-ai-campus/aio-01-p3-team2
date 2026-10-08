@@ -120,6 +120,15 @@ def list_tasks(*, limit: int = 20) -> dict[str, Any]:
     return data
 
 
+def delete_task(task_id: str, *, actor_id: str) -> dict[str, Any]:
+    """Delete one saved Task and its related records after Backend authorization."""
+    return _request(
+        "DELETE",
+        f"/api/tasks/{parse.quote(task_id, safe='')}",
+        payload={"actor_id": actor_id},
+    )
+
+
 def get_trace(task_id: str) -> dict[str, Any]:
     return _request("GET", f"/api/tasks/{parse.quote(task_id, safe='')}/trace")
 

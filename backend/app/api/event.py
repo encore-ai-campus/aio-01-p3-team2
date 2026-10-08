@@ -7,6 +7,8 @@ from fastapi import APIRouter, Query, Response
 from backend.app.schemas.approval import ApprovalRequest
 from backend.app.schemas.event import EventCreateRequest, TestEventCreateRequest
 from backend.app.schemas.workflow_state import (
+    TaskDeleteRequest,
+    TaskDeleteResponse,
     TaskListResponse,
     TaskResponse,
     ToolLogResponse,
@@ -14,6 +16,7 @@ from backend.app.schemas.workflow_state import (
 )
 from backend.app.services.task_service import (
     approve,
+    delete_task,
     generate,
     get_task,
     get_tool_logs,
@@ -53,6 +56,11 @@ def read_task(task_id: str) -> TaskResponse:
 @router.get("/tasks", response_model=TaskListResponse)
 def read_tasks(limit: int = Query(default=20, ge=1, le=20)) -> TaskListResponse:
     return list_tasks(limit)
+
+
+@router.delete("/tasks/{task_id}", response_model=TaskDeleteResponse)
+def remove_task(task_id: str, request: TaskDeleteRequest) -> TaskDeleteResponse:
+    return delete_task(task_id, request.actor_id)
 
 
 @router.get("/tasks/{task_id}/trace", response_model=TraceResponse)

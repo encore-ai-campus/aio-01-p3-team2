@@ -130,6 +130,20 @@ class SqlAlchemyRepository:
             )
             return [TaskRecord.model_validate(row.payload) for row in rows]
 
+    def delete_task(self, task_id: str) -> bool:
+        with Session(self.engine) as session, session.begin():
+            row = session.get(WorkflowRunRow, task_id)
+            if row is None:
+                return False
+            session.execute(delete(TraceRow).where(TraceRow.task_id == task_id))
+            session.execute(delete(ToolLogRow).where(ToolLogRow.task_id == task_id))
+            session.execute(delete(IdempotencyRow).where(IdempotencyRow.task_id == task_id))
+            session.execute(
+                delete(TaskCreationOrderRow).where(TaskCreationOrderRow.task_id == task_id)
+            )
+            session.delete(row)
+            return True
+
     def append_trace(self, task_id: str, trace: TraceEntry) -> None:
         with Session(self.engine) as session, session.begin():
             session.add(

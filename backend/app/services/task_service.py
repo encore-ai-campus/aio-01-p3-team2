@@ -10,6 +10,7 @@ from backend.app.schemas.approval import ApprovalAction, ApprovalRequest
 from backend.app.schemas.event import EventBrief, EventCreateRequest, TestEventCreateRequest
 from backend.app.schemas.workflow_state import (
     ApprovalStatus,
+    TaskDeleteResponse,
     TaskListResponse,
     TaskRecord,
     TaskResponse,
@@ -210,6 +211,19 @@ def list_tasks(limit: int) -> TaskListResponse:
             for task in repository.list_tasks(limit)
         ]
     )
+
+
+def delete_task(task_id: str, actor_id: str) -> TaskDeleteResponse:
+    if actor_id not in approved_actor_ids():
+        raise ServiceError("INVALID_ACTOR", "삭제 권한이 없는 사용자입니다.", 403, task_id)
+    task = repository.get_task(task_id)
+    if task is None:
+        raise ServiceError("TASK_NOT_FOUND", "요청한 작업을 찾을 수 없습니다.", 404, task_id)
+    if task.workflow_status in {WorkflowStatus.RUNNING, WorkflowStatus.RETRYING}:
+        raise ServiceError("TASK_IN_PROGRESS", "진행 중인 작업은 삭제할 수 없습니다.", 409, task_id)
+    if not repository.delete_task(task_id):
+        raise ServiceError("TASK_NOT_FOUND", "요청한 작업을 찾을 수 없습니다.", 404, task_id)
+    return TaskDeleteResponse(task_id=task_id, deleted=True)
 
 
 def get_trace(task_id: str) -> TraceResponse:

@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .event import AutoHealingEvent, EventBrief, EventResult, RuleValidation
 
@@ -130,6 +130,17 @@ class TaskSummary(BaseModel):
 
 class TaskListResponse(BaseModel):
     tasks: list[TaskSummary]
+
+
+class TaskDeleteRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    actor_id: str = Field(min_length=1, max_length=50)
+
+
+class TaskDeleteResponse(BaseModel):
+    task_id: str
+    deleted: bool
 
 
 class ErrorResponse(BaseModel):

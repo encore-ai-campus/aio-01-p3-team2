@@ -1,5 +1,10 @@
 from uuid import uuid4
 
+from backend.app.schemas.event import EventBrief
+from backend.app.schemas.workflow_state import TaskRecord, WorkflowStatus
+from backend.app.services.db_service import repository
+from backend.app.services.workflow_service import now
+
 
 def create_task(client):
     response = client.post(
@@ -84,3 +89,47 @@ def test_approved_actor_ids_come_from_environment(client, monkeypatch):
         json={"actor_id": "operator02", "result_version": 1, "action": "APPROVE"},
     )
     assert allowed.status_code == 200
+
+
+def test_delete_task_removes_saved_result_and_related_api_records(client):
+    task = create_task(client)
+    task_id = task["task_id"]
+    path = f"/api/tasks/{task_id}"
+
+    denied = client.request("DELETE", path, json={"actor_id": "unknown"})
+    assert denied.status_code == 403
+    assert client.get(path).status_code == 200
+
+    deleted = client.request("DELETE", path, json={"actor_id": "liveops01"})
+    assert deleted.status_code == 200
+    assert deleted.json() == {"task_id": task_id, "deleted": True}
+    assert client.get(path).status_code == 404
+    assert client.get(f"{path}/trace").status_code == 404
+    assert client.get(f"{path}/tool-logs").status_code == 404
+    assert task_id not in [item["task_id"] for item in client.get("/api/tasks").json()["tasks"]]
+    assert client.request("DELETE", path, json={"actor_id": "liveops01"}).status_code == 404
+
+
+def test_delete_rejects_running_task(client):
+    timestamp = now()
+    task = TaskRecord(
+        task_id="TASK-RUNNING123",
+        actor_id="liveops01",
+        brief=EventBrief(
+            event_name="진행 중 이벤트",
+            target_user="new_user",
+            duration=1,
+            objective="진행 중 삭제 방지",
+        ),
+        workflow_status=WorkflowStatus.RUNNING,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    repository.create_task(task)
+
+    response = client.request(
+        "DELETE", f"/api/tasks/{task.task_id}", json={"actor_id": "liveops01"}
+    )
+    assert response.status_code == 409
+    assert response.json()["error_code"] == "TASK_IN_PROGRESS"
+    assert repository.get_task(task.task_id) == task

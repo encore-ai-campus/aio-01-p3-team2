@@ -54,6 +54,7 @@ def perform_approval(task: dict[str, Any], action: str, comment: str | None = No
             return
     remember_task(response)
     refresh_task(str(task["task_id"]), show_error=False)
+    st.session_state["saved_task_loaded"] = False
     st.session_state["revision_open"] = False
     st.rerun()
 

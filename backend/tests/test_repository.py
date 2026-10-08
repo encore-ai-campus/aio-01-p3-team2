@@ -108,3 +108,54 @@ def test_task_list_uses_creation_order_when_timestamps_match(repository_factory)
 
     assert repository.list_tasks(1) == [tasks[1]]
     assert repository.list_tasks(2) == tasks[::-1]
+
+
+@pytest.mark.parametrize(
+    "repository_factory", [InMemoryRepository, lambda: SqlAlchemyRepository("sqlite://")]
+)
+def test_delete_task_removes_related_records(repository_factory):
+    repository = repository_factory()
+    timestamp = datetime.now().astimezone()
+    task = TaskRecord(
+        task_id="TASK-DELETE-1",
+        actor_id="liveops01",
+        brief=EventBrief(
+            event_name="삭제 테스트",
+            target_user="new_user",
+            duration=1,
+            objective="관련 기록 삭제 확인",
+        ),
+        workflow_status=WorkflowStatus.WAITING_APPROVAL,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    repository.create_task(task)
+    repository.append_trace(
+        task.task_id,
+        TraceEntry(
+            sequence=1,
+            time=timestamp,
+            actor="backend",
+            action="saved",
+            status="SUCCESS",
+        ),
+    )
+    repository.append_tool_log(
+        task.task_id,
+        ToolLogEntry(
+            sequence=1,
+            time=timestamp,
+            tool="get_game_rules",
+            status="SUCCESS",
+            response_time_ms=1,
+        ),
+    )
+    repository.save_idempotency("event:delete-test", "hash", task.task_id)
+
+    assert repository.delete_task(task.task_id) is True
+    assert repository.get_task(task.task_id) is None
+    assert repository.get_traces(task.task_id) is None
+    assert repository.get_tool_logs(task.task_id) is None
+    assert repository.find_idempotency("event:delete-test") is None
+    assert repository.list_tasks(5) == []
+    assert repository.delete_task(task.task_id) is False

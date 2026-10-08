@@ -103,7 +103,7 @@ class ProxyTests(unittest.TestCase):
             with request.urlopen(base) as response:
                 page = response.read().decode("utf-8")
         self.assertEqual(event["event_name"], "신규 유저 모험")
-        self.assertIn("OPONG HEROES", page)
+        self.assertIn("Event Quest AI", page)
 
     def test_invalid_task_id_is_rejected_without_backend_lookup(self) -> None:
         base = f"http://127.0.0.1:{self.game_server.server_port}"

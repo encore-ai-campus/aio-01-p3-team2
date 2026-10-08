@@ -9,6 +9,7 @@ from components.event_form import TARGET_LABELS, render_event_form
 from components.layout import card_title, setup_page
 from services.backend_client import (
     ApiError,
+    delete_task,
     generate_event,
     get_health,
     get_task,
@@ -16,7 +17,7 @@ from services.backend_client import (
     list_tasks,
 )
 from services.demo_data import build_demo_result
-from services.session import remember_task
+from services.session import clear_task, remember_task
 
 EXAMPLES = (
     {
@@ -39,7 +40,7 @@ EXAMPLES = (
     },
 )
 DEMO_SCENARIOS = ("복구 성공", "정상 실행", "복구 실패·안전 종료")
-HISTORY_PAGE_SIZE = 20
+HISTORY_PAGE_SIZE = 5
 HISTORY_STATUS_LABELS = {
     "WAITING_APPROVAL": "승인 대기",
     "COMPLETED": "승인 완료",
@@ -121,6 +122,22 @@ def open_saved_task(task_id: str) -> None:
     st.switch_page("pages/2_event_result.py")
 
 
+def delete_saved_task(task_id: str) -> None:
+    """Remove the selected Backend Task after the operator confirms the choice."""
+    with st.spinner("저장된 기획안과 관련 기록을 삭제하고 있습니다."):
+        try:
+            delete_task(task_id, actor_id=str(st.session_state["actor_id"]))
+        except ApiError as exc:
+            st.error(f"기획안을 삭제하지 못했습니다: {exc} ({exc.code})")
+            return
+    if st.session_state.get("task_id") == task_id:
+        clear_task()
+    st.session_state.pop("pending_delete_task_id", None)
+    st.session_state["saved_task_notice"] = "기획안과 관련 기록을 삭제했습니다."
+    load_saved_tasks()
+    st.rerun()
+
+
 def create_event(brief: dict[str, str | int]) -> None:
     test_mode = "fault_type" in brief
     signature = json.dumps(
@@ -188,6 +205,10 @@ with main_col:
                 load_saved_tasks()
         st.caption("Backend에 저장된 최근 Task 목록을 표시합니다.")
 
+        notice = st.session_state.pop("saved_task_notice", None)
+        if notice:
+            st.success(notice)
+
         error = st.session_state.get("saved_task_error")
         if error:
             if error.get("status") == 404:
@@ -213,14 +234,33 @@ with main_col:
                     )
                 )
                 with st.container(border=True):
-                    info_col, action_col = st.columns([4, 1])
+                    info_col, action_col, delete_col = st.columns(
+                        [6, 1.4, 0.9], vertical_alignment="center"
+                    )
                     with info_col:
-                        st.write(str(name))
-                        st.caption(summary)
+                        st.write(f"{name} · {summary}")
                     with action_col:
                         label = "기록 보기" if status == "FAILED" else "기획안 보기"
                         if st.button(label, key=f"saved-task-{task_id}", width="stretch"):
                             open_saved_task(task_id)
+                    with delete_col:
+                        if st.button(
+                            "삭제",
+                            key=f"delete-task-{task_id}",
+                            width="stretch",
+                            disabled=status in {"RUNNING", "RETRYING"},
+                        ):
+                            st.session_state["pending_delete_task_id"] = task_id
+                    if st.session_state.get("pending_delete_task_id") == task_id:
+                        st.warning(f"'{name}' 기획안과 Trace·Tool 기록을 영구 삭제합니다.")
+                        confirm_col, cancel_col = st.columns([1, 1])
+                        with confirm_col:
+                            if st.button("영구 삭제 확인", key=f"confirm-delete-{task_id}"):
+                                delete_saved_task(task_id)
+                        with cancel_col:
+                            if st.button("취소", key=f"cancel-delete-{task_id}"):
+                                st.session_state.pop("pending_delete_task_id", None)
+                                st.rerun()
             if not items:
                 st.info("저장된 이벤트 기획안이 없습니다. 이벤트를 생성한 뒤 새로고침해 주세요.")
 

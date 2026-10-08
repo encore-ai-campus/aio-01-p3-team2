@@ -55,6 +55,19 @@ class InMemoryRepository:
             )
             return deepcopy(tasks[:limit])
 
+    def delete_task(self, task_id: str) -> bool:
+        with self._lock:
+            if task_id not in self._tasks:
+                return False
+            del self._tasks[task_id]
+            self._traces.pop(task_id, None)
+            self._tool_logs.pop(task_id, None)
+            self._creation_order.pop(task_id, None)
+            for key, (_, stored_task_id) in list(self._idempotency.items()):
+                if stored_task_id == task_id:
+                    del self._idempotency[key]
+            return True
+
     def append_trace(self, task_id: str, trace: TraceEntry) -> None:
         with self._lock:
             self._traces.setdefault(task_id, []).append(deepcopy(trace))

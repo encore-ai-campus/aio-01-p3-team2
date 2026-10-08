@@ -101,3 +101,9 @@ PostgreSQL을 실제 실행한 통합 시험은 Compose의 DB 서비스와 Secre
 - 승인 동시 요청에 대한 DB Row Lock은 아직 미구현
 - Tool Log, Task 목록, 게임 데이터, 종합 Health API 미구현
 - Test API는 접근 제한만 적용하며 MockEngine이 fault를 실제 주입하지 않음
+
+## 2026-10-09 저장된 Task 삭제
+
+`DELETE /api/tasks/{task_id}`는 `{"actor_id":"liveops01"}` 요청을 받는다. Backend는 `APPROVED_ACTOR_IDS`에 등록된 Demo 담당자인지 검사하고, 실행 중(`RUNNING`·`RETRYING`)인 Task는 409로 거부한다. 존재하지 않는 Task는 404를 반환한다. 성공 시 `{"task_id":"...","deleted":true}`를 반환한다.
+
+삭제는 해당 Task 본문, Trace, Tool Log, 생성 순서, 연결된 멱등성 기록을 하나의 저장소 작업으로 제거한다. PostgreSQL 저장소는 같은 DB 트랜잭션에서 삭제한다. 삭제 후에는 목록·상세·Trace·Tool Log 조회에서 해당 Task를 찾을 수 없다. 삭제된 승인 Task ID로 데모 게임을 시작할 수도 없다. 삭제는 복구할 수 없으며 실제 사용자 인증 대신 기존 Demo 담당자 ID 검사를 사용하므로 Backend를 외부에 직접 공개하지 않는다.
