@@ -214,3 +214,5 @@ A 커밋 `166c20e`의 `PlanningContextLoader.load`를 B Engine에 주입한 Mock
 B Trace 이벤트에는 기획 전 `actor=mcp, action=get_event_planning_context, phase=planning_context`, 기획 후 ID 조회 `actor=mcp, phase=validation|revalidation`, Planner 생성·재생성, 규칙 검증, Critic 검토, Supervisor 수정 결정·재시도 기록을 추가했다. 최신 A `TraceEntry`/Adapter는 `phase`와 `tool_name` 저장·응답을 지원한다. 새 순서의 실제 API 응답과 순번·문구는 기획용 MCP Tool과 Loader를 연결한 뒤 통합 시험해야 한다.
 
 Planner 지시에는 기획용 Context가 전달되면 허용된 콘텐츠·보상 ID와 일자별 예상 레벨을 기준으로 선택하도록 명시했다. 검증용 MCP 조회가 실패하면 B Engine은 `mcp/ERROR`와 `supervisor/RETRY` 또는 `supervisor/TOOL_FALLBACK`을 분리해 기록한다. 실패한 조회에 확인되지 않은 게임 데이터 버전과 출처를 기록하지 않는다. Mock 회귀 시험에서 Timeout 재시도, 보상 Tool 재시도, Primary 실패 뒤 Fallback의 Trace 순서를 확인했다.
+
+실제 LLM 전송은 `backend/tests/test_backend_b_llm_live.py`로 별도 검증한다. `LLM_TEST_MODEL`과 `OPENAI_API_KEY`가 모두 설정된 경우에만 실행하며 기본 백엔드 테스트에서는 건너뛴다. 2026-10-08 모델 `gpt-4.1-mini`에서 Planner의 목록 내 ID 선택과 실제 Planner·Critic 응답을 사용한 `WAITING_APPROVAL` 도달 2건이 통과했다. MCP 응답은 시험 파일의 고정 자료다. 실행 명령과 모델 이름 주의 사항은 같은 폴더의 `handoff.md`에 있다. 실제 LLM·실제 MCP 서버·A API를 한 번에 거치는 전체 흐름은 A의 Loader 주입 후 검증한다.

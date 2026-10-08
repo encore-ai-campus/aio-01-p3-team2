@@ -66,3 +66,11 @@ B 소유 코드에는 위 조회·검증·Trace 경계가 추가됐다. 최신 A
 최신 A 커밋 `05ebeaf`와 MCP `port` 커밋 `3e0f661`을 로컬에 병합했다. 확정된 MCP 응답 필드에 맞춘 B의 기획 데이터 검증·Planner용 변환, 요청 대상·기간, 1·3·5·7일 기준 및 전체 유저 접근 기준, 상세 자료 오류, 보상 데이터 버전 누락과 Day 오류 수정 경로를 확인했다. 서버 URL을 지정하지 않은 `backend/tests`는 64 passed, 11 skipped이고, `mcp_server/tests`는 32 passed, 1 skipped(DB URL 미설정)였다. 별도 HTTP 서버에서 새 Tool→A Loader→B Engine의 정상 전체 실행과 Trace 순서를 확인했고, `backend/tests/test_backend_b_mcp_live.py`의 7건이 통과했다. 새 순서의 실제 API 응답은 A Loader 주입 후 검증해야 한다. 병합된 MCP 소유 파일의 Ruff 린트·포맷 검사 실패는 MCP 담당자에게 전달할 항목이다.
 
 Windows PowerShell에서 실서버 B 시험은 MCP 서버를 실행한 뒤 `$env:MCP_TEST_URL="http://127.0.0.1:8010/mcp"`와 `backend\.venv\Scripts\python.exe -m pytest backend/tests/test_backend_b_mcp_live.py -q`로 재현한다. 서버가 없으면 이 시험은 건너뛴다.
+
+2026-10-08 오후 기준 실제 작업 브랜치는 `backend-test`다. 위 2026-10-07 원문의 `youngmin` 표기는 당시 기록이다. B의 기획 전 조회 구현·시험·문서는 `backend-test`에 커밋해 원격에 올렸고(`abe1c03`, `110507a`, `9d30c7e`), `origin/port`의 style 커밋도 병합했다. A는 `WorkflowEngine(..., planning_context_loader=...)`에 준비된 Loader를 주입할 수 있다. 병합 후 `ruff check .`는 통과했고, `ruff format --check .`는 MCP 소유 `mcp_server/tests/test_postgres_integration.py` 1건이 남아 MCP 담당자에게 전달할 항목이다.
+
+실제 OpenAI 응답 시험은 `backend/tests/test_backend_b_llm_live.py`에 있다. `LLM_TEST_MODEL`과 `OPENAI_API_KEY`가 모두 있을 때만 실행하고, 없으면 2건을 건너뛴다. 호출마다 API 요금이 발생하므로 서버용 `OPENAI_MODEL`과 별도의 시험 전용 변수를 쓴다. MCP 응답은 시험 파일 안의 고정 자료이며 MCP 서버는 필요 없다. Windows PowerShell에서는 `OPENAI_API_KEY`를 환경변수로 설정한 뒤 `$env:LLM_TEST_MODEL="gpt-4.1-mini"`와 `backend\.venv\Scripts\python.exe -m pytest backend/tests/test_backend_b_llm_live.py -q`로 재현한다. 키는 문서·코드·Trace에 기록하지 않는다.
+
+2026-10-08 모델 `gpt-4.1-mini`로 2건이 통과했다. Planner는 전달한 `available_contents`·`reward_item_ids` 안의 ID만 선택했고, 실제 Planner·Critic 응답으로 기획 전 조회 → 초안 → 규칙 검증 → Critic PASS → `WAITING_APPROVAL`까지 진행했다. 모델 이름을 `openai/gpt-4.1-mini`로 지정하면 OpenAI가 404 `model_not_found`를 반환하고, B는 Planner 재시도 3회 뒤 `agent_failure`로 Safe Stop하며 승인 후보를 만들지 않았다. OpenAI SDK에는 접두사 없는 모델 이름을 사용한다. 이 결과는 1회 실행이며 응답 품질의 반복 측정이나 실제 MCP 서버·A API를 함께 거친 통합 검증은 아니다.
+
+Planner가 고른 ID의 목록 포함 여부를 Engine에서 따로 사전 검증하지는 않는다. 목록 밖 ID는 기존 MCP 재조회와 Python Rule Engine 판정에서 기획 오류로 처리되고, 그 경로가 `evidence`와 검증용 조회 Trace를 남기기 때문이다.
