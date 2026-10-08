@@ -1,13 +1,14 @@
 # 기획 전 MCP 조회를 포함한 Trace 응답 계약안
 
-이 문서는 프론트엔드가 요청한 실행 순서와 `GET /api/tasks/{task_id}/trace`의 **목표 JSON 예시**다. 2026-10-08 현재 A는 `phase`·`tool_name` 저장 및 응답을 지원하지만, B Engine의 기획 전 조회와 MCP의 `get_event_planning_context` Tool은 아직 구현되지 않았다. 아래 세 사례의 전체 순서는 통합 시험 전까지 완료로 표시하지 않는다.
+이 문서는 프론트엔드가 요청한 실행 순서와 `GET /api/tasks/{task_id}/trace`의 **목표 JSON 예시**다. 현재 A는 `phase`·`tool_name`·`next_agent` 저장 및 응답을 지원한다. 아래 세 사례의 JSON은 축약된 목표 예시이며 실제 실행 순서는 API Trace로 확인한다.
 
 ## 공통 규칙
 
 - API 응답은 `{ "task_id": "...", "traces": [...] }`이며 DB 내부 열 이름과 무관하게 `sequence`, `time`, `actor`, `action`, `status`, `reason`을 반환한다.
 - `sequence`는 Task 안에서 1부터 증가하는 순서다. `time`에는 시간대가 있는 ISO 8601 값을 사용한다.
 - 현재 A 구현은 Task의 기존 Trace 개수로 다음 번호를 정한다. 단일 Workflow의 순차 기록은 검증됐지만, 여러 프로세스가 같은 Task에 동시에 기록하는 운영 환경에서 중복 방지는 DB 고유 제약·원자적 번호 할당을 추가해야 한다.
-- `phase`는 MCP 조회일 때 `planning_context`, `validation`, `revalidation` 중 하나다. 다른 행은 `null`이다.
+- `phase`는 기획 데이터 조회 `planning_context`, 규칙 검증 `validation`·`revalidation`, 정상 경로 결정 `routing`, 오류 복구 `recovery`를 구분한다. 해당 단계가 없는 행은 `null`이다.
+- Supervisor의 다음 단계 결정에는 `next_agent`를 기록한다. Agent를 호출하는 결정은 대상 Agent 이름을, 승인 대기·안전 종료 결정은 `null`을 사용한다.
 - `tool_name`, `game_data_version`, `data_source`는 확인된 값이 있을 때만 채운다. 실패한 호출에서 데이터 버전·출처를 추측해 넣지 않는다.
 - 아래 JSON은 읽기 쉽도록 `null`인 선택 필드와 기존 카운터·감사 필드를 생략한 축약 예시다. 실제 Pydantic API 응답에는 선택 필드가 `null`로 포함될 수 있다.
 - `backend/create_task`와 `backend/candidate_saved`·`backend/safe_stop` 행이 추가될 수 있다. 지도에서 보여줄 다섯 단계의 상대 순서는 반드시 유지한다.

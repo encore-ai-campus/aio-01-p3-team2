@@ -57,3 +57,29 @@ A 커밋 `2b4e581`에서 Adapter가 Loader를 B Engine에 주입했다. 위 "API
 - 미션·보상 항목마다 MCP 조회 행이 하나씩 생긴다. 5일 이벤트는 검증 조회만 8~10행이므로 행 수를 고정값으로 가정하지 않는다.
 - 실제 LLM은 기획 수정에 두 번이 걸릴 수 있다. 실제 LLM의 기획 오류 사례에서는 첫 수정안도 `mission_unreachable`로 다시 실패해 `validate_plan ERROR` → `RUN_AGENT` → 재조회 → `regenerate_plan` 묶음이 두 번 나왔다. 자동 수정 한도는 2회이며 세 번째 실패는 `FAILED`로 끝난다.
 - 실제 LLM을 쓰는 생성 요청은 응답까지 정상 사례 약 10초, 수정 2회 사례 약 23초가 걸렸다. Mock LLM은 1초 미만이다.
+
+## 2026-10-08 Supervisor 경로 결정 기록 (브랜치 `feature/supervisor-routing-trace`)
+
+프론트엔드 요청에 따라 B Engine이 정상 경로의 Supervisor 결정을 Trace 이벤트로 만든다. 이 변경은 `feature/supervisor-routing-trace` 브랜치에만 있고 `backend-test`에는 아직 없다. A의 `TraceEntry`가 새 `phase` 값과 `next_agent`를 받도록 바뀌어야 API 응답에 나온다. 그 전에 병합하면 `backend_b_*` 모드의 모든 생성 요청이 Trace 저장에서 실패한다.
+
+B 이벤트에 추가·변경된 값은 다음과 같다.
+
+| 구분 | actor / action | phase | next_agent |
+| --- | --- | --- | --- |
+| 기획 데이터 조회 후 Planner 호출 | `supervisor` / `RUN_AGENT` | `routing` | `event_planner_agent` |
+| 초안 생성 후 규칙 검증 호출 | `supervisor` / `RUN_AGENT` | `routing` | `balance_rule_agent` |
+| 규칙 검증 통과 후 Critic 호출 | `supervisor` / `RUN_AGENT` | `routing` | `critic_agent` |
+| Critic 통과 후 승인 대기 | `supervisor` / `WAIT_APPROVAL` | `routing` | `null` |
+| 기획 오류 수정 결정 | `supervisor` / `RUN_AGENT` | `recovery` | `event_planner_agent` |
+| Tool 재시도 | `supervisor` / `RETRY` | `recovery` | `null` |
+| Primary 실패 후 Fallback | `supervisor` / `TOOL_FALLBACK` | `recovery` | `null` |
+| Agent 재실행 | `event_planner_agent` 또는 `critic_agent` / `AGENT_RETRY` | `recovery` | `null` |
+| 안전 종료 | `supervisor` / `SAFE_STOP` | `recovery` | `null` |
+
+- `routing` 기록은 모두 `status=SUCCESS`이고 `reason`에 판단 이유가 있다. 예: "기획 데이터를 확인하고 Event Planner에 초안 생성을 지시".
+- 기획 수정 뒤 수정안을 다시 규칙 검증으로 보내는 전환은 정상 진행이므로 `routing`이다. Planner로 보내는 `routing` 기록은 Task당 한 번만 생기고, 수정 때의 Planner 호출은 `recovery`의 `RUN_AGENT`로만 기록한다.
+- 이전에는 `supervisor/RETRY`와 `TOOL_FALLBACK`의 `phase`가 `planning_context`·`validation`·`revalidation`이었다. 이제 `recovery`로 바뀌었고, 어느 단계의 복구인지는 바로 앞의 `mcp` 오류 행의 `phase`와 `tool_name`으로 확인한다. `mcp` 행의 `phase`는 바뀌지 않았다.
+- 기존 `HANDOFF_ACCEPTED`와 `critic_agent/WAITING_APPROVAL` 행은 그대로 남는다. `supervisor/WAIT_APPROVAL` 바로 뒤에 `critic_agent/WAITING_APPROVAL`이 이어진다.
+- 안전 종료한 Task에는 실행되지 않은 전환이 기록되지 않는다. 첫 기획용 조회가 계속 실패하면 `routing` 행이 하나도 없고, 기획 수정 한도 초과 시에는 Critic 호출과 `WAIT_APPROVAL` 행이 없다.
+
+확인 방법과 범위: B Engine 단위 시험(`backend/tests/test_workflow.py`의 경로 기록 시험 5건)으로 정상·기획 수정·조회 실패·수정 한도 초과·Tool/Agent 재시도를 확인했다. A Schema에 두 값과 `next_agent`를 임시로 추가한 상태에서 실제 MCP 서버와 API(`backend_b_mcp`)로 정상·기획 오류·검증 조회 재시도·Agent 재실행·첫 조회 실패 5개 사례를 실행해 `GET /api/tasks/{task_id}/trace`에 위 값이 나오는 것을 확인했다. 임시 변경은 되돌렸으며 A 소유 파일은 커밋하지 않았다. 위 `trace_samples/`의 JSON은 이 변경 이전 응답이므로 `routing`·`recovery`·`next_agent`가 없다. A 반영 후 다시 수집한다.

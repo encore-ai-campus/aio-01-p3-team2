@@ -73,7 +73,10 @@ class TraceEntry(BaseModel):
     actor_id: str | None = None
     action: str
     status: str
-    phase: Literal["planning_context", "validation", "revalidation"] | None = None
+    phase: (
+        Literal["planning_context", "validation", "revalidation", "routing", "recovery"] | None
+    ) = None
+    next_agent: str | None = None
     tool_name: str | None = None
     error_type: str | None = None
     reason_code: str | None = None

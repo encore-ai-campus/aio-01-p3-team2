@@ -247,7 +247,7 @@ def build_demo_result(brief: dict[str, str | int]) -> tuple[dict[str, Any], dict
             {
                 "sequence": 1,
                 "error_type": "mission_unreachable",
-                "reason": "데모 시나리오: Day 7 레이드 필요 레벨 Lv.30이 신규 유저 예상 레벨 Lv.15보다 높아 미션을 달성할 수 없습니다.",
+                "reason": "오류 주입 데모: 기획용 데이터 제공 후에도 Day 7 레이드 Lv.30을 선택해 신규 유저 예상 레벨 Lv.15로는 달성할 수 없습니다.",
                 "recovery_action": "RUN_AGENT",
                 "target": "event_planner_agent",
                 "before": {
@@ -275,7 +275,7 @@ def build_demo_result(brief: dict[str, str | int]) -> tuple[dict[str, Any], dict
             {
                 "sequence": 1,
                 "error_type": "mcp_timeout",
-                "reason": "데모 시나리오: MCP 규칙 데이터 조회가 반복해서 시간 초과됐습니다.",
+                "reason": "데모 시나리오: 초안 생성 전 기획용 MCP 데이터 조회가 반복해서 시간 초과됐습니다.",
                 "recovery_action": "SAFE_STOP",
                 "target": "mcp",
                 "attempts": 3,
@@ -337,50 +337,137 @@ def build_demo_result(brief: dict[str, str | int]) -> tuple[dict[str, Any], dict
         "autohealing_events": autohealing_events,
         "error": {
             "error_type": "mcp_timeout",
-            "message": "MCP 호출이 3회 재시도 후에도 시간 초과되어 Workflow를 안전 종료했습니다.",
+            "message": "기획용 MCP 데이터 조회가 3회 재시도 후에도 시간 초과되어 초안 생성 전 안전 종료했습니다.",
         }
         if has_safe_stop
         else None,
         "_demo_preview": True,
     }
 
-    events = [("event_planner_agent", "create_plan", "SUCCESS", "예시 기획안 생성")]
-    if not has_safe_stop:
-        events.extend(
-            [
-                ("mcp", "get_game_rules", "SUCCESS", "시연용 게임 규칙 데이터 조회"),
-                ("mcp", "get_item_info", "SUCCESS", "시연용 보상 아이템 정보 조회"),
-            ]
-        )
+    events = []
     if has_safe_stop:
         events.extend(
             [
-                ("mcp", "get_game_rules", "ERROR", "MCP Timeout · 첫 호출 실패"),
-                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 1회 결정"),
-                ("mcp", "get_game_rules", "ERROR", "MCP Timeout · 재시도 1회 실패"),
-                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 2회 결정"),
-                ("mcp", "get_game_rules", "ERROR", "MCP Timeout · 재시도 2회 실패"),
-                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 3회 결정"),
-                ("mcp", "get_game_rules", "ERROR", "MCP Timeout · 재시도 3회 실패"),
-                ("supervisor", "SAFE_STOP", "FAILED", "재시도 한도 초과 · 안전 종료"),
+                (
+                    "mcp",
+                    "get_event_planning_context",
+                    "ERROR",
+                    "기획용 MCP 데이터 조회 시간 초과 · 첫 호출 실패",
+                    "planning_context",
+                ),
+                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 1회 결정", None),
+                (
+                    "mcp",
+                    "get_event_planning_context",
+                    "ERROR",
+                    "기획용 MCP 데이터 조회 시간 초과 · 재시도 1회 실패",
+                    "planning_context",
+                ),
+                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 2회 결정", None),
+                (
+                    "mcp",
+                    "get_event_planning_context",
+                    "ERROR",
+                    "기획용 MCP 데이터 조회 시간 초과 · 재시도 2회 실패",
+                    "planning_context",
+                ),
+                ("supervisor", "RETRY", "SUCCESS", "기술 재시도 3회 결정", None),
+                (
+                    "mcp",
+                    "get_event_planning_context",
+                    "ERROR",
+                    "기획용 MCP 데이터 조회 시간 초과 · 재시도 3회 실패",
+                    "planning_context",
+                ),
+                (
+                    "supervisor",
+                    "SAFE_STOP",
+                    "FAILED",
+                    "재시도 한도 초과 · 초안 생성 전 안전 종료",
+                    None,
+                ),
             ]
         )
-    elif has_healing:
+    else:
         events.extend(
             [
                 (
-                    "balance_rule_agent",
-                    "validate_plan",
-                    "ERROR",
-                    "데모 오류: Day 7 레이드 Lv.30이 신규 유저 예상 Lv.15를 초과함",
+                    "mcp",
+                    "get_event_planning_context",
+                    "SUCCESS",
+                    "시연용 대상 유저·콘텐츠·아이템 기획 데이터 조회",
+                    "planning_context",
                 ),
-                ("supervisor", "RUN_AGENT", "SUCCESS", "데모 AutoHealing 재실행"),
-                ("event_planner_agent", "regenerate_plan", "SUCCESS", "예시 기획안 수정"),
-                ("mcp", "get_game_rules", "SUCCESS", "수정안의 시연용 게임 규칙 재조회"),
-                ("mcp", "get_item_info", "SUCCESS", "수정안의 시연용 보상 아이템 재조회"),
+                (
+                    "supervisor",
+                    "RUN_AGENT",
+                    "SUCCESS",
+                    "기획 데이터를 확인하고 Event Planner에 초안 생성을 지시",
+                    "routing",
+                    "event_planner_agent",
+                ),
+                (
+                    "event_planner_agent",
+                    "create_plan",
+                    "SUCCESS",
+                    "기획 데이터를 전달받아 예시 초안 생성"
+                    + (" · 오류 주입으로 Day 7 레이드 포함" if has_healing else ""),
+                    None,
+                ),
+                (
+                    "supervisor",
+                    "RUN_AGENT",
+                    "SUCCESS",
+                    "초안의 게임 규칙 검증을 Balance & Rule에 지시",
+                    "routing",
+                    "balance_rule_agent",
+                ),
+                ("mcp", "get_game_rules", "SUCCESS", "초안의 게임 규칙 조회", "validation"),
+                ("mcp", "get_item_info", "SUCCESS", "초안의 보상 아이템 조회", "validation"),
             ]
         )
-    if not has_safe_stop:
+        if has_healing:
+            events.extend(
+                [
+                    (
+                        "balance_rule_agent",
+                        "validate_plan",
+                        "ERROR",
+                        "오류 주입 데모: Day 7 레이드 Lv.30이 신규 유저 예상 Lv.15를 초과함",
+                        "validation",
+                    ),
+                    ("supervisor", "RUN_AGENT", "SUCCESS", "기획 오류 수정 경로 결정", None),
+                    (
+                        "event_planner_agent",
+                        "regenerate_plan",
+                        "SUCCESS",
+                        "예시 기획안을 일반 던전 미션으로 수정",
+                        None,
+                    ),
+                    (
+                        "supervisor",
+                        "RUN_AGENT",
+                        "SUCCESS",
+                        "수정안의 재검증을 Balance & Rule에 지시",
+                        "routing",
+                        "balance_rule_agent",
+                    ),
+                    (
+                        "mcp",
+                        "get_game_rules",
+                        "SUCCESS",
+                        "수정안의 시연용 게임 규칙 재조회",
+                        "revalidation",
+                    ),
+                    (
+                        "mcp",
+                        "get_item_info",
+                        "SUCCESS",
+                        "수정안의 시연용 보상 아이템 재조회",
+                        "revalidation",
+                    ),
+                ]
+            )
         events.extend(
             [
                 (
@@ -390,35 +477,56 @@ def build_demo_result(brief: dict[str, str | int]) -> tuple[dict[str, Any], dict
                     "수정한 Day 7 일반 던전 Lv.10 ≤ 신규 유저 예상 Lv.15 · 시연용 재검증 PASS"
                     if has_healing
                     else "시연용 규칙 검증 결과",
+                    "revalidation" if has_healing else "validation",
                 ),
-                ("critic_agent", "final_review", "SUCCESS", "시연용 Critic PASS"),
+                (
+                    "supervisor",
+                    "RUN_AGENT",
+                    "SUCCESS",
+                    "게임 규칙 통과 후 Critic에 품질 검토를 지시",
+                    "routing",
+                    "critic_agent",
+                ),
+                ("critic_agent", "final_review", "SUCCESS", "시연용 Critic PASS", None),
+                (
+                    "supervisor",
+                    "WAIT_APPROVAL",
+                    "SUCCESS",
+                    "Critic PASS를 확인하고 운영자 승인 대기로 전환",
+                    "routing",
+                    None,
+                ),
             ]
         )
     start = datetime.now().astimezone().replace(microsecond=0) - timedelta(seconds=len(events) * 5)
     revision_sequence = next(
         (
             sequence
-            for sequence, (actor, action, _, _) in enumerate(events, start=1)
-            if actor == "event_planner_agent" and action == "regenerate_plan"
+            for sequence, event in enumerate(events, start=1)
+            if event[0] == "event_planner_agent" and event[1] == "regenerate_plan"
         ),
         None,
     )
-    traces = [
-        {
-            "sequence": sequence,
-            "time": (start + timedelta(seconds=sequence * 5)).isoformat(),
-            "actor": actor,
-            "action": action,
-            "status": status,
-            "reason": reason,
-            "error_type": ("mcp_timeout" if has_safe_stop else "mission_unreachable")
-            if status in {"ERROR", "FAILED"}
-            else None,
-            "retry_count": min((sequence - 1) // 2, 3) if has_safe_stop else 0,
-            "revision_count": 1 if revision_sequence and sequence >= revision_sequence else 0,
-            "result_version": result_version if actor == "critic_agent" else 0,
-            "data_source": "demo_fixture",
-        }
-        for sequence, (actor, action, status, reason) in enumerate(events, start=1)
-    ]
+    traces = []
+    for sequence, event in enumerate(events, start=1):
+        actor, action, status, reason, phase, *route = event
+        traces.append(
+            {
+                "sequence": sequence,
+                "time": (start + timedelta(seconds=sequence * 5)).isoformat(),
+                "actor": actor,
+                "action": action,
+                "status": status,
+                "reason": reason,
+                "error_type": ("mcp_timeout" if has_safe_stop else "mission_unreachable")
+                if status in {"ERROR", "FAILED"}
+                else None,
+                "retry_count": min(sequence // 2, 3) if has_safe_stop else 0,
+                "revision_count": 1 if revision_sequence and sequence >= revision_sequence else 0,
+                "result_version": result_version if actor == "critic_agent" else 0,
+                "data_source": "demo_fixture",
+                "phase": phase,
+                "next_agent": route[0] if route else None,
+            }
+        )
     return task, {"task_id": task_id, "traces": traces}

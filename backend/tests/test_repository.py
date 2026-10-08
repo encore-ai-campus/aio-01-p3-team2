@@ -41,6 +41,18 @@ def test_sqlalchemy_repository_round_trip():
             tool_name="get_event_planning_context",
         ),
     )
+    repository.append_trace(
+        task.task_id,
+        TraceEntry(
+            sequence=2,
+            time=timestamp,
+            actor="supervisor",
+            action="RUN_AGENT",
+            status="SUCCESS",
+            phase="routing",
+            next_agent="event_planner_agent",
+        ),
+    )
     repository.append_tool_log(
         task.task_id,
         ToolLogEntry(
@@ -61,6 +73,9 @@ def test_sqlalchemy_repository_round_trip():
     assert trace.action == "get_event_planning_context"
     assert trace.phase == "planning_context"
     assert trace.tool_name == "get_event_planning_context"
+    routing = repository.get_traces(task.task_id)[1]
+    assert routing.phase == "routing"
+    assert routing.next_agent == "event_planner_agent"
     assert repository.get_tool_logs(task.task_id)[0].tool == "get_game_rules"
     assert repository.find_idempotency("event:key") == ("hash", task.task_id)
     assert repository.ready() is True

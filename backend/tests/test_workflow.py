@@ -378,7 +378,11 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
         actions = [(event["actor"], event["action"]) for event in self.trace_events]
         failed = actions.index(("balance_rule_agent", "validate_plan"))
-        decision = actions.index(("supervisor", "RUN_AGENT"))
+        decision = next(
+            index
+            for index, event in enumerate(self.trace_events)
+            if event["action"] == "RUN_AGENT" and event["phase"] == "recovery"
+        )
         revised = actions.index(("event_planner_agent", "regenerate_plan"))
         requery = next(
             index
@@ -458,6 +462,119 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
         self.assertEqual(result.revision_count, 1)
         self.assertEqual(calls, 2)
+
+    def _routing(self) -> list[tuple[str, str | None]]:
+        """Supervisor의 정상 경로 결정만 순서대로 추린다."""
+        return [
+            (event["action"], event["next_agent"])
+            for event in self.trace_events
+            if event["actor"] == "supervisor" and event["phase"] == "routing"
+        ]
+
+    async def test_normal_path_records_supervisor_routing(self) -> None:
+        """정상 실행의 Agent 전환과 승인 대기 결정을 Supervisor가 기록한다."""
+
+        async def load(_target_user: str, _duration: int) -> Mapping[str, object]:
+            return self._planning_context()
+
+        result = await self._engine(planning_context_loader=load).run("task-route", self.brief)
+        self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+        self.assertEqual(
+            self._routing(),
+            [
+                ("RUN_AGENT", "event_planner_agent"),
+                ("RUN_AGENT", "balance_rule_agent"),
+                ("RUN_AGENT", "critic_agent"),
+                ("WAIT_APPROVAL", None),
+            ],
+        )
+        routing = [event for event in self.trace_events if event["phase"] == "routing"]
+        self.assertTrue(all(event["status"] == "SUCCESS" for event in routing))
+        self.assertTrue(all(event["reason"].strip() for event in routing))
+        self.assertTrue(all(event["error_type"] is None for event in routing))
+        steps = [
+            (event["actor"], event["action"], event.get("next_agent"))
+            for event in self.trace_events
+        ]
+        order = [
+            ("mcp", "get_event_planning_context", None),
+            ("supervisor", "RUN_AGENT", "event_planner_agent"),
+            ("event_planner_agent", "create_plan", None),
+            ("supervisor", "RUN_AGENT", "balance_rule_agent"),
+            ("mcp", "get_game_rules", None),
+            ("balance_rule_agent", "validate_plan", None),
+            ("supervisor", "RUN_AGENT", "critic_agent"),
+            ("critic_agent", "final_review", None),
+            ("supervisor", "WAIT_APPROVAL", None),
+        ]
+        positions = [steps.index(step) for step in order]
+        self.assertEqual(positions, sorted(positions))
+
+    async def test_replan_is_recovery_and_later_handoffs_stay_routing(self) -> None:
+        """기획 수정 결정은 recovery로, 그 뒤의 정상 전환은 routing으로 구분한다."""
+        result = await self._engine().run("task-route-fix", self.brief, "mission_unreachable_once")
+        self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+        replans = [
+            event
+            for event in self.trace_events
+            if event["actor"] == "supervisor" and event["phase"] == "recovery"
+        ]
+        self.assertEqual(
+            [(event["action"], event["next_agent"]) for event in replans],
+            [("RUN_AGENT", "event_planner_agent")],
+        )
+        self.assertEqual(
+            self._routing(),
+            [
+                ("RUN_AGENT", "event_planner_agent"),
+                ("RUN_AGENT", "balance_rule_agent"),
+                ("RUN_AGENT", "balance_rule_agent"),
+                ("RUN_AGENT", "critic_agent"),
+                ("WAIT_APPROVAL", None),
+            ],
+        )
+
+    async def test_safe_stop_records_no_critic_or_approval_routing(self) -> None:
+        """안전 종료한 Task에는 실행되지 않은 전환 기록이 없다."""
+
+        async def load(_target_user: str, _duration: int) -> Mapping[str, object]:
+            raise MCPTimeoutError("get_event_planning_context")
+
+        result = await self._engine(planning_context_loader=load).run("task-route-stop", self.brief)
+        self.assertEqual(result.workflow_status, "FAILED")
+        self.assertEqual(self._routing(), [])
+        decisions = [event for event in self.trace_events if event["actor"] == "supervisor"]
+        self.assertEqual(
+            [event["action"] for event in decisions], ["RETRY", "RETRY", "RETRY", "SAFE_STOP"]
+        )
+        self.assertTrue(all(event["phase"] == "recovery" for event in decisions))
+
+    async def test_revision_limit_stops_without_critic_routing(self) -> None:
+        """기획 수정 한도 초과 시 Critic 전환과 승인 대기를 기록하지 않는다."""
+        self.item_id = "ITEM_999"
+        result = await self._engine().run("task-route-limit", self.brief)
+        self.assertEqual(result.workflow_status, "FAILED")
+        routed = self._routing()
+        self.assertNotIn(("RUN_AGENT", "critic_agent"), routed)
+        self.assertNotIn(("WAIT_APPROVAL", None), routed)
+        self.assertEqual(self.trace_events[-1]["action"], "SAFE_STOP")
+        self.assertEqual(self.trace_events[-1]["phase"], "recovery")
+
+    async def test_tool_and_agent_retries_are_recovery(self) -> None:
+        """Tool 재시도·Fallback과 Agent 재실행은 recovery로 기록한다."""
+        for task_id, fault, action in (
+            ("task-route-timeout", "mcp_timeout_once", "RETRY"),
+            ("task-route-fallback", "primary_tool_error_once", "TOOL_FALLBACK"),
+            ("task-route-agent", "agent_failure_once", "AGENT_RETRY"),
+        ):
+            with self.subTest(fault=fault):
+                self.trace_events.clear()
+                result = await self._engine().run(task_id, self.brief, fault)
+                self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+                recovery = [event for event in self.trace_events if event["action"] == action]
+                self.assertEqual(len(recovery), 1)
+                self.assertEqual(recovery[0]["phase"], "recovery")
+                self.assertEqual(self._routing()[-1], ("WAIT_APPROVAL", None))
 
     async def test_normal_path_waits_for_approval(self) -> None:
         """검증된 후보에만 표시 이름과 승인 대기 상태가 생긴다."""
