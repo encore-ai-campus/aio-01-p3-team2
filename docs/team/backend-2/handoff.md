@@ -82,7 +82,7 @@ Planner가 고른 ID의 목록 포함 여부를 Engine에서 따로 사전 검�
 ### 현재 상태
 
 - 작업 브랜치는 `backend-test`이고, 이 절을 추가하기 직전 커밋은 `81fb0c8`이고 그때까지는 `origin/backend-test`에 올라가 있다. 이 절을 담은 문서 커밋 외에 미커밋 변경은 없다.
-- B 단독으로 진행할 수 있는 작업은 끝났다. 남은 일은 A의 Loader 주입 뒤에 하는 API 통합 검증이다.
+- A의 Loader 주입(`2b4e581`)을 병합했고, 실제 MCP 서버·실제 OpenAI를 붙인 API 통합 검증까지 마쳤다. 결과와 원본 Trace는 `frontend_trace_handoff.md`의 "2026-10-08 실제 API 통합 검증 결과"와 `trace_samples/`에 있다.
 
 ### 이날 `backend-test`에 올린 커밋
 
@@ -120,14 +120,13 @@ Planner가 고른 ID의 목록 포함 여부를 Engine에서 따로 사전 검�
 
 ### 다음 작업
 
-1. A 담당자가 `BackendBWorkflowAdapter`에서 `PlanningContextLoader(...).load`를 Engine의 `planning_context_loader`로 주입해 올리면 `backend-test`에 병합한다.
-2. `backend_b_mcp`·`backend_b_live` 모드로 API를 실행해 새 순서(기획용 조회 → Planner → 검증용 조회 → 규칙 검증 → Critic)가 응답과 Trace에 나타나는지 확인하고, B 측 오류가 있으면 수정한다.
-3. 프론트엔드가 요청한 정상·기획 오류·첫 조회 실패 사례의 실제 `{"task_id": ..., "traces": [...]}` 응답 JSON을 수집해 `frontend_trace_handoff.md`를 갱신하고 전달한다.
-4. 공용 PostgreSQL에 게임 데이터가 적용되면 JSON 기본 데이터가 아닌 DB 조회 경로로 MCP·B 시험을 다시 실행한다.
-5. MCP 담당자가 남은 포맷 1건을 고쳐 `port`에 올리면 병합하고 저장소 전체 Ruff를 다시 확인한다.
+1. 프론트엔드 담당자에게 `frontend_trace_handoff.md`의 통합 검증 결과와 `trace_samples/`의 실제 응답 JSON을 전달한다.
+2. 공용 PostgreSQL에 게임 데이터가 적용되면 `MCP_DATABASE_URL`·`DATABASE_URL`을 설정한 상태로 같은 API 사례를 다시 실행한다. 이번 검증은 JSON 기본 데이터와 인메모리 저장소 기준이다.
+3. MCP 담당자가 남은 포맷 1건을 고쳐 `port`에 올리면 병합하고 저장소 전체 Ruff를 다시 확인한다.
+4. 실제 LLM의 기획 수정 품질을 더 확인한다. 기획 오류 주입 사례 1회에서 첫 수정안이 다시 `mission_unreachable`로 실패해 자동 수정 한도 2회를 모두 썼다. Planner에는 `error_type`과 일반 사유 문장만 전달되고 어느 Day·콘텐츠가 문제인지는 전달되지 않는다. 사유를 구체화할지는 반복 실행으로 실패 빈도를 본 뒤 정한다.
 
 ### 다른 담당자에게 전달할 내용
 
-- A: `abe1c03`부터 Engine이 `planning_context_loader(target_user: str, duration: int)`를 받는다. Adapter에서 주입하고 API 통합 시험을 추가해 달라. `backend/.env.docker.example`의 `OPENAI_MODEL` 기본값이 `gpt-4.1-mini`로 바뀌었다.
+- A: Loader 주입(`2b4e581`)을 병합해 실제 MCP·LLM으로 API 흐름을 확인했다. `backend/.env.docker.example`의 `OPENAI_MODEL` 기본값이 `gpt-4.1-mini`로 바뀌었다.
 - MCP: `mcp_server/tests/test_postgres_integration.py`에 `ruff format`을 적용해 달라. `docs/team/mcp/planning_context.md`는 B가 정리한 문서이므로 실제 구현과 다르면 고쳐 달라. `mcp_server/.env.example`의 `MCP_DATABASE_URL`에 연결 형식 예시가 들어갔다.
-- Frontend: 새 순서의 실제 API Trace JSON은 A의 Loader 주입 후 제공한다. 그 전까지는 `frontend_trace_handoff.md`의 B Engine 기준 순서를 참고한다.
+- Frontend: 새 순서의 실제 API Trace JSON 7종이 `docs/team/backend-2/trace_samples/`에 있다. 사례별 설명은 `frontend_trace_handoff.md`의 마지막 절을 참고한다.
