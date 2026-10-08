@@ -134,3 +134,82 @@ Planner가 고른 ID의 목록 포함 여부를 Engine에서 따로 사전 검�
 - A: Loader 주입(`2b4e581`)을 병합해 실제 MCP·LLM으로 API 흐름을 확인했다. `backend/.env.docker.example`의 `OPENAI_MODEL` 기본값이 `gpt-4.1-mini`로 바뀌었다.
 - MCP: `mcp_server/tests/test_postgres_integration.py`에 `ruff format`을 적용해 달라. `docs/team/mcp/planning_context.md`는 B가 정리한 문서이므로 실제 구현과 다르면 고쳐 달라. `mcp_server/.env.example`의 `MCP_DATABASE_URL`에 연결 형식 예시가 들어갔다.
 - Frontend: 새 순서의 실제 API Trace JSON 7종이 `docs/team/backend-2/trace_samples/`에 있다. 사례별 설명은 `frontend_trace_handoff.md`의 마지막 절을 참고한다.
+
+## 다른 데스크탑에서 이어서 진행하기 (2026-10-08 저녁 기준)
+
+### 브랜치
+
+| 브랜치 | 내용 | 상태 |
+| --- | --- | --- |
+| `backend-test` | A·B·MCP·Frontend 통합 브랜치. 기획 전 조회, API 통합 검증 결과, `trace_samples/` 포함 | 원격 `fa55a04`. `backend/tests` 67 passed, 13 skipped |
+| `feature/supervisor-routing-trace` | `backend-test`에서 만든 B 작업 브랜치. Supervisor 경로 결정 Trace와 이 절을 포함 | 원격에 푸시함. `backend/tests` 69 passed, 13 skipped, 3 failed(A 변경 대기) |
+
+이어서 작업할 때는 `feature/supervisor-routing-trace`를 체크아웃한다. 이 브랜치는 `backend-test`의 내용을 모두 포함한다. `main`에는 직접 작업하지 않는다.
+
+```powershell
+git fetch origin
+git switch feature/supervisor-routing-trace
+git status --short --branch
+```
+
+### 환경 준비
+
+1. 가상환경은 컴퓨터마다 새로 만든다. 이 저장소는 `backend/.venv`, `mcp_server/.venv`, `frontend/.venv`를 폴더별로 쓴다.
+   - `backend\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt -r requirements-dev.txt`
+   - `mcp_server\.venv\Scripts\python.exe -m pip install -r mcp_server/requirements.txt pytest`
+2. `backend/.env`와 `mcp_server/.env`는 Git에 없으므로 직접 만든다. 변수 이름은 `backend/.env.example`, `backend/.env.docker.example`, `mcp_server/.env.example`을 참고한다. `.env`는 자동으로 읽히지 않으므로 실행하는 셸에 환경변수로 설정한다.
+3. `OPENAI_MODEL`은 `gpt-4.1-mini`처럼 접두사 없이 적는다. 2026-10-08에 사용한 OpenAI 키는 재발급 대상이다.
+
+### 검사 명령
+
+```powershell
+backend\.venv\Scripts\python.exe -m pytest backend/tests -q
+backend\.venv\Scripts\python.exe -m ruff check .
+backend\.venv\Scripts\python.exe -m ruff format --check .
+mcp_server\.venv\Scripts\python.exe -m pytest mcp_server/tests -q
+```
+
+- 셸에 `DATABASE_URL`이 설정된 상태에서 DB가 꺼져 있으면 `backend/tests`가 수집 단계에서 멈춘다. 시험할 때는 이 변수를 비운다.
+- `feature/supervisor-routing-trace`에서는 `backend/tests/test_backend_a_planning_api.py` 3건이 실패하는 것이 현재 정상이다. 원인은 아래 "A에 요청한 변경"이다.
+- `ruff format --check .`는 MCP 소유 `mcp_server/tests/test_postgres_integration.py` 1건이 실패한다.
+
+### 실제 서버로 API를 확인하는 절차
+
+2026-10-08의 API 통합 검증은 아래 절차를 자동화한 임시 스크립트로 실행했다. 스크립트는 저장소에 없으므로 같은 절차를 직접 실행한다. 이미 쓰는 포트와 겹치지 않게 임시 포트를 쓴다.
+
+```powershell
+# 1) MCP 서버 (JSON 기본 데이터, 별도 창)
+$env:MCP_PORT="8011"
+mcp_server\.venv\Scripts\python.exe -m mcp_server.server
+
+# 2) Backend (인메모리 저장소, 별도 창). 실제 LLM은 backend_b_live와 OPENAI_API_KEY·OPENAI_MODEL
+$env:WORKFLOW_ENGINE="backend_b_mcp"
+$env:MCP_URL="http://127.0.0.1:8011/mcp"
+$env:ENABLE_FAULT_INJECTION="true"
+backend\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --port 8001
+```
+
+3. `GET http://127.0.0.1:8001/health/ready`가 `{"status":"ready"}`인지 확인한다.
+4. `POST /api/events/generate`에 `actor_id`(`liveops01`), `event_name`, `target_user`, `duration`, `objective`, `idempotency_key`(매번 새 UUID)를 보낸다. 장애 주입은 `POST /api/test/events/generate`에 `fault_type`을 더한다. 사용한 값은 `mission_unreachable_once`, `mcp_timeout_once`, `primary_tool_error_once`, `agent_failure_once`다.
+5. 응답의 `task_id`로 `GET /api/tasks/{task_id}/trace`를 호출해 순서를 확인한다.
+6. 첫 기획용 조회 지속 실패는 MCP 서버를 끈 상태에서 4번을 실행해 확인한다.
+7. 확인이 끝나면 두 서버를 종료한다.
+
+### A에 요청한 변경 (Supervisor 경로 결정 Trace)
+
+B 구현은 커밋 `cb9f68a`에 있다. A가 아래 두 곳을 바꾸면 API 응답에 새 값이 나온다. 임시로 적용했을 때 `backend/tests` 전체가 72 passed, 13 skipped였고 실제 MCP 서버와 API로 5개 사례를 확인했다. A 소유 파일이므로 B가 커밋하지 않았다.
+
+- `backend/app/schemas/workflow_state.py`의 `TraceEntry`: `phase` 허용 값에 `"routing"`, `"recovery"`를 추가하고 `next_agent: str | None = None` 필드를 추가한다.
+- `backend/app/services/workflow_service.py`의 `_save_trace`: `TraceEntry(...)`에 `next_agent=self._optional_string(event.get("next_agent"))`를 전달한다.
+
+Trace는 JSON payload로 저장되므로 DB 테이블 변경은 필요 없다.
+
+### 이어서 할 일
+
+1. A가 위 변경을 `backend-test`에 올렸는지 확인한다. 올라왔으면 `backend-test`를 받아 `feature/supervisor-routing-trace`를 병합하고 `backend/tests` 전체 통과를 확인한 뒤 `backend-test`에 올린다.
+2. 위 절차로 정상·기획 오류·첫 조회 실패·검증 조회 재시도·Fallback·Agent 재실행 사례를 다시 실행하고, `docs/team/backend-2/trace_samples/`의 JSON을 `routing`·`recovery`·`next_agent`가 포함된 응답으로 교체한다. 지금 있는 7종은 이 변경 이전 응답이다.
+3. `frontend_trace_handoff.md`를 실제 응답 기준으로 갱신하고 프론트엔드 담당자에게 전달한다.
+4. 공용 PostgreSQL에 게임 데이터가 적용되면 `MCP_DATABASE_URL`·`DATABASE_URL`을 설정해 같은 사례를 다시 실행한다.
+5. MCP 담당자가 포맷 1건을 고쳐 `port`에 올리면 병합하고 전체 Ruff를 다시 확인한다.
+
+A 변경이 오래 걸리면 프론트엔드 담당자에게는 `frontend_trace_handoff.md` 마지막 절의 형식 표를 먼저 전달한다. A 반영 전의 미리보기 응답은 저장소에 보관하지 않았다.
