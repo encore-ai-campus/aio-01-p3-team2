@@ -60,7 +60,7 @@ API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현행 M
 
 결과 화면의 Workflow 연출은 조회된 Trace의 순서로 **완료된 기록을 재생**합니다. 지도 위쪽 네 박스는 기획용 MCP 조회 → 이벤트 기획 → 검증용 MCP 조회 → 운영자 승인이고, 아래쪽의 담당 에이전트 네 박스는 Event Planner, Balance & Rule, Critic, Supervisor입니다. MCP 검증 데이터 조회 뒤에는 Balance & Rule Agent의 게임 규칙 검증 Trace와 Critic Agent의 품질 검토 Trace를 거쳐 운영자 승인으로 연결합니다. `actor=mcp` 기록의 `phase=planning_context` 또는 `action=get_event_planning_context`는 기획용 조회에, 나머지 MCP 기록은 검증용 조회에 대응합니다. `phase=revalidation`은 수정안의 재검증용 조회로 표시합니다. 백엔드가 `phase`를 제공하지 않는 기존 MCP 기록은 검증용으로 표시하며, 기획용 조회를 추정해 성공 처리하지 않습니다. Supervisor의 정상 단계 전환과 오류 복구 지시를 구분하고 Event Planner의 기획안 재생성을 별도 박스에서 보여주고, 동일 단계 재방문은 방문 횟수로 표시합니다. 안전 종료는 실제 Trace의 Supervisor 상태와 상세 카드에 표시하며 실행되지 않은 Planner·승인 단계를 성공한 것처럼 표시하지 않습니다. 연결선과 화살촉은 Streamlit 화면 삽입 후 JavaScript에서 생성하며 실제 Trace가 지나간 연결에만 표시합니다. MCP Server는 Agent로 분류하지 않고 운영 담당자 승인 대기는 Task 상태를 근거로 표시합니다. 이전·다음·일시정지·다시 보기로 기록을 살펴볼 수 있으며 연출 시간은 실제 Agent 실행 시간이나 실시간 진행률을 의미하지 않습니다. Trace가 없으면 재생하지 않고 동작 줄이기 설정에서는 애니메이션 없이 최종 상태를 표시합니다.
 
-지도 아래쪽 네 에이전트 박스는 공통의 「담당 에이전트」 문구 대신 각각 **이벤트 기획·수정**, **게임 규칙 검증·재검증**, **이벤트 기획안 품질 검토**, **다음 단계 결정·오류 복구** 역할을 표시합니다. 에이전트 이름과 Trace 기반 상태 표시는 유지합니다.
+지도 아래쪽 네 에이전트 박스는 공통의 「담당 에이전트」 문구 대신 각각 **이벤트 기획·수정**, **게임 데이터 비교·검증**, **이벤트 기획안 종합 검토**, **다음 단계 선택·오류 복구** 역할을 표시합니다. 에이전트 이름과 Trace 기반 상태 표시는 유지합니다.
 
 기획 전 MCP 조회와 `phase` 구분은 새 Backend Trace 계약이 제공될 때 실제 결과로 확인할 수 있습니다. 현재 고정 데모는 새 순서를 시각적으로 예시할 뿐 실제 MCP·Agent 실행 기록이 아닙니다. Backend가 기존 Trace를 반환하면 프론트엔드는 없는 기획용 조회나 Supervisor 결정을 임의로 추가하지 않습니다. 정상 경로 결정은 Backend Trace의 `actor=supervisor`, `phase=routing`, `action=RUN_AGENT` 또는 `WAIT_APPROVAL`, `next_agent`, `reason`, `status`가 실제 제공될 때만 표시합니다. 데모 Trace의 같은 필드는 시연용 고정 기록입니다.
 

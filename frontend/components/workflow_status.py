@@ -11,8 +11,8 @@ from components.trace_viewer import trace_items
 
 PHASES = {
     "event_planner_agent": ("이벤트 기획", "planner"),
-    "balance_rule_agent": ("게임 규칙 검증", ""),
-    "critic_agent": ("이벤트 기획안 품질 검토", ""),
+    "balance_rule_agent": ("게임 데이터 비교·검증", ""),
+    "critic_agent": ("이벤트 기획안 종합 검토", ""),
     "human": ("운영자 승인", "approval"),
 }
 
@@ -31,9 +31,9 @@ NODES = (
     ("validation_data", "MCP 검증 데이터 조회", "MCP Server"),
     ("approval", "운영자 승인", "운영 담당자"),
     ("planner_agent", "Event Planner Agent", "이벤트 기획·수정"),
-    ("balance_agent", "Balance & Rule Agent", "게임 규칙 검증·재검증"),
-    ("critic_agent", "Critic Agent", "이벤트 기획안 품질 검토"),
-    ("supervisor_agent", "Supervisor Agent", "다음 단계 결정·오류 복구"),
+    ("balance_agent", "Balance & Rule Agent", "게임 데이터 비교·검증"),
+    ("critic_agent", "Critic Agent", "이벤트 기획안 종합 검토"),
+    ("supervisor_agent", "Supervisor Agent", "다음 단계 선택·오류 복구"),
 )
 
 AGENT_NODES = {
