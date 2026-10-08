@@ -104,6 +104,7 @@ jobs:
           import json, os
           commands = [
               "set -eu; mkdir -p /opt/multi-agent-autohealing/frontend; printf '%s' '" + os.environ['ENV_B64'] + "' | base64 -d > /opt/multi-agent-autohealing/frontend/.env; chmod 600 /opt/multi-agent-autohealing/frontend/.env",
+              "aws ecr get-login-password --region " + os.environ['AWS_REGION'] + " | docker login --username AWS --password-stdin " + os.environ['IMAGE'].split('/')[0],
               "docker pull " + os.environ['IMAGE'],
               "docker rm -f multi-agent-autohealing-frontend 2>/dev/null || true; docker run -d --restart unless-stopped --name multi-agent-autohealing-frontend --env-file /opt/multi-agent-autohealing/frontend/.env -p 8501:8501 " + os.environ['IMAGE'],
               "curl --fail --retry 24 --retry-delay 5 --retry-connrefused --retry-all-errors http://127.0.0.1:8501/",
