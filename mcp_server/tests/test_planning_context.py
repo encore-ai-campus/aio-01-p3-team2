@@ -1,7 +1,6 @@
 """Planning context contract for Backend B's pre-planning lookup."""
 
 import pytest
-
 from mcp_server.tools import _db
 from mcp_server.tools.get_event_planning_context import get_event_planning_context
 
@@ -47,7 +46,7 @@ def test_all_user_context_uses_common_access_rule() -> None:
         "all_user": {
             "validation_policy": "content_access_only",
             "common_access_max_required_level": 1,
-        }
+        },
     }
 
 

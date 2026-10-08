@@ -4,7 +4,6 @@ import os
 
 import psycopg
 import pytest
-
 from mcp_server.tools.get_event_planning_context import get_event_planning_context
 from mcp_server.tools.get_game_rules import get_game_rules
 from mcp_server.tools.get_game_rules_fallback import get_game_rules_fallback
