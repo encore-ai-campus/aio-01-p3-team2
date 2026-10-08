@@ -1,3 +1,4 @@
+-- Reference draft only. Backend A owns shared DB schema; do not apply separately.
 -- Game master data for the small Opong Heroes MVP.
 CREATE TABLE IF NOT EXISTS game_data_catalog (
     game_id TEXT PRIMARY KEY,
