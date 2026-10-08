@@ -6,6 +6,7 @@ Run from the repository root with: python -m mcp_server.server
 import os
 
 from mcp.server.fastmcp import FastMCP
+from mcp_server.tools.get_event_planning_context import get_event_planning_context
 from mcp_server.tools.get_game_rules import get_game_rules
 from mcp_server.tools.get_game_rules_fallback import get_game_rules_fallback
 from mcp_server.tools.get_item_info import get_item_info
@@ -19,7 +20,7 @@ mcp = FastMCP(
     json_response=True,
 )
 
-for tool in (get_game_rules, get_game_rules_fallback, get_item_info):
+for tool in (get_event_planning_context, get_game_rules, get_game_rules_fallback, get_item_info):
     mcp.tool()(tool)
 
 

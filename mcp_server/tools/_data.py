@@ -1,4 +1,4 @@
-"""Small read-only JSON catalog shared by the three MCP tools."""
+"""Small read-only game catalog shared by the three MCP tools."""
 
 from __future__ import annotations
 
@@ -91,7 +91,12 @@ def validate_game_data(data: object) -> dict[str, Any]:
 
 
 def load_game_data(*, fallback: bool = False) -> dict[str, Any]:
-    """Load on each call so file and schema errors reach the backend."""
+    """Use PostgreSQL for primary data when configured; fallback stays a file."""
+    if not fallback and os.getenv("MCP_DATABASE_URL", "").strip():
+        from ._db import load_game_data_from_db
+
+        return validate_game_data(load_game_data_from_db())
+
     env_name = "MCP_FALLBACK_DATA_PATH" if fallback else "MCP_DATA_PATH"
     file_name = "tiny_heroes_fallback.json" if fallback else "tiny_heroes.json"
     configured = os.getenv(env_name)
