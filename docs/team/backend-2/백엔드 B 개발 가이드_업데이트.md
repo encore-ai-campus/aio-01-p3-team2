@@ -167,3 +167,23 @@ A의 우선 Core API: `POST /api/events/generate`, `POST /api/test/events/genera
 - [ ] 최근 Task 목록, `/tool-logs`, `/api/game-data`, `/api/system/health`의 실제 Frontend 호출 여부 확인
 - [ ] Mock `game_data_version=tinyheroes-1.0.0`과 Content ID 세 가지를 양쪽 Contract·Fixture에 반영
 - [ ] Repository 함수별 Parameter/Return Type, sync/async, 미존재·연결 오류·중복 쓰기 처리 규격 확정
+
+## 10. 2026-10-08 A/B 통합 결과와 B 후속 작업
+
+이 절은 앞의 개발 계약 중 실제 `backend-test`에서 확인한 부분을 기록한다. 현재 통합 시험은 B Engine을 실행하지만 LLM·MCP 전송은 결정적 Mock이다. 실제 MCP 서버·OpenAI 연결 완료로 해석하지 않는다.
+
+| 확인 항목 | 현재 연결 방식과 결과 | B가 변경할 때 확인할 것 |
+| --- | --- | --- |
+| Engine 호출 | A의 `BackendBWorkflowAdapter`가 동기 API에서 B의 async `run/revise`를 호출 | 입력 Brief와 `revision_loader`의 최신 결과 계약 유지 |
+| 결과 Schema | Adapter가 B dataclass/dict를 A Pydantic 결과로 변환 | `missions/rewards`, `rule_validation`, 오류 필드 변경 시 A와 합의 |
+| AutoHealing | B `action/error_type/agent/tool` 등을 A 응답 필드로 변환 | 새 액션은 A의 `recovery_action/target/revalidation_status` 매핑 테스트 추가 |
+| Trace | B 이벤트를 A의 `trace_sink`가 Task sequence·저장 버전에 맞춰 기록 | Trace 필드·버전 의미 변경 전 A와 조율 |
+| Swagger | 정상 생성·수정 요청·승인·거절 및 7개 Fault Injection 통과 | B 코드 수정 후 정상·오류 경로 모두 재시험 |
+
+통합 중 AutoHealing 내부 이벤트를 A의 `AutoHealingEvent`로 바로 검증했을 때 HTTP 500이 발생했다. A Adapter에서 변환을 추가해 해결했다. B는 내부 이벤트 필드 변경 시 해당 변환을 깨뜨리지 않는지 A에게 알리고 통합 테스트를 갱신한다.
+
+Fault별 관찰 결과: `mission_unreachable_once`는 자동 수정 1회, `agent_failure_once`·`mcp_timeout_once`·`validation_error_once`는 복구 후 승인 대기, `primary_tool_error_once`는 `fallback_snapshot`, `db_connection_error_once`는 Trace 저장 재시도 후 승인 대기, `retry_limit_exceeded`는 Retry 3회 후 `FAILED`였다. 자세한 API 응답은 `docs/team/backend-1/backend_ab_integration_test.md`를 참조한다.
+
+최근 작업 목록의 동일 시각 정렬은 **A Repository 책임**으로 확정했다. A는 인메모리·PostgreSQL에 실제 생성 순번을 기록하고 `created_at` 동률일 때 그 순번으로 정렬한다. B는 임의 UUID 형식의 `task_id`를 생성 순서로 가정하지 않으며, `run/revise` 중 원래 `created_at`을 변경하지 않는다. 기본 백엔드 테스트는 `41 passed, 2 skipped`, 실제 PostgreSQL 선택 테스트는 `2 passed`였다. 기본 skip 2건은 테스트 DB URL 미설정 때문이다.
+
+다음 B 연동 작업은 실제 MCP 서버의 세 Tool 응답·Timeout·Fallback과 출처를 확인하고, 이어 실제 LLM 전송을 별도로 검증하는 것이다. 이 단계가 끝나기 전까지 Mock 통과를 실제 외부 서비스 통과로 표시하지 않는다. B 소유 코드와 A 소유 Adapter·Repository 변경이 동시에 필요하면 두 담당자가 변경 필드와 테스트를 먼저 공유한다.
