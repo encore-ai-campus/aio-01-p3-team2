@@ -144,7 +144,9 @@ Planner가 고른 ID의 목록 포함 여부를 Engine에서 따로 사전 검�
 | `backend-test` | A·B·MCP·Frontend 통합 브랜치. 기획 전 조회, API 통합 검증 결과, `trace_samples/` 포함 | 원격 `fa55a04`. `backend/tests` 67 passed, 13 skipped |
 | `feature/supervisor-routing-trace` | `backend-test`에서 만든 B 작업 브랜치. Supervisor 경로 결정 Trace와 이 절을 포함 | 원격에 푸시함. `backend/tests` 69 passed, 13 skipped, 3 failed(A 변경 대기) |
 
-이어서 작업할 때는 `feature/supervisor-routing-trace`를 체크아웃한다. 이 브랜치는 `backend-test`의 내용을 모두 포함한다. `main`에는 직접 작업하지 않는다.
+`backend-test`는 2026-10-08 작업 중에 처음 만들어진 브랜치다. 이전 기록의 `youngmin` 브랜치 작업과 이날의 A·MCP·Frontend 병합, B의 기획 전 조회·실제 LLM 시험·API 통합 검증이 모두 여기에 있다. 이 문서의 2026-10-08 절들이 그날 작업의 맥락이다.
+
+이어서 작업할 때는 `feature/supervisor-routing-trace`를 체크아웃한다. 이 브랜치는 `backend-test`의 내용을 모두 포함한다. `main`에는 직접 작업하지 않는다. 이 절은 두 브랜치의 `handoff.md`에 같은 내용으로 들어 있다.
 
 ```powershell
 git fetch origin
