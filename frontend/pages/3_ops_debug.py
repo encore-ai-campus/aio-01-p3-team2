@@ -91,10 +91,16 @@ with summary_col, st.container(key="panel-summary", border=True):
             f'<div class="kv-item"><small>Trace 건수</small>{len(items)}건</div>'
             f'<div class="kv-item"><small>첫 Trace 시각</small>{escape(first_time)}</div>'
             f'<div class="kv-item"><small>마지막 Trace 시각</small>{escape(last_time)}</div>'
+            f'<div class="kv-item"><small>Critic</small>{escape(str(task.get("critic_status") or "미확정"))}</div>'
+            f'<div class="kv-item"><small>승인</small>{escape(str(task.get("approval_status") or "미확정"))}</div>'
+            f'<div class="kv-item"><small>기술 Retry</small>{escape(str(task.get("retry_count", 0)))}회</div>'
+            f'<div class="kv-item"><small>자동 수정</small>{escape(str(task.get("revision_count", 0)))}회</div>'
             "</div>",
             unsafe_allow_html=True,
         )
         st.caption("위 시각은 Trace 기록 범위이며 전체 실행 시간으로 계산하지 않습니다.")
+        if isinstance(task.get("error"), dict):
+            st.error(task["error"].get("message") or "Workflow 오류가 기록됐습니다.")
     else:
         st.info("현재 Task가 없습니다. 이벤트 생성 후 실행 이력이 표시됩니다.")
 
@@ -110,37 +116,16 @@ with health_col, st.container(key="panel-health", border=True):
     else:
         st.caption("Ready는 Backend 준비 상태입니다. MCP 개별 연결 상태를 뜻하지 않습니다.")
 
-overview_tab, trace_tab, input_tab, mcp_tab, system_tab = st.tabs(
-    ["실행 개요", "상세 Trace", "입력 데이터", "MCP 실행 기록", "시스템 실행 기록"]
+trace_filter = st.segmented_control(
+    "상세 Trace 필터",
+    ["전체", "MCP", "시스템"],
+    default="전체",
+    key="ops-trace-filter",
 )
-with overview_tab:
-    if isinstance(task, dict):
-        st.write(f"**Critic:** {task.get('critic_status') or '미확정'}")
-        st.write(f"**승인:** {task.get('approval_status') or '미확정'}")
-        st.write(f"**기술 Retry:** {task.get('retry_count', 0)}회")
-        st.write(f"**자동 수정:** {task.get('revision_count', 0)}회")
-        if task.get("error"):
-            st.error(task["error"].get("message") or "Workflow 오류가 기록됐습니다.")
-    else:
-        st.info("표시할 실행 정보가 없습니다.")
-with trace_tab:
-    render_trace(trace)
-with input_tab:
-    brief = st.session_state.get("last_brief")
-    if brief:
-        st.caption(
-            "현재 브라우저 세션에 남아 있는 입력값입니다. Backend에 저장된 원 요청 조회 기능은 아닙니다."
-        )
-        st.json(brief)
-    else:
-        st.info("이 세션에 보관된 입력 데이터가 없습니다.")
-with mcp_tab:
-    render_trace(trace, actors={"mcp"}, title="MCP 관련 Trace", key="panel-trace-mcp")
-with system_tab:
-    render_trace(
-        trace,
-        actors={"backend", "database", "supervisor"},
-        title="Backend · DB · Supervisor Trace",
-        key="panel-trace-system",
-    )
-    st.caption("이 화면은 구조화된 Trace를 보여줍니다. 원시 서버 로그 API는 현재 계약에 없습니다.")
+trace_actors = {
+    "전체": None,
+    "MCP": {"mcp"},
+    "시스템": {"backend", "database", "supervisor"},
+}
+render_trace(trace, actors=trace_actors[trace_filter or "전체"])
+st.caption("실행 주체별로 구조화된 Trace를 골라 봅니다. 원시 서버 로그 API는 현재 계약에 없습니다.")

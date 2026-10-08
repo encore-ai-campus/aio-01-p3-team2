@@ -39,14 +39,27 @@ def display_time(value: Any) -> str:
 def _stage(item: dict[str, Any], *, after_failure: bool) -> str:
     actor = item.get("actor")
     action = item.get("action")
+    phase = item.get("phase")
+    if actor == "mcp":
+        if phase == "planning_context" or action == "get_event_planning_context":
+            return "기획용 게임 데이터 조회"
+        if phase == "revalidation":
+            return "재검증용 게임 데이터 조회"
+        return "검증용 게임 데이터 조회"
     if actor == "supervisor":
+        if phase == "routing":
+            return "운영자 승인 대기 결정" if action == "WAIT_APPROVAL" else "다음 단계 결정"
         return {
             "RUN_AGENT": "AutoHealing · Agent 재실행",
             "RETRY": "기술 재시도",
             "TOOL_FALLBACK": "Fallback Tool 전환",
             "SAFE_STOP": "복구 실패 · 안전 종료",
         }.get(action, "Supervisor 결정")
-    if after_failure and actor == "balance_rule_agent" and action == "validate_plan":
+    if (
+        (after_failure or phase == "revalidation")
+        and actor == "balance_rule_agent"
+        and action == "validate_plan"
+    ):
         return "복구 후 재검증"
     return ACTOR_LABELS.get(actor, str(actor or "알 수 없음"))
 
@@ -99,7 +112,7 @@ def render_trace(
                 after_failure = True
 
         if highlights:
-            st.markdown("#### 실패·복구 핵심 기록")
+            st.markdown("#### 주요 경로·실패·복구 기록")
             for sequence, stage, status, summary in highlights:
                 message = f"#{sequence} · {stage} · {status} · {summary}"
                 if status in {"ERROR", "FAILED"}:

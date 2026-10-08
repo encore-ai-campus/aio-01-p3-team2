@@ -32,7 +32,7 @@ Docker를 사용하는 환경에서는 저장소 루트에서 `docker build -t o
 | 로그인 (`app.py`) | 데모 ID만 검사하고 브라우저 세션을 시작. 비밀번호 필드는 시안 표시용 비활성 상태 |
 | 이벤트 생성 | 이름·대상·기간(1~7일)·목적을 검증하고 `POST /api/events/generate` 요청. 선택적으로 Test Mode의 별도 경로 사용. 고정 예시 입력과 별도 데모 체험 제공. 저장된 이벤트 목록 API가 제공되면 아래 목록에서 과거 Task 선택 가능 |
 | 진행 상태 / 결과 | 현재 Task의 기획안, 일자별 미션·보상과 기획안 요약, 규칙 검증 근거, AutoHealing, Critic 상태를 표시. 게임 규칙 검증과 AI 최종 검수를 나란히 배치하고 그 아래에 전체 너비 AutoHealing, 운영자 승인 순서로 표시. 승인·수정 요청·거절과 Task·Trace 새로고침 제공 |
-| 운영 · 디버그 | 현재 Task의 구조화된 Trace, 주체별 필터, 세션 입력값, Backend Live·Ready 확인 제공 |
+| 운영 · 디버그 | 현재 Task의 실행 요약과 단일 상세 Trace, 전체·MCP·시스템 실행 주체 필터, Backend Live·Ready 확인 제공 |
 
 API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현행 MVP 계약의 연결 대상은 생성 2개, Task 조회, 승인, Trace 조회, Health 2개로 총 7개 엔드포인트입니다. 여기에 미구현 확장 후보인 Task 목록 조회 `GET /api/tasks` 클라이언트를 추가했습니다. Backend가 해당 API를 구현하지 않은 경우 오류·미구현 안내와 함께 로컬 데모 목록을 표시합니다. Frontend는 Backend 성공 결과나 DB 저장 기록을 임의로 생성하지 않습니다.
 
@@ -50,7 +50,7 @@ API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현행 M
 
 ### Backend 없이 예시 화면 체험
 
-이벤트 생성 화면에서 오른쪽 예시 하나를 선택한 다음 **선택한 예시로 체험하기**를 누르면 `frontend/services/demo_data.py`의 고정된 Task·Trace가 결과 화면에 나타납니다. 신규 유저 7일은 **시연용 MCP 규칙·아이템 조회 → 규칙 검증 실패 → AutoHealing → MCP 재조회 → 재검증 PASS**, 복귀 유저 5일은 **시연용 MCP 규칙·아이템 조회 → 정상 검증**, 주말 3일은 **MCP Timeout → 기술 재시도 3회 → Safe Stop** 시나리오입니다. 주말 3일 시나리오는 검증되지 않은 기획안을 결과나 승인 대상으로 표시하지 않습니다. 결과·운영 화면에는 **데모 데이터** 경고가 표시됩니다.
+이벤트 생성 화면에서 오른쪽 예시 하나를 선택한 다음 **선택한 예시로 체험하기**를 누르면 `frontend/services/demo_data.py`의 고정된 Task·Trace가 결과 화면에 나타납니다. 복귀 유저 5일은 **기획용 MCP 조회 → Supervisor의 Planner 선택 → Planner 초안 → Supervisor의 Balance & Rule 선택 → 검증용 MCP 조회 → Balance & Rule 검증 → Supervisor의 Critic 선택 → Critic 검토 → Supervisor의 승인 대기 결정**을 보여주는 정상 경로입니다. 신규 유저 7일은 기획용 데이터를 받은 뒤에도 잘못된 레이드 미션을 포함시키는 **의도적 오류 주입 데모**로, 규칙 검증 실패 → Supervisor 수정 결정 → Planner 수정 → MCP 재조회 → 재검증 PASS를 보여줍니다. 주말 3일은 **초안 생성 전 기획용 MCP 조회 실패 → 기술 재시도 3회 → Safe Stop** 시나리오이며, Planner·검증·승인 단계를 실행한 것처럼 표시하지 않습니다. 결과·운영 화면에는 **데모 데이터** 경고가 표시됩니다.
 
 이 경로는 AI, MCP, Backend 및 실제 게임 규칙 검증을 실행하지 않습니다. 데모의 승인·수정 요청·거절, Task·Trace 새로고침, Backend Health 조회는 비활성화됩니다. 실제 API로 생성하려면 기존 **AI로 이벤트 생성하기** 버튼을 사용합니다.
 
@@ -58,10 +58,14 @@ API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현행 M
 
 이벤트 생성은 완료까지 동기 응답을 기다리며 최대 180초를 설정했습니다. 연결 끊김 또는 시간 초과 후 같은 입력을 다시 제출하면 같은 `idempotency_key`를 재사용합니다. `workflow_status=FAILED` Task는 API 오류와 구분해 결과 화면에 실패 원인과 Trace 이동을 표시합니다. 승인 요청에는 현재 `result_version`을 보내고, `STALE_RESULT_VERSION`이면 Task를 다시 조회합니다.
 
-결과 화면의 Workflow 연출은 조회된 Trace의 순서로 **완료된 기록을 재생**합니다. 지도 위쪽의 진행 단계 5개는 이벤트 기획 → MCP 데이터 조회 → 게임 규칙 검증 → AI 최종 검수 → 운영자 승인이고, 아래쪽의 담당 에이전트 4개는 Event Planner, Balance & Rule, Critic, Supervisor입니다. Supervisor의 복구 지시와 Event Planner의 기획안 재생성을 별도 에이전트 박스에서 보여주며, 규칙 재검증과 MCP 재조회는 해당 위쪽 단계의 방문 횟수로 표시합니다. 안전 종료는 실제 Trace의 Supervisor 상태와 상세 카드에 표시하고 승인 단계를 실행한 것처럼 표시하지 않습니다. 데모 Trace에는 각 검증 전의 시연용 MCP 조회 기록이 포함되지만 실제 서버를 호출하지 않습니다. 실제 API의 Trace에 `actor=mcp` 기록이 없으면 프론트엔드는 MCP 단계를 성공한 것으로 추정하지 않고 `Trace 기록 없음`으로 표시합니다. 연결선과 화살촉은 Streamlit 화면 삽입 후 JavaScript에서 생성하며 실제 Trace가 지나간 연결에만 표시합니다. 재시도처럼 같은 연결을 되돌아가면 가장 최근 이동 방향에 맞춰 화살촉을 바꿉니다. MCP Server는 Agent로 분류하지 않고 운영 담당자 승인 대기는 Task 상태를 근거로 표시합니다. 현재 재생 중인 단계와 에이전트, 이동 경로를 강조하고, 별도 카드에 Trace의 실행 주체·상태·사유·순서를 표시합니다. 동일 단계를 여러 번 거치면 방문 횟수를 보여주며, 이전·다음·일시정지·다시 보기로 기록을 살펴볼 수 있습니다. 연출 시간은 Agent 실행 시간이나 실시간 진행률을 의미하지 않습니다. Trace가 없으면 재생하지 않습니다. 동작 줄이기 설정에서는 애니메이션 없이 최종 상태를 표시합니다.
+결과 화면의 Workflow 연출은 조회된 Trace의 순서로 **완료된 기록을 재생**합니다. 지도 위쪽 네 박스는 기획용 MCP 조회 → 이벤트 기획 → 검증용 MCP 조회 → 운영자 승인이고, 아래쪽의 담당 에이전트 네 박스는 Event Planner, Balance & Rule, Critic, Supervisor입니다. MCP 검증 데이터 조회 뒤에는 Balance & Rule Agent의 게임 규칙 검증 Trace와 Critic Agent의 품질 검토 Trace를 거쳐 운영자 승인으로 연결합니다. `actor=mcp` 기록의 `phase=planning_context` 또는 `action=get_event_planning_context`는 기획용 조회에, 나머지 MCP 기록은 검증용 조회에 대응합니다. `phase=revalidation`은 수정안의 재검증용 조회로 표시합니다. 백엔드가 `phase`를 제공하지 않는 기존 MCP 기록은 검증용으로 표시하며, 기획용 조회를 추정해 성공 처리하지 않습니다. Supervisor의 정상 단계 전환과 오류 복구 지시를 구분하고 Event Planner의 기획안 재생성을 별도 박스에서 보여주고, 동일 단계 재방문은 방문 횟수로 표시합니다. 안전 종료는 실제 Trace의 Supervisor 상태와 상세 카드에 표시하며 실행되지 않은 Planner·승인 단계를 성공한 것처럼 표시하지 않습니다. 연결선과 화살촉은 Streamlit 화면 삽입 후 JavaScript에서 생성하며 실제 Trace가 지나간 연결에만 표시합니다. MCP Server는 Agent로 분류하지 않고 운영 담당자 승인 대기는 Task 상태를 근거로 표시합니다. 이전·다음·일시정지·다시 보기로 기록을 살펴볼 수 있으며 연출 시간은 실제 Agent 실행 시간이나 실시간 진행률을 의미하지 않습니다. Trace가 없으면 재생하지 않고 동작 줄이기 설정에서는 애니메이션 없이 최종 상태를 표시합니다.
+
+지도 아래쪽 네 에이전트 박스는 공통의 「담당 에이전트」 문구 대신 각각 **이벤트 기획·수정**, **게임 규칙 검증·재검증**, **이벤트 기획안 품질 검토**, **다음 단계 결정·오류 복구** 역할을 표시합니다. 에이전트 이름과 Trace 기반 상태 표시는 유지합니다.
+
+기획 전 MCP 조회와 `phase` 구분은 새 Backend Trace 계약이 제공될 때 실제 결과로 확인할 수 있습니다. 현재 고정 데모는 새 순서를 시각적으로 예시할 뿐 실제 MCP·Agent 실행 기록이 아닙니다. Backend가 기존 Trace를 반환하면 프론트엔드는 없는 기획용 조회나 Supervisor 결정을 임의로 추가하지 않습니다. 정상 경로 결정은 Backend Trace의 `actor=supervisor`, `phase=routing`, `action=RUN_AGENT` 또는 `WAIT_APPROVAL`, `next_agent`, `reason`, `status`가 실제 제공될 때만 표시합니다. 데모 Trace의 같은 필드는 시연용 고정 기록입니다.
 
 ## 현행 계약의 화면 범위
 
-선택 표시 필드인 `event_concept`, `operation_summary`, `day_title`, `planning_reason`은 응답에 값이 있을 때만 해당 내용을 표시합니다. 최근 Task 목록은 위 미구현 API가 연결되었을 때만 표시합니다. 게임 데이터 건수, MCP 개별 연결 상태, 규칙 검사별 PASS 목록, 정확한 총 실행 시간, 원시 시스템 로그는 현재 API에서 제공하지 않으므로 표시하지 않습니다. `MCP 실행 기록`과 `시스템 실행 기록` 탭은 별도 로그 API가 아니라 Trace의 `actor`로 필터링한 결과입니다.
+선택 표시 필드인 `event_concept`, `operation_summary`, `day_title`, `planning_reason`은 응답에 값이 있을 때만 해당 내용을 표시합니다. 최근 Task 목록은 위 미구현 API가 연결되었을 때만 표시합니다. 게임 데이터 건수, MCP 개별 연결 상태, 규칙 검사별 PASS 목록, 정확한 총 실행 시간, 원시 시스템 로그는 현재 API에서 제공하지 않으므로 표시하지 않습니다. 운영·디버그 화면은 Critic·승인·재시도·자동 수정 상태를 위쪽 실행 요약에 모으고, 상세 Trace 하나에서 `전체 / MCP / 시스템` 필터로 `actor` 기록을 골라 봅니다. `시스템`은 `backend`, `database`, `supervisor` 기록을 뜻합니다. 별도의 입력 데이터 탭은 제공하지 않습니다.
 
 브라우저 세션에는 현재 Task 한 건과 입력값, 이번 세션에서 조회한 목록 페이지를 보관합니다. 새 브라우저 세션에서도 목록 API가 제공되면 DB에서 목록을 다시 읽어 과거 Task를 선택할 수 있습니다. 데모 ID 검사는 실제 인증이나 Backend 승인 권한 검증을 대신하지 않습니다.

@@ -144,7 +144,7 @@ def create_event(brief: dict[str, str | int]) -> None:
         }
         st.session_state["pending_create"] = {"signature": signature, "payload": payload}
 
-    with st.spinner("AI가 이벤트를 생성하고 규칙을 검증하고 있습니다. 완료까지 기다려주세요."):
+    with st.spinner("이벤트 생성 요청을 처리하고 있습니다. 완료까지 기다려주세요."):
         try:
             task = generate_event(payload, test_mode=test_mode)
         except ApiError as exc:
@@ -178,7 +178,7 @@ main_col, side_col = st.columns([2.25, 1], gap="medium")
 with main_col:
     brief = render_event_form()
     st.markdown(
-        '<p class="muted-note">게임 데이터 기반 이벤트 기획 → 규칙 검증 → AutoHealing → 최종 검수 순서로 진행됩니다.</p>',
+        '<p class="muted-note">계획된 흐름: MCP 기획 데이터 조회 → 이벤트 초안 생성 → MCP 검증 데이터 조회 → 규칙 검증 → 필요 시 자동 수정 → 최종 검수. 실제 실행 순서는 결과 Trace에서 확인하세요.</p>',
         unsafe_allow_html=True,
     )
     if brief is not None:
@@ -276,7 +276,8 @@ with side_col:
         )
         for index, example in enumerate(EXAMPLES):
             st.button(
-                f"{example['event_name']}  ·  {TARGET_LABELS[str(example['target_user'])]} / {example['duration']}일  ·  {DEMO_SCENARIOS[index]}",
+                f"{example['event_name']} · {TARGET_LABELS[str(example['target_user'])]}  \n"
+                f"{example['duration']}일 · {DEMO_SCENARIOS[index]}",
                 key=f"example-{index}",
                 width="stretch",
                 on_click=load_example,
