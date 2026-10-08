@@ -214,6 +214,7 @@ class BackendBWorkflowAdapter:
                 action=str(event.get("action") or event.get("event_type")),
                 status=status,
                 phase=self._optional_string(event.get("phase")),
+                next_agent=self._optional_string(event.get("next_agent")),
                 tool_name=self._optional_string(event.get("tool_name")),
                 error_type=self._optional_string(event.get("error_type")),
                 reason_code=self._optional_string(event.get("reason_code")),

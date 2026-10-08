@@ -39,7 +39,7 @@ EXAMPLES = (
     },
 )
 DEMO_SCENARIOS = ("복구 성공", "정상 실행", "복구 실패·안전 종료")
-HISTORY_PAGE_SIZE = 10
+HISTORY_PAGE_SIZE = 20
 HISTORY_STATUS_LABELS = {
     "WAITING_APPROVAL": "승인 대기",
     "COMPLETED": "승인 완료",
@@ -78,30 +78,22 @@ def open_demo_example(index: int) -> None:
     st.switch_page("pages/2_event_result.py")
 
 
-def load_saved_tasks(*, append: bool = False) -> None:
-    """Fetch a persisted Task page; never mix demo fixtures into DB history."""
-    cursor = st.session_state.get("saved_task_cursor") if append else None
+def load_saved_tasks() -> None:
+    """Fetch the latest Backend Task summaries without mixing in demo fixtures."""
     try:
-        response = list_tasks(limit=HISTORY_PAGE_SIZE, cursor=cursor)
+        response = list_tasks(limit=HISTORY_PAGE_SIZE)
     except ApiError as exc:
         st.session_state["saved_task_error"] = {
             "message": str(exc),
             "code": exc.code,
             "status": exc.status,
         }
-        if not append:
-            st.session_state["saved_task_items"] = []
-            st.session_state["saved_task_cursor"] = None
+        st.session_state["saved_task_items"] = []
         st.session_state["saved_task_loaded"] = True
         return
 
-    items = [item for item in response["items"] if not item["task_id"].startswith("DEMO-")]
-    if append:
-        previous = st.session_state.get("saved_task_items") or []
-        seen = {item["task_id"] for item in previous}
-        items = [*previous, *(item for item in items if item["task_id"] not in seen)]
+    items = [item for item in response["tasks"] if not item["task_id"].startswith("DEMO-")]
     st.session_state["saved_task_items"] = items
-    st.session_state["saved_task_cursor"] = response.get("next_cursor") or None
     st.session_state["saved_task_error"] = None
     st.session_state["saved_task_loaded"] = True
 
@@ -193,9 +185,7 @@ with main_col:
         with refresh_col:
             if st.button("새로고침", key="saved-tasks-refresh", width="stretch"):
                 load_saved_tasks()
-        st.caption(
-            "실제 저장 기록이 있으면 DB 목록을 표시합니다. 목록이 없거나 연결되지 않으면 데모 미리보기를 표시합니다."
-        )
+        st.caption("Backend에 저장된 최근 Task 목록을 표시합니다.")
 
         error = st.session_state.get("saved_task_error")
         if error:
@@ -211,19 +201,12 @@ with main_col:
             items = st.session_state.get("saved_task_items") or []
             for item in items:
                 task_id = item["task_id"]
-                result = item.get("final_result") or item.get("current_result") or {}
-                if not isinstance(result, dict):
-                    result = {}
-                name = item.get("event_name") or result.get("event_name") or "이름 없는 이벤트"
-                target = TARGET_LABELS.get(str(item.get("target_user")), "대상 미기록")
-                duration = item.get("duration")
+                name = item.get("event_name") or "이름 없는 이벤트"
                 status = str(item.get("workflow_status") or "상태 미기록")
                 created_at = str(item.get("created_at") or "")
                 summary = " · ".join(
                     part
                     for part in (
-                        target,
-                        f"{duration}일" if isinstance(duration, int) else "기간 미기록",
                         HISTORY_STATUS_LABELS.get(status, status),
                         created_at.replace("T", " ")[:16] if created_at else "생성일 미기록",
                     )
@@ -237,26 +220,8 @@ with main_col:
                         label = "기록 보기" if status == "FAILED" else "기획안 보기"
                         if st.button(label, key=f"saved-task-{task_id}", width="stretch"):
                             open_saved_task(task_id)
-            if st.session_state.get("saved_task_cursor") and st.button(
-                "이전 이벤트 더 보기", key="saved-tasks-more", width="stretch"
-            ):
-                load_saved_tasks(append=True)
-                st.rerun()
-
-        if not st.session_state.get("saved_task_items"):
-            st.info("데모 데이터 · DB에 저장되지 않은 미리보기입니다.")
-            for index, example in enumerate(EXAMPLES):
-                with st.container(border=True):
-                    info_col, action_col = st.columns([4, 1])
-                    with info_col:
-                        st.write(example["event_name"])
-                        st.caption(
-                            f"{TARGET_LABELS[str(example['target_user'])]} · "
-                            f"{example['duration']}일 · {DEMO_SCENARIOS[index]} · 데모 데이터"
-                        )
-                    with action_col:
-                        if st.button("미리보기", key=f"saved-demo-{index}", width="stretch"):
-                            open_demo_example(index)
+            if not items:
+                st.info("저장된 이벤트 기획안이 없습니다. 이벤트를 생성한 뒤 새로고침해 주세요.")
 
 with side_col:
     with st.container(key="panel-guide", border=True):

@@ -141,7 +141,7 @@ def _steps(task: dict[str, Any], trace: dict[str, Any] | None) -> list[dict[str,
                 "tone": "waiting",
             }
         )
-    return result[-20:]
+    return result
 
 
 def render_workflow_status(task: dict[str, Any], trace: dict[str, Any] | None) -> None:

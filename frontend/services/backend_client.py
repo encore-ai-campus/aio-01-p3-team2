@@ -107,22 +107,16 @@ def get_task(task_id: str) -> dict[str, Any]:
     return _request("GET", f"/api/tasks/{parse.quote(task_id, safe='')}")
 
 
-def list_tasks(*, limit: int = 10, cursor: str | None = None) -> dict[str, Any]:
-    """Read a page of persisted Tasks when the Backend list API is available."""
-    if not 1 <= limit <= 50:
-        raise ValueError("limit must be between 1 and 50")
-    query: dict[str, str | int] = {"limit": limit}
-    if cursor:
-        query["cursor"] = cursor
-    data = _request("GET", f"/api/tasks?{parse.urlencode(query)}")
-    items = data.get("items")
-    if not isinstance(items, list) or any(
-        not isinstance(item, dict) or not isinstance(item.get("task_id"), str) for item in items
+def list_tasks(*, limit: int = 20) -> dict[str, Any]:
+    """Read the latest Task summaries from the current Backend list API."""
+    if not 1 <= limit <= 20:
+        raise ValueError("limit must be between 1 and 20")
+    data = _request("GET", f"/api/tasks?{parse.urlencode({'limit': limit})}")
+    tasks = data.get("tasks")
+    if not isinstance(tasks, list) or any(
+        not isinstance(task, dict) or not isinstance(task.get("task_id"), str) for task in tasks
     ):
         raise ApiError("Task 목록 응답 형식이 올바르지 않습니다.", code="INVALID_RESPONSE")
-    next_cursor = data.get("next_cursor")
-    if next_cursor is not None and not isinstance(next_cursor, str):
-        raise ApiError("Task 목록 커서 형식이 올바르지 않습니다.", code="INVALID_RESPONSE")
     return data
 
 
