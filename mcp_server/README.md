@@ -16,7 +16,7 @@
 
 ## 게임 데이터 테이블과 초기값
 
-`sql/ERD.md`에 1차 테이블 구조를 적었습니다. `001_create_game_data.sql`과 `002_seed_game_data.sql`을 순서대로 **같은 PostgreSQL DB**에서 실행합니다. Seed 파일은 현재 `data/tiny_heroes.json`과 같은 값을 한 행에 넣습니다. DB가 이미 만들어져 있다면 초기화 파일을 복사하는 것만으로는 SQL이 다시 실행되지 않으므로 `psql -f`로 직접 적용합니다.
+공용 PostgreSQL의 `game_data_catalog` 테이블 생성과 초기 데이터 적용은 **Backend A 담당**입니다. 이 폴더의 `sql/` 파일은 초기 설계 초안으로 보관하며 **공용 DB에 별도로 실행하지 않습니다.** Backend A가 적용한 테이블을 MCP 서버가 읽도록 `MCP_DATABASE_URL`을 같은 데이터베이스에 설정합니다.
 
 운영 기록용 테이블은 백엔드가 관리합니다. MCP 서버는 게임 데이터 테이블을 읽기만 합니다. `MCP_DATABASE_URL`은 PostgreSQL URL을 받으며, 백엔드의 `postgresql+psycopg://` 형식도 받아들입니다. DB를 연결한 뒤에도 `get_game_rules_fallback`은 독립적인 JSON Snapshot을 사용합니다.
 
@@ -36,7 +36,7 @@ python -m pip install pytest
 python -m pytest mcp_server/tests -q
 ```
 
-DB를 이용한 선택 통합 테스트는 `001`, `002` SQL을 적용한 뒤 `MCP_TEST_DATABASE_URL`을 지정하고 같은 명령으로 실행합니다. URL을 지정하지 않으면 해당 테스트만 건너뜁니다.
+DB를 이용한 선택 통합 테스트는 Backend A가 공용 DB에 스키마와 초기 데이터를 적용한 뒤 `MCP_TEST_DATABASE_URL`을 지정하고 같은 명령으로 실행합니다. URL을 지정하지 않으면 해당 테스트만 건너뜁니다.
 
 백엔드의 준비 상태 확인은 MCP 연결·초기화 후 `get_game_rules(content_id="HUNT_001")`를 실제 호출하면 데이터 읽기까지 확인할 수 있습니다.
 
@@ -49,4 +49,4 @@ docker build -f mcp_server/Dockerfile -t opong-mcp ./mcp_server
 docker run --rm -e MCP_HOST=0.0.0.0 -p 8010:8010 opong-mcp
 ```
 
-Compose 내부에서는 팀이 정한 MCP 서비스 이름과 `8010/mcp` 경로로 백엔드가 접근합니다. DB 사용 시 `MCP_DATABASE_URL`과 `MCP_GAME_ID`를 컨테이너에 설정합니다. 데이터 변경 시 Seed SQL, 로컬 기본 JSON, Snapshot의 버전을 확인하고 테스트한 뒤 이미지를 다시 빌드합니다.
+Compose 내부에서는 팀이 정한 MCP 서비스 이름과 `8010/mcp` 경로로 백엔드가 접근합니다. DB 사용 시 `MCP_DATABASE_URL`과 `MCP_GAME_ID`를 컨테이너에 설정합니다. 데이터 변경 시 Backend A가 적용한 데이터, 로컬 기본 JSON, Snapshot의 버전을 확인하고 테스트한 뒤 이미지를 다시 빌드합니다.
