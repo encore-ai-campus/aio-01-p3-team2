@@ -125,6 +125,10 @@ Planner가 고른 ID의 목록 포함 여부를 Engine에서 따로 사전 검�
 3. MCP 담당자가 남은 포맷 1건을 고쳐 `port`에 올리면 병합하고 저장소 전체 Ruff를 다시 확인한다.
 4. 실제 LLM의 기획 수정 사유 구체화는 지금은 하지 않는다. 기획 오류 주입 사례(`mission_unreachable_once`, 신규 유저 5일, `gpt-4.1-mini`)를 API로 6회 실행한 결과 5회는 수정 1회, 1회는 수정 2회로 모두 `WAITING_APPROVAL`에 도달했고 `FAILED`는 없었다. Planner에는 `error_type`과 일반 사유 문장만 전달되고 어느 Day·콘텐츠가 문제인지는 전달되지 않는다. 다른 대상·기간이나 모델에서 수정 한도 초과가 관찰되면 사유에 Day와 콘텐츠 ID를 담는 변경을 검토한다. 6회는 적은 표본이다.
 
+### 진행 중: Supervisor 경로 결정 Trace
+
+프론트엔드 요청으로 정상 경로의 Supervisor 결정(`phase=routing`, `next_agent`)과 복구 기록(`phase=recovery`)을 B Engine에 구현했다. 브랜치는 `backend-test`에서 만든 `feature/supervisor-routing-trace`다. A의 `TraceEntry`가 `phase`의 `routing`·`recovery` 값과 `next_agent` 필드를 받고 Adapter가 `next_agent`를 전달해야 하며, 그 전에는 `backend/tests/test_backend_a_planning_api.py` 3건이 Trace 저장 검증 오류로 실패한다. A 반영 후 이 브랜치를 `backend-test`에 병합하고 `trace_samples/`를 다시 수집한다.
+
 ### 다른 담당자에게 전달할 내용
 
 - A: Loader 주입(`2b4e581`)을 병합해 실제 MCP·LLM으로 API 흐름을 확인했다. `backend/.env.docker.example`의 `OPENAI_MODEL` 기본값이 `gpt-4.1-mini`로 바뀌었다.

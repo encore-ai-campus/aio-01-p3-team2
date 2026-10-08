@@ -169,6 +169,7 @@ class WorkflowEngine:
         error_type: str | None = None
         error_reason: str | None = None
         owner = "supervisor"
+        planner_routed = False
         try:
             while True:
                 planning_context = None
@@ -192,6 +193,17 @@ class WorkflowEngine:
                     state["error_type"] = error_type
                     state["error_reason"] = error_reason
 
+                if not planner_routed:
+                    planner_routed = True
+                    if human_revision:
+                        reason = "운영자 수정 의견을 확인하고 Event Planner에 수정안 생성을 지시"
+                    elif planning_context is not None:
+                        reason = "기획 데이터를 확인하고 Event Planner에 초안 생성을 지시"
+                    else:
+                        reason = "Event Brief를 확인하고 Event Planner에 초안 생성을 지시"
+                    await self._route(
+                        task_id, "RUN_AGENT", "event_planner_agent", reason, faults, revision_count
+                    )
                 owner = "event_planner_agent"
                 plan = await self._plan_with_retry(task_id, state, faults, healing)
                 if faults.should_inject(FaultType.MISSION_UNREACHABLE_ONCE):
@@ -199,6 +211,14 @@ class WorkflowEngine:
                     injected["missions"][0]["day"] = 1
                     injected["missions"][0]["content_id"] = "RAID_001"
                     plan = injected
+                await self._route(
+                    task_id,
+                    "RUN_AGENT",
+                    "balance_rule_agent",
+                    "기획안 형식을 확인하고 Balance & Rule에 규칙 검증을 지시",
+                    faults,
+                    revision_count,
+                )
                 await self._accept_handoff(
                     task_id,
                     owner,
@@ -283,10 +303,20 @@ class WorkflowEngine:
                         revision_count=revision_count,
                         status="SUCCESS",
                         reason=route.reason,
+                        phase="recovery",
+                        next_agent="event_planner_agent",
                     )
                     previous_plan = plan
                     continue
 
+                await self._route(
+                    task_id,
+                    "RUN_AGENT",
+                    "critic_agent",
+                    "규칙 검증을 통과해 Critic에 최종 검토를 지시",
+                    faults,
+                    revision_count,
+                )
                 await self._accept_handoff(
                     task_id,
                     owner,
@@ -308,6 +338,14 @@ class WorkflowEngine:
                 )
                 status = critic_result["status"]
                 if status == "PASS":
+                    await self._route(
+                        task_id,
+                        "WAIT_APPROVAL",
+                        None,
+                        "Critic 검토를 통과해 운영자 승인 대기로 전환",
+                        faults,
+                        revision_count,
+                    )
                     await self._emit(
                         task_id,
                         "WAITING_APPROVAL",
@@ -361,6 +399,8 @@ class WorkflowEngine:
                     revision_count=revision_count,
                     status="SUCCESS",
                     reason=route.reason,
+                    phase="recovery",
+                    next_agent="event_planner_agent",
                 )
                 previous_plan = evaluation.event_plan
         except WorkflowFailure as exc:
@@ -373,6 +413,7 @@ class WorkflowEngine:
                     FaultManager(),
                     retry_count=exc.retry_count,
                     revision_count=revision_count,
+                    phase="recovery",
                 )
             except WorkflowFailure:
                 pass
@@ -469,7 +510,7 @@ class WorkflowEngine:
                 faults,
                 retry_count=retry_count,
                 revision_count=revision_count,
-                phase="planning_context",
+                phase="recovery",
                 tool_name="get_event_planning_context",
                 status="SUCCESS",
                 reason=route.reason,
@@ -536,6 +577,7 @@ class WorkflowEngine:
                 faults,
                 retry_count=retry_count,
                 revision_count=int(state["revision_count"]),
+                phase="recovery",
             )
 
     async def _evaluate_with_retry(
@@ -584,7 +626,7 @@ class WorkflowEngine:
                             tool_name="get_game_rules_fallback",
                             data_source=entry.data_source,
                             game_data_version=entry.game_data_version,
-                            phase="revalidation" if revision_count else "validation",
+                            phase="recovery",
                             status="SUCCESS",
                             reason="Primary 조회 실패 후 검증된 Snapshot 사용",
                         )
@@ -651,7 +693,7 @@ class WorkflowEngine:
                         retry_count=retry_count,
                         revision_count=revision_count,
                         tool_name=exc.tool_name,
-                        phase="revalidation" if revision_count else "validation",
+                        phase="recovery",
                         status="SUCCESS",
                         reason=route.reason,
                         action="RETRY",
@@ -721,7 +763,7 @@ class WorkflowEngine:
                         retry_count=retry_count,
                         revision_count=revision_count,
                         tool_name=exc.tool_name,
-                        phase="revalidation" if revision_count else "validation",
+                        phase="recovery",
                         status="SUCCESS",
                         reason=route.reason,
                         action="RETRY",
@@ -812,6 +854,7 @@ class WorkflowEngine:
                 faults,
                 retry_count=retry_count,
                 revision_count=revision_count,
+                phase="recovery",
             )
 
     async def _accept_handoff(
@@ -847,6 +890,29 @@ class WorkflowEngine:
             revision_count=revision_count,
         )
 
+    async def _route(
+        self,
+        task_id: str,
+        action: str,
+        next_agent: str | None,
+        reason: str,
+        faults: FaultManager,
+        revision_count: int,
+    ) -> None:
+        """오류 없이 다음 단계로 넘어가는 Supervisor의 경로 결정을 기록한다."""
+        await self._emit(
+            task_id,
+            action,
+            "supervisor",
+            None,
+            faults,
+            revision_count=revision_count,
+            phase="routing",
+            status="SUCCESS",
+            reason=reason,
+            next_agent=next_agent,
+        )
+
     async def _emit(
         self,
         task_id: str,
@@ -864,6 +930,7 @@ class WorkflowEngine:
         status: str | None = None,
         reason: str | None = None,
         action: str | None = None,
+        next_agent: str | None = None,
     ) -> None:
         """민감정보 없는 Trace 이벤트를 기록하고 DB 연결 오류만 재시도한다."""
         if self._trace_sink is None:
@@ -887,6 +954,7 @@ class WorkflowEngine:
             "result_version": 0,
             "tool_name": tool_name,
             "phase": phase,
+            "next_agent": next_agent,
             "data_source": data_source,
             "game_data_version": game_data_version,
         }

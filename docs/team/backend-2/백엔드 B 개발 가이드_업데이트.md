@@ -216,3 +216,9 @@ B Trace 이벤트에는 기획 전 `actor=mcp, action=get_event_planning_context
 Planner 지시에는 기획용 Context가 전달되면 허용된 콘텐츠·보상 ID와 일자별 예상 레벨을 기준으로 선택하도록 명시했다. 검증용 MCP 조회가 실패하면 B Engine은 `mcp/ERROR`와 `supervisor/RETRY` 또는 `supervisor/TOOL_FALLBACK`을 분리해 기록한다. 실패한 조회에 확인되지 않은 게임 데이터 버전과 출처를 기록하지 않는다. Mock 회귀 시험에서 Timeout 재시도, 보상 Tool 재시도, Primary 실패 뒤 Fallback의 Trace 순서를 확인했다.
 
 실제 LLM 전송은 `backend/tests/test_backend_b_llm_live.py`로 별도 검증한다. `LLM_TEST_MODEL`과 `OPENAI_API_KEY`가 모두 설정된 경우에만 실행하며 기본 백엔드 테스트에서는 건너뛴다. 2026-10-08 모델 `gpt-4.1-mini`에서 Planner의 목록 내 ID 선택과 실제 Planner·Critic 응답을 사용한 `WAITING_APPROVAL` 도달 2건이 통과했다. MCP 응답은 시험 파일의 고정 자료다. 실행 명령과 모델 이름 주의 사항은 같은 폴더의 `handoff.md`에 있다. 실제 LLM·실제 MCP 서버·A API를 한 번에 거치는 전체 흐름은 A의 Loader 주입 후 검증한다.
+
+### Supervisor 경로 결정 Trace (브랜치 `feature/supervisor-routing-trace`)
+
+B Engine은 오류 없이 다음 단계로 넘어갈 때 `actor=supervisor`, `phase=routing`, `status=SUCCESS` 이벤트를 만든다. Agent 호출은 `action=RUN_AGENT`와 `next_agent`(`event_planner_agent`·`balance_rule_agent`·`critic_agent`)로, Critic 통과 후 승인 대기 전환은 `action=WAIT_APPROVAL`과 `next_agent=null`로 기록한다. 기획 수정 결정(`RUN_AGENT`), Tool 재시도(`RETRY`), Fallback(`TOOL_FALLBACK`), Agent 재실행(`AGENT_RETRY`), 안전 종료(`SAFE_STOP`)는 `phase=recovery`다. 이전에 `RETRY`·`TOOL_FALLBACK`에 넣던 단계 값(`planning_context`·`validation`·`revalidation`)은 `mcp` 조회 행에만 남는다. 이벤트에는 `next_agent` 키가 추가됐다.
+
+이 변경은 A의 `TraceEntry.phase` 허용 값과 `next_agent` 필드, Adapter의 전달이 함께 바뀌어야 API에서 동작한다. A 반영 전에는 `backend-test`에 병합하지 않는다. 사례별 값과 확인 범위는 같은 폴더의 `frontend_trace_handoff.md` 마지막 절에 있다.
