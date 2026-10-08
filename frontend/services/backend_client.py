@@ -107,6 +107,25 @@ def get_task(task_id: str) -> dict[str, Any]:
     return _request("GET", f"/api/tasks/{parse.quote(task_id, safe='')}")
 
 
+def list_tasks(*, limit: int = 10, cursor: str | None = None) -> dict[str, Any]:
+    """Read a page of persisted Tasks when the Backend list API is available."""
+    if not 1 <= limit <= 50:
+        raise ValueError("limit must be between 1 and 50")
+    query: dict[str, str | int] = {"limit": limit}
+    if cursor:
+        query["cursor"] = cursor
+    data = _request("GET", f"/api/tasks?{parse.urlencode(query)}")
+    items = data.get("items")
+    if not isinstance(items, list) or any(
+        not isinstance(item, dict) or not isinstance(item.get("task_id"), str) for item in items
+    ):
+        raise ApiError("Task 목록 응답 형식이 올바르지 않습니다.", code="INVALID_RESPONSE")
+    next_cursor = data.get("next_cursor")
+    if next_cursor is not None and not isinstance(next_cursor, str):
+        raise ApiError("Task 목록 커서 형식이 올바르지 않습니다.", code="INVALID_RESPONSE")
+    return data
+
+
 def get_trace(task_id: str) -> dict[str, Any]:
     return _request("GET", f"/api/tasks/{parse.quote(task_id, safe='')}/trace")
 

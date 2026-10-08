@@ -94,6 +94,67 @@ def render_event_result(task: dict[str, Any]) -> None:
                 unsafe_allow_html=True,
             )
 
+        st.markdown("#### 기획안 요약")
+        with st.container(border=True):
+            st.markdown("**참여 흐름**")
+            representative_days = list(dict.fromkeys((1, (duration + 1) // 2, duration)))
+            for day in representative_days:
+                daily = missions[day]
+                title = next((m.get("day_title") for m in daily if m.get("day_title")), None)
+                names = [
+                    str(m.get("mission_name") or m.get("content_name") or m.get("content_id"))
+                    for m in daily
+                    if m.get("mission_name") or m.get("content_name") or m.get("content_id")
+                ]
+                detail = " · ".join(names) if names else "미션 정보 없음"
+                st.write(f"Day {day} · {title or '일차별 제목 없음'} — {detail}")
+            st.caption("기간 중 대표 일차의 기획안 내용을 발췌했습니다.")
+
+        with st.container(border=True):
+            st.markdown("**보상 설계 요약**")
+            reward_names = list(
+                dict.fromkeys(
+                    str(reward.get("item_name") or reward.get("item_id"))
+                    for day in range(1, duration + 1)
+                    for reward in rewards[day]
+                    if reward.get("item_name") or reward.get("item_id")
+                )
+            )
+            st.write("보상 항목: " + (" · ".join(reward_names) if reward_names else "정보 없음"))
+            final_rewards = [
+                f"{reward.get('item_name') or reward.get('item_id')} × {reward.get('quantity', '—')}"
+                for reward in rewards[duration]
+                if reward.get("item_name") or reward.get("item_id")
+            ]
+            st.write(
+                f"마지막 날 보상: {' · '.join(final_rewards) if final_rewards else '정보 없음'}"
+            )
+            st.caption("기획안에 기재된 보상만 요약한 것으로 실제 지급 여부를 뜻하지 않습니다.")
+
+        with st.container(border=True):
+            st.markdown("**운영·검토 메모**")
+            missing_missions = [day for day in range(1, duration + 1) if not missions[day]]
+            missing_rewards = [day for day in range(1, duration + 1) if not rewards[day]]
+            missing_reasons = [
+                day
+                for day in range(1, duration + 1)
+                if missions[day] and any(not m.get("planning_reason") for m in missions[day])
+            ]
+            for label, missing in (
+                ("미션", missing_missions),
+                ("보상", missing_rewards),
+                ("기획 의도", missing_reasons),
+            ):
+                st.write(
+                    f"{label}: "
+                    + (
+                        f"Day {', '.join(map(str, missing))} 정보 없음"
+                        if missing
+                        else "전 일차 기재"
+                    )
+                )
+            st.caption("기재 여부 확인이며 게임 규칙 검증 결과는 아래 별도 카드에서 확인합니다.")
+
 
 def render_rule_validation(rule: dict[str, Any] | None) -> None:
     with st.container(key="panel-rules", border=True):

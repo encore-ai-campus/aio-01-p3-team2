@@ -30,11 +30,23 @@ Docker를 사용하는 환경에서는 저장소 루트에서 `docker build -t o
 | 화면 | 현재 동작 |
 | --- | --- |
 | 로그인 (`app.py`) | 데모 ID만 검사하고 브라우저 세션을 시작. 비밀번호 필드는 시안 표시용 비활성 상태 |
-| 이벤트 생성 | 이름·대상·기간(1~7일)·목적을 검증하고 `POST /api/events/generate` 요청. 선택적으로 Test Mode의 별도 경로 사용. 고정 예시 입력과 별도 데모 체험 제공 |
-| 진행 상태 / 결과 | 현재 Task의 기획안, 일자별 미션·보상, 규칙 검증 근거, AutoHealing, Critic 상태를 표시. 게임 규칙 검증과 AI 최종 검수를 나란히 배치하고 그 아래에 전체 너비 AutoHealing, 운영자 승인 순서로 표시. 승인·수정 요청·거절과 Task·Trace 새로고침 제공 |
+| 이벤트 생성 | 이름·대상·기간(1~7일)·목적을 검증하고 `POST /api/events/generate` 요청. 선택적으로 Test Mode의 별도 경로 사용. 고정 예시 입력과 별도 데모 체험 제공. 저장된 이벤트 목록 API가 제공되면 아래 목록에서 과거 Task 선택 가능 |
+| 진행 상태 / 결과 | 현재 Task의 기획안, 일자별 미션·보상과 기획안 요약, 규칙 검증 근거, AutoHealing, Critic 상태를 표시. 게임 규칙 검증과 AI 최종 검수를 나란히 배치하고 그 아래에 전체 너비 AutoHealing, 운영자 승인 순서로 표시. 승인·수정 요청·거절과 Task·Trace 새로고침 제공 |
 | 운영 · 디버그 | 현재 Task의 구조화된 Trace, 주체별 필터, 세션 입력값, Backend Live·Ready 확인 제공 |
 
-API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현재 연결 대상은 생성 2개, Task 조회, 승인, Trace 조회, Health 2개로 총 7개 엔드포인트입니다. Backend가 아직 해당 계약을 구현하지 않은 경우 요청은 연결 또는 HTTP 오류로 표시됩니다. Frontend는 Backend 성공 결과를 임의로 생성하지 않습니다.
+API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현행 MVP 계약의 연결 대상은 생성 2개, Task 조회, 승인, Trace 조회, Health 2개로 총 7개 엔드포인트입니다. 여기에 미구현 확장 후보인 Task 목록 조회 `GET /api/tasks` 클라이언트를 추가했습니다. Backend가 해당 API를 구현하지 않은 경우 오류·미구현 안내와 함께 로컬 데모 목록을 표시합니다. Frontend는 Backend 성공 결과나 DB 저장 기록을 임의로 생성하지 않습니다.
+
+### 저장된 이벤트 다시 보기: Backend 목록 API 필요
+
+이벤트 생성 화면의 **저장된 이벤트 기획안** 영역은 최초 진입과 새로고침 시 `GET /api/tasks?limit=10`을 호출하고, 추가 페이지가 있으면 `GET /api/tasks?limit=10&cursor=...`를 호출합니다. 이 목록 API는 **아직 Backend에 구현되지 않았습니다.** 프론트엔드가 기대하는 응답은 `{"items":[{"task_id":"...","event_name":"...","target_user":"new_user","duration":7,"workflow_status":"WAITING_APPROVAL","created_at":"...","result_version":1}],"next_cursor":null}` 형식입니다. 최신순 정렬, DB 조회, 요청자의 접근 권한 판단은 Backend가 맡아야 합니다. 데모 ID는 인증 수단이 아니므로 프론트엔드의 `actor_id`만 믿고 권한을 결정해서는 안 됩니다.
+
+목록 API가 연결되지 않거나 DB 목록이 비어 있으면 같은 영역에 고정된 예시 3건을 **데모 데이터 · DB에 저장되지 않음**으로 표시합니다. 각 **미리보기** 버튼은 로컬 Task·Trace를 여는 시연 기능이며 실제 저장 이력이 아닙니다. 실제 목록을 받으면 데모 미리보기 대신 DB 목록만 표시합니다.
+
+목록에서 **기획안 보기**를 선택하면 기존 `GET /api/tasks/{task_id}`와 `GET /api/tasks/{task_id}/trace`로 해당 Task를 다시 읽고 결과 화면을 엽니다. Trace 조회만 실패하면 Task 결과 화면은 열고 Trace 재조회는 결과 화면에서 다시 시도합니다. `FAILED` 항목은 **기록 보기**로 표시하고 안전 종료 화면을 엽니다. 목록은 DB에 저장된 실제 Task만 대상으로 하며 고정 데모 체험 결과를 섞지 않습니다. Backend 목록 API가 없거나 연결되지 않으면 빈 DB 기록을 꾸며서 표시하지 않습니다.
+
+### 결과 화면의 기획안 요약
+
+일자별 이벤트 구성 아래에 현재 결과의 시작·중간·마지막 일차에서 발췌한 **참여 흐름**, 기재된 보상 항목과 마지막 날 보상을 모은 **보상 설계 요약**, 일자별 미션·보상·기획 의도 기재 여부를 보여주는 **운영·검토 메모**를 표시합니다. 이 요약은 기존 `missions`·`rewards` 필드를 화면에서 정리한 것으로 새 API 필드나 실제 지급·검증 결과를 의미하지 않습니다. 참여율·매출 같은 성과 수치는 생성하지 않습니다.
 
 ### Backend 없이 예시 화면 체험
 
@@ -50,6 +62,6 @@ API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현재 �
 
 ## 현행 계약의 화면 범위
 
-선택 표시 필드인 `event_concept`, `operation_summary`, `day_title`, `planning_reason`은 응답에 값이 있을 때만 해당 내용을 표시합니다. 최근 Task 목록, 게임 데이터 건수, MCP 개별 연결 상태, 규칙 검사별 PASS 목록, 정확한 총 실행 시간, 원시 시스템 로그는 현재 API에서 제공하지 않으므로 표시하지 않습니다. `MCP 실행 기록`과 `시스템 실행 기록` 탭은 별도 로그 API가 아니라 Trace의 `actor`로 필터링한 결과입니다.
+선택 표시 필드인 `event_concept`, `operation_summary`, `day_title`, `planning_reason`은 응답에 값이 있을 때만 해당 내용을 표시합니다. 최근 Task 목록은 위 미구현 API가 연결되었을 때만 표시합니다. 게임 데이터 건수, MCP 개별 연결 상태, 규칙 검사별 PASS 목록, 정확한 총 실행 시간, 원시 시스템 로그는 현재 API에서 제공하지 않으므로 표시하지 않습니다. `MCP 실행 기록`과 `시스템 실행 기록` 탭은 별도 로그 API가 아니라 Trace의 `actor`로 필터링한 결과입니다.
 
-브라우저 세션에는 현재 Task 한 건과 입력값을 보관합니다. 새 브라우저 세션에서 과거 Task를 나열하거나 ID로 불러오는 UI는 아직 없습니다. 데모 ID 검사는 실제 인증이나 Backend 승인 권한 검증을 대신하지 않습니다.
+브라우저 세션에는 현재 Task 한 건과 입력값, 이번 세션에서 조회한 목록 페이지를 보관합니다. 새 브라우저 세션에서도 목록 API가 제공되면 DB에서 목록을 다시 읽어 과거 Task를 선택할 수 있습니다. 데모 ID 검사는 실제 인증이나 Backend 승인 권한 검증을 대신하지 않습니다.
