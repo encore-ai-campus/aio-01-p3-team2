@@ -123,7 +123,7 @@ Planner가 고른 ID의 목록 포함 여부를 Engine에서 따로 사전 검�
 1. 프론트엔드 담당자에게 `frontend_trace_handoff.md`의 통합 검증 결과와 `trace_samples/`의 실제 응답 JSON을 전달한다.
 2. 공용 PostgreSQL에 게임 데이터가 적용되면 `MCP_DATABASE_URL`·`DATABASE_URL`을 설정한 상태로 같은 API 사례를 다시 실행한다. 이번 검증은 JSON 기본 데이터와 인메모리 저장소 기준이다.
 3. MCP 담당자가 남은 포맷 1건을 고쳐 `port`에 올리면 병합하고 저장소 전체 Ruff를 다시 확인한다.
-4. 실제 LLM의 기획 수정 품질을 더 확인한다. 기획 오류 주입 사례 1회에서 첫 수정안이 다시 `mission_unreachable`로 실패해 자동 수정 한도 2회를 모두 썼다. Planner에는 `error_type`과 일반 사유 문장만 전달되고 어느 Day·콘텐츠가 문제인지는 전달되지 않는다. 사유를 구체화할지는 반복 실행으로 실패 빈도를 본 뒤 정한다.
+4. 실제 LLM의 기획 수정 사유 구체화는 지금은 하지 않는다. 기획 오류 주입 사례(`mission_unreachable_once`, 신규 유저 5일, `gpt-4.1-mini`)를 API로 6회 실행한 결과 5회는 수정 1회, 1회는 수정 2회로 모두 `WAITING_APPROVAL`에 도달했고 `FAILED`는 없었다. Planner에는 `error_type`과 일반 사유 문장만 전달되고 어느 Day·콘텐츠가 문제인지는 전달되지 않는다. 다른 대상·기간이나 모델에서 수정 한도 초과가 관찰되면 사유에 Day와 콘텐츠 ID를 담는 변경을 검토한다. 6회는 적은 표본이다.
 
 ### 다른 담당자에게 전달할 내용
 
