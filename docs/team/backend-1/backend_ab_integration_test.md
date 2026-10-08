@@ -75,5 +75,37 @@
 - 현재 통합 Swagger는 실제 OpenAI/MCP 서버가 아니라 결정적 Mock 전송을 사용한다.
 - 실제 MCP 팀 브랜치를 추가 병합한 뒤 Streamable HTTP 전송 시험이 필요하다.
 - 실제 OpenAI 모델·API Key·비용 정책 확정 후 LLM 전송 시험이 필요하다.
-- `youngmin` 파일 17개가 현재 저장소 Ruff format check와 줄바꿈 기준이 달라 전체
-  `ruff format --check backend`는 실패한다. 기능 테스트와 `ruff check backend`는 통과한다.
+- 실제 MCP와 OpenAI 연결 전 운영 환경 Timeout과 Secret 설정을 확정해야 한다.
+
+## 2026-10-08 수정 후 최종 재시험
+
+통합 브랜치에서 Backend B 파일 17개의 Ruff 포맷과 줄바꿈 차이를 정리했다.
+
+- Pytest: 39 passed, 1 skipped
+- `ruff check backend`: PASS
+- `ruff format --check backend`: PASS
+- Swagger `/docs`: HTTP 200
+- OpenAPI `/openapi.json`: HTTP 200
+
+정상 업무 흐름:
+
+| 시나리오 | 결과 |
+|---|---|
+| 이벤트 생성 | `WAITING_APPROVAL`, data_source `primary` |
+| 운영자 수정 요청 | result_version 2, `WAITING_APPROVAL` |
+| 승인 | `COMPLETED`, final_result 존재 |
+| 거절 | `CANCELLED` |
+
+전체 Fault Injection:
+
+| Fault | 최종 상태 | 확인 결과 |
+|---|---|---|
+| `mission_unreachable_once` | `WAITING_APPROVAL` | revision_count 1, AutoHealing 1건 |
+| `agent_failure_once` | `WAITING_APPROVAL` | Retry 복구 후 retry_count 0 |
+| `primary_tool_error_once` | `WAITING_APPROVAL` | `fallback_snapshot` 사용 |
+| `mcp_timeout_once` | `WAITING_APPROVAL` | 동일 Tool Retry 후 retry_count 0 |
+| `db_connection_error_once` | `WAITING_APPROVAL` | Trace 저장 재시도 후 정상 완료 |
+| `validation_error_once` | `WAITING_APPROVAL` | Output 재생성 후 정상 완료 |
+| `retry_limit_exceeded` | `FAILED` | retry_count 3, `agent_failure` |
+
+Swagger 시험 서버는 결과 확인 후 정상 종료했다.

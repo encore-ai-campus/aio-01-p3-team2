@@ -122,6 +122,8 @@ def test_test_mode_is_disabled_by_default(client, monkeypatch):
 def test_health_endpoints(client):
     assert client.get("/health/live").json() == {"status": "ok"}
     assert client.get("/health/ready").json() == {"status": "ready"}
+
+
 class WorkflowTests(unittest.IsolatedAsyncioTestCase):
     """Mock LLM과 MCP 결과로 B의 정상·복구 경로를 확인한다."""
 
