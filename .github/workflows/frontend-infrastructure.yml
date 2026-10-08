@@ -1,0 +1,95 @@
+name: Yejin Frontend Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Create or update the frontend EC2 and ECR resources
+        type: boolean
+        required: true
+        default: false
+      destroy:
+        description: Permanently delete the yejin frontend resources
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-agent-autohealing-yejin-infrastructure
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  STACK_NAME: multi-agent-autohealing-yejin-frontend
+
+jobs:
+  destroy:
+    if: inputs.destroy
+    runs-on: ubuntu-latest
+    environment: yejin-frontend
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Delete the approved frontend stack
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "${{ vars.AWS_ACCOUNT_ID }}"
+          STATUS="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || true)"
+          if [[ -z "$STATUS" ]]; then
+            echo "Stack $STACK_NAME does not exist; nothing to delete."
+            exit 0
+          fi
+          case "$STATUS" in
+            CREATE_COMPLETE|UPDATE_COMPLETE|UPDATE_ROLLBACK_COMPLETE) ;;
+            *) echo "Stack is in $STATUS; refusing deletion." >&2; exit 1 ;;
+          esac
+          aws cloudformation delete-stack --stack-name "$STACK_NAME" --role-arn "${{ vars.CLOUDFORMATION_ROLE_ARN }}"
+          aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME"
+          ! aws cloudformation describe-stacks --stack-name "$STACK_NAME" >/dev/null 2>&1
+
+  apply:
+    if: inputs.apply
+    runs-on: ubuntu-latest
+    environment: yejin-frontend
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Validate configuration
+        run: |
+          set -euo pipefail
+          test "$(aws sts get-caller-identity --query Account --output text)" = "${{ vars.AWS_ACCOUNT_ID }}"
+          test -n "${{ vars.VPC_ID }}"
+          test -n "${{ vars.SUBNET_ID }}"
+          test -n "${{ vars.FRONTEND_AMI_ID }}"
+          aws cloudformation validate-template --template-body file://infra/frontend-yejin.yml
+      - name: Create or update frontend infrastructure
+        run: |
+          aws cloudformation deploy \
+            --region "$AWS_REGION" \
+            --template-file infra/frontend-yejin.yml \
+            --stack-name "$STACK_NAME" \
+            --role-arn "${{ vars.CLOUDFORMATION_ROLE_ARN }}" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              VpcId="${{ vars.VPC_ID }}" \
+              SubnetId="${{ vars.SUBNET_ID }}" \
+              AmiId="${{ vars.FRONTEND_AMI_ID }}" \
+              AllowedFrontendCidr="${{ vars.ALLOWED_FRONTEND_CIDR }}"

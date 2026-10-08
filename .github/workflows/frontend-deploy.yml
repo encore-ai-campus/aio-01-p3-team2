@@ -1,0 +1,126 @@
+name: Yejin Frontend Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - yejin
+    paths:
+      - frontend/**
+      - infra/compose.release.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-agent-autohealing-yejin-frontend
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  STACK_NAME: multi-agent-autohealing-yejin-frontend
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    environment: yejin-frontend
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Require implemented frontend container
+        run: |
+          set -euo pipefail
+          test -s frontend/Dockerfile
+          test -s frontend/app.py
+          test -s frontend/requirements.txt
+      - name: Check frontend Python syntax
+        run: python3 -m compileall -q frontend
+      - name: Build frontend image
+        run: docker build --file frontend/Dockerfile --tag yejin-frontend:test frontend
+
+  deploy:
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    environment: yejin-frontend
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Read infrastructure outputs
+        id: infra
+        run: |
+          set -euo pipefail
+          OUT="$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].Outputs' --output json)"
+          value() { jq -r --arg key "$1" '.[] | select(.OutputKey == $key) | .OutputValue' <<< "$OUT"; }
+          echo "instance_id=$(value FrontendInstanceId)" >> "$GITHUB_OUTPUT"
+          echo "ecr_uri=$(value FrontendEcrUri)" >> "$GITHUB_OUTPUT"
+      - name: Start frontend and wait for SSM
+        env:
+          INSTANCE_ID: ${{ steps.infra.outputs.instance_id }}
+        run: |
+          set -euo pipefail
+          STATE="$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query 'Reservations[0].Instances[0].State.Name' --output text)"
+          if [[ "$STATE" == stopped ]]; then
+            aws ec2 start-instances --instance-ids "$INSTANCE_ID" >/dev/null
+            aws ec2 wait instance-running --instance-ids "$INSTANCE_ID"
+          elif [[ "$STATE" != running ]]; then
+            echo "Unexpected EC2 state: $STATE" >&2
+            exit 1
+          fi
+          for attempt in $(seq 1 60); do
+            PING="$(aws ssm describe-instance-information --filters Key=InstanceIds,Values="$INSTANCE_ID" --query 'InstanceInformationList[0].PingStatus' --output text)"
+            [[ "$PING" == Online ]] && exit 0
+            sleep 10
+          done
+          echo 'Frontend EC2 did not become available in SSM.' >&2
+          exit 1
+      - name: Log in to ECR
+        env:
+          ECR_URI: ${{ steps.infra.outputs.ecr_uri }}
+        run: aws ecr get-login-password | docker login --username AWS --password-stdin "${ECR_URI%%/*}"
+      - name: Build and push immutable image
+        env:
+          ECR_URI: ${{ steps.infra.outputs.ecr_uri }}
+        run: |
+          set -euo pipefail
+          IMAGE="$ECR_URI:sha-${GITHUB_SHA}-${GITHUB_RUN_ID}"
+          docker build --file frontend/Dockerfile --tag "$IMAGE" frontend
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+      - name: Deploy through SSM
+        env:
+          INSTANCE_ID: ${{ steps.infra.outputs.instance_id }}
+          FRONTEND_ENV_FILE: ${{ secrets.FRONTEND_ENV_FILE }}
+        run: |
+          set -euo pipefail
+          ENV_B64="$(printf '%s' "$FRONTEND_ENV_FILE" | base64 -w0)"
+          export ENV_B64 IMAGE
+          python3 - <<'PY' > /tmp/ssm.json
+          import json, os
+          commands = [
+              "set -eu; mkdir -p /opt/multi-agent-autohealing/frontend; printf '%s' '" + os.environ['ENV_B64'] + "' | base64 -d > /opt/multi-agent-autohealing/frontend/.env; chmod 600 /opt/multi-agent-autohealing/frontend/.env",
+              "aws ecr get-login-password --region " + os.environ['AWS_REGION'] + " | docker login --username AWS --password-stdin " + os.environ['IMAGE'].split('/')[0],
+              "docker pull " + os.environ['IMAGE'],
+              "docker rm -f multi-agent-autohealing-frontend 2>/dev/null || true; docker run -d --restart unless-stopped --name multi-agent-autohealing-frontend --env-file /opt/multi-agent-autohealing/frontend/.env -p 8501:8501 " + os.environ['IMAGE'],
+              "curl --fail --retry 24 --retry-delay 5 --retry-connrefused --retry-all-errors http://127.0.0.1:8501/",
+          ]
+          print(json.dumps({'commands': commands}))
+          PY
+          COMMAND_ID="$(aws ssm send-command --instance-ids "$INSTANCE_ID" --document-name AWS-RunShellScript --parameters file:///tmp/ssm.json --query Command.CommandId --output text)"
+          for attempt in $(seq 1 90); do
+            STATUS="$(aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query Status --output text 2>/dev/null || true)"
+            case "$STATUS" in
+              Success) exit 0 ;;
+              Failed|TimedOut|Cancelled|Cancelling) aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --output json; exit 1 ;;
+              *) sleep 5 ;;
+            esac
+          done
+          echo 'SSM deployment timed out.' >&2
+          exit 1
