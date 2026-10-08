@@ -95,7 +95,7 @@ Balance & Rule은 MCP 조회와 검증 자료 구성을 담당하고 **최종 �
 
 ### 정상 실행 순서
 
-`Planner → EventPlanResult Validation → Handoff ACCEPTED → Balance & Rule → Tool Guard → MCP → Tool Result Validation → Python Rule Engine → RuleValidationResult Validation → Handoff ACCEPTED → Critic → CriticResult Validation → WAITING_APPROVAL/PENDING`.
+현재 구현·Mock 통합 시험의 순서는 `Planner → EventPlanResult Validation → Handoff ACCEPTED → Balance & Rule → Tool Guard → MCP → Tool Result Validation → Python Rule Engine → RuleValidationResult Validation → Handoff ACCEPTED → Critic → CriticResult Validation → WAITING_APPROVAL/PENDING`이다. 기획 전 조회를 추가할 목표 순서는 11절과 공통 `docs/architecture.md`를 따른다.
 
 첫 승인 후보는 A가 `current_result`에 저장하며 `result_version=1`, `final_result=null`이다. `APPROVE/REJECT`는 A가 처리한다.
 
@@ -118,7 +118,7 @@ Supervisor는 LLM Agent가 아닌 Python 규칙이다. 현재 State와 `error_ty
 
 ## 5. MCP Client·Tool Guard·Context
 
-MCP Tool은 `get_game_rules`, `get_game_rules_fallback`, `get_item_info` 세 개다. Primary 게임 규칙 Tool의 실행 오류·Tool Result Validation 실패에는 Fallback을 호출한다. Fallback은 마지막 검증된 Snapshot이어야 하고 결과도 검증한다. `get_item_info`에는 MVP Fallback이 없다. MCP Timeout·연결 실패에는 Fallback을 사용하지 않는다.
+현재 구현된 MCP Tool은 `get_game_rules`, `get_game_rules_fallback`, `get_item_info` 세 개다. Primary 게임 규칙 Tool의 실행 오류·Tool Result Validation 실패에는 Fallback을 호출한다. Fallback은 마지막 검증된 Snapshot이어야 하고 결과도 검증한다. `get_item_info`에는 MVP Fallback이 없다. MCP Timeout·연결 실패에는 같은 서버의 Fallback으로 우회하지 않는다. 기획 전 조회용 새 Tool은 11절의 추가 개발 계획이다.
 
 Tool Result 필수 필드: 게임 규칙은 `content_id`, `content_name`, `required_level`, `game_data_version`; Fallback은 여기에 `source=fallback_snapshot`; 아이템은 `item_id`, `item_name`, `exists`다. Mock MCP의 `game_data_version`은 **`tinyheroes-1.0.0`**으로 통일한다. Mock Content ID는 `HUNT_001`, `DUNGEON_001`, `RAID_001`을 사용한다. `CONTENT_001`·`CONTENT_002`·`CONTENT_003`은 Mock Fixture와 Contract에서 교체한다. `data_source`는 실제 Primary 또는 Fallback 출처를 반영한다.
 
@@ -187,3 +187,30 @@ Fault별 관찰 결과: `mission_unreachable_once`는 자동 수정 1회, `agent
 최근 작업 목록의 동일 시각 정렬은 **A Repository 책임**으로 확정했다. A는 인메모리·PostgreSQL에 실제 생성 순번을 기록하고 `created_at` 동률일 때 그 순번으로 정렬한다. B는 임의 UUID 형식의 `task_id`를 생성 순서로 가정하지 않으며, `run/revise` 중 원래 `created_at`을 변경하지 않는다. 기본 백엔드 테스트는 `41 passed, 2 skipped`, 실제 PostgreSQL 선택 테스트는 `2 passed`였다. 기본 skip 2건은 테스트 DB URL 미설정 때문이다.
 
 다음 B 연동 작업은 실제 MCP 서버의 세 Tool 응답·Timeout·Fallback과 출처를 확인하고, 이어 실제 LLM 전송을 별도로 검증하는 것이다. 이 단계가 끝나기 전까지 Mock 통과를 실제 외부 서비스 통과로 표시하지 않는다. B 소유 코드와 A 소유 Adapter·Repository 변경이 동시에 필요하면 두 담당자가 변경 필드와 테스트를 먼저 공유한다.
+
+## 11. 기획 전 MCP 조회 추가 개발 계획 (2026-10-08)
+
+초안 작성 전에 콘텐츠·아이템 ID가 정해지지 않는 문제를 해결하기 위해 MCP 팀에 `get_event_planning_context(target_user, duration)`을 요청한다. 이 Tool은 대상 유저의 일자별 예상 레벨, 사용 가능한 콘텐츠 ID와 입장 레벨, 보상 아이템 ID, `game_data_version`을 제공해야 한다. 정확한 응답 필드·타입·Fallback 방식은 MCP·Backend 팀이 계약으로 확정한다. 현재 MCP 서버에는 이 Tool이 없고, B Workflow에는 Mock으로 시험한 선택적 조회 경계만 있다.
+
+B의 목표 실행 순서는 `이벤트 요청 → Backend의 기획용 MCP 조회 → Tool Result·버전 검증 → 제한된 Planner Context 전달 → Planner 초안 → 선택한 ID의 MCP 재조회·Python Rule Engine 검증 → Critic 검토 → 운영자 승인 대기`다. Event Planner의 Tool 직접 호출 금지 원칙과 외부 이벤트 생성 API의 네 입력 항목은 유지한다. Planner Context에는 검증된 기획 데이터만 전달하며 `actor_id`, `fault_type`, 비밀값은 전달하지 않는다. Human Revision과 자동 기획 수정에서도 새 초안을 만들기 전에 필요한 게임 데이터의 버전 일관성을 확인한다.
+
+- 첫 조회의 통신 오류·Timeout은 Supervisor의 기존 기술 재시도·한도·Safe Stop 규칙으로 처리한다. 검증된 기획용 Fallback이 계약된 경우에만 이를 사용하며, 끝내 유효한 데이터를 얻지 못하면 추측으로 초안을 생성하지 않는다.
+- 기획안 규칙 위반은 Planner 수정 후 미션·보상 전체를 다시 검증한다. 기존 `revision_count` 상한을 유지한다.
+- 기획 전 조회 버전과 선택 ID의 검증 조회 버전이 다르면 결과를 섞어 PASS 처리하지 않는다. 같은 버전으로 재조회·재검증하거나 Safe Stop한다. 재조회 범위와 한도는 계약 확정 전 임의로 정하지 않는다.
+- B는 기획 전 조회와 기획 후 검증 조회가 구분되는 Trace 이벤트를 생성한다. A의 저장·응답 계약에 새 필드나 action이 필요하면 먼저 합의한다. Frontend는 확정된 Trace 순서를 화면에 반영한다.
+
+B 소유 구현·시험 순서: 새 Tool 응답 검증과 Planner Context 필터링 → 조회 실패·Fallback·버전 불일치 테스트 → Workflow 순서 변경 → 기존 Balance & Rule 재조회와 전체 재검증 확인 → A Adapter·Trace·API 통합 시험. MCP Tool과 A 계약이 준비되기 전에는 Mock 전송으로 B의 순서·복구 테스트를 진행할 수 있다. 실제 MCP·LLM과 API 전체 흐름은 별도로 검증한다.
+
+### B 소유 구현 상태
+
+`WorkflowEngine`은 선택적 `planning_context_loader(target_user, duration)`가 주입되면 Planner 전에 조회한다. B 내부에서 사용하는 정규화된 자료는 `daily_expected_levels`, `available_contents`의 `content_id`·`required_level`, `reward_item_ids`, `game_data_version`, `source`이며 전체 유저에게는 `common_access_max_required_level`을 전달한다. 이 필드는 MCP의 ID별 응답을 검증·변환한 Planner 전용 자료다. Loader가 없으면 기존 A Adapter의 Mock 실행 순서를 유지한다.
+
+MCP 담당자가 확정한 Tool 응답은 `target_user`, 정수형 `duration`, ID별 객체인 `contents`·`items`, 요청 대상 기준을 담은 `user_segments`, `game_data_version`, `source`다. B는 요청 대상·기간과 버전·출처를 확인하고, `contents`와 `items`의 ID·표시 이름·레벨을 검사한다. 신규·복귀 유저는 기간 내 1·3·5·7일 체크포인트의 `expected_levels`를 사용하며, 나머지 날은 기존 Rule Engine처럼 가장 최근 기준값을 사용한다. `all_user`는 `content_access_only`의 공통 접근 레벨을 사용한다. Planner에는 접근 가능한 콘텐츠 ID·입장 레벨, 보상 ID, 대상에 필요한 레벨 기준과 버전·출처만 전달한다. 기획용 대체 Tool은 이번 범위에 없으므로 `source=fallback_snapshot`은 기획용 응답으로 수용하지 않는다.
+
+기획용 조회는 기존 기술 재시도 상한을 사용하고, 유효한 결과가 없으면 후보 없이 Safe Stop한다. 기획 전후 조회 버전이 다르면 현재 B 구현은 재조회 대신 Safe Stop한다. 정상·기획 오류 수정·첫 조회 실패·버전 불일치의 B Mock 시험이 추가됐다. 기획용 Fallback은 MCP 팀의 검증된 Snapshot 계약이 없어 구현하지 않았다. A의 `backend_b_mcp` 모드로 기존 Tool의 실제 API 호출·Fallback은 확인했지만, 새 기획용 Tool과 Loader 주입이 없으므로 새 순서의 API 경로는 미완료다.
+
+A 커밋 `166c20e`의 `PlanningContextLoader.load`를 B Engine에 주입한 Mock 통합 시험에서 정수형 `duration` 전달, 기획 전 조회 Trace, Planner Context 정보 제한을 확인했다. A가 확인하는 기본 응답 필드가 유효하더라도 상세 기획 자료가 빠지면 B가 재시도 후 후보 없이 종료한다. 보상 아이템 조회의 `game_data_version`은 필수로 검증한다. 조회 전에 Day 오류가 발생해 버전이 없을 때는 기술 장애로 오분류하지 않고 Planner 수정 경로를 유지한다. A Adapter의 실제 Loader 주입과 MCP 서버의 새 Tool은 아직 없으므로 API 경로는 미완료다.
+
+B Trace 이벤트에는 기획 전 `actor=mcp, action=get_event_planning_context, phase=planning_context`, 기획 후 ID 조회 `actor=mcp, phase=validation|revalidation`, Planner 생성·재생성, 규칙 검증, Critic 검토, Supervisor 수정 결정·재시도 기록을 추가했다. 최신 A `TraceEntry`/Adapter는 `phase`와 `tool_name` 저장·응답을 지원한다. 새 순서의 실제 API 응답과 순번·문구는 기획용 MCP Tool과 Loader를 연결한 뒤 통합 시험해야 한다.
+
+Planner 지시에는 기획용 Context가 전달되면 허용된 콘텐츠·보상 ID와 일자별 예상 레벨을 기준으로 선택하도록 명시했다. 검증용 MCP 조회가 실패하면 B Engine은 `mcp/ERROR`와 `supervisor/RETRY` 또는 `supervisor/TOOL_FALLBACK`을 분리해 기록한다. 실패한 조회에 확인되지 않은 게임 데이터 버전과 출처를 기록하지 않는다. Mock 회귀 시험에서 Timeout 재시도, 보상 Tool 재시도, Primary 실패 뒤 Fallback의 Trace 순서를 확인했다.

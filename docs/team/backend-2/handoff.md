@@ -1,6 +1,6 @@
 # 백엔드 B 작업 Handoff
 
-최종 갱신: 2026-10-07 (Asia/Seoul)
+최종 갱신: 2026-10-08 (Asia/Seoul). 2026-10-07 당시 상태는 아래 원문에 보존하고, 현재 추가 개발 계획은 마지막 절에 기록한다.
 
 ## 현재 브랜치와 소유 범위
 
@@ -52,3 +52,17 @@
 3. macOS: `.venv/bin/python -m pip install -r requirements-dev.txt`. Windows PowerShell: `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt`.
 4. B 시험: `.venv/bin/python -m unittest discover -s backend/tests -v` (Windows는 `python.exe` 경로로 변경). B Ruff: `.venv/bin/ruff check backend/app/agents backend/app/orchestration backend/app/rules backend/app/services/llm_service.py backend/app/services/mcp_client.py backend/app/guards/tool_guard.py backend/app/fault_injection backend/tests/test_backend_b_rules.py backend/tests/test_backend_b_transports.py backend/tests/test_workflow.py` 및 같은 경로의 `ruff format --check`.
 5. A와 계약을 맞춘 뒤 어댑터를 연결하고 실제 MCP·LLM, 저장 버전·Trace, API·Frontend 시나리오를 통합 시험한다. 변경된 동작·설정은 이 문서와 공통 계약에 함께 반영한다.
+
+## 2026-10-08 이후 추가 개발 계획
+
+위의 브랜치·미병합 파일·비어 있는 의존성·과거 검사 실패 설명은 2026-10-07 당시의 기록이다. 현재 `backend-test`에는 MCP 팀 `port` 브랜치가 병합됐고, B `MCPClient`에서 실제 MCP 서버의 기존 세 Tool 직접 연결 시험이 통과했다. 이 직접 연결 결과가 API Workflow 전체의 실제 MCP 연결을 뜻하지는 않는다. 최신 흐름과 담당 경계는 공통 `docs/architecture.md` 및 이 폴더의 개발 가이드 11절을 따른다.
+
+다음 B 작업은 기획 전 MCP 조회 결과를 검증하고 Planner에 허용된 데이터만 전달하는 경로를 Mock으로 먼저 시험하는 것이다. MCP 팀의 새 Tool 응답 계약이 정해지면 실제 조회로 교체하고, 기획 후 선택 ID의 재조회·버전 일치·복구·Trace를 시험한다. A 소유 Adapter·Schema·Repository·배포 의존성의 변경은 A와 계약을 맞춘 뒤 진행한다. 이 파일의 과거 23개 Mock 시험 및 당시 전체 Ruff 실패 기록은 현재 검사 결과로 사용하지 않는다.
+
+B 소유 코드에는 위 조회·검증·Trace 경계가 추가됐다. 최신 A Adapter는 기존 MCP Tool의 실제 API 연결과 `phase`·`tool_name` Trace 저장을 지원한다. 새 MCP 기획용 Tool의 실제 HTTP 호출 결과는 A Loader와 B의 상세 검증을 통과했다. 다만 A Adapter가 Engine에 Loader를 전달하지 않아 새 순서의 API 통합 시험과 프론트엔드 요청 JSON은 아직 제공할 수 없다. MCP 팀은 기획용 대체 Tool을 이번 범위에서 제외했다.
+
+프론트엔드 담당자에게 전달할 세 사례별 B Trace 확인 결과와 API 미완료 항목은 `docs/team/backend-2/frontend_trace_handoff.md`에 정리했다.
+
+최신 A 커밋 `05ebeaf`와 MCP `port` 커밋 `3e0f661`을 로컬에 병합했다. 확정된 MCP 응답 필드에 맞춘 B의 기획 데이터 검증·Planner용 변환, 요청 대상·기간, 1·3·5·7일 기준 및 전체 유저 접근 기준, 상세 자료 오류, 보상 데이터 버전 누락과 Day 오류 수정 경로를 확인했다. 서버 URL을 지정하지 않은 `backend/tests`는 64 passed, 11 skipped이고, `mcp_server/tests`는 32 passed, 1 skipped(DB URL 미설정)였다. 별도 HTTP 서버에서 새 Tool→A Loader→B Engine의 정상 전체 실행과 Trace 순서를 확인했고, `backend/tests/test_backend_b_mcp_live.py`의 7건이 통과했다. 새 순서의 실제 API 응답은 A Loader 주입 후 검증해야 한다. 병합된 MCP 소유 파일의 Ruff 린트·포맷 검사 실패는 MCP 담당자에게 전달할 항목이다.
+
+Windows PowerShell에서 실서버 B 시험은 MCP 서버를 실행한 뒤 `$env:MCP_TEST_URL="http://127.0.0.1:8010/mcp"`와 `backend\.venv\Scripts\python.exe -m pytest backend/tests/test_backend_b_mcp_live.py -q`로 재현한다. 서버가 없으면 이 시험은 건너뛴다.
