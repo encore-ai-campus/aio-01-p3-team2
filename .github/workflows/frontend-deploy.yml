@@ -7,7 +7,6 @@ on:
     paths:
       - frontend/**
       - infra/compose.release.yml
-      - .github/workflows/frontend-deploy.yml
 
 permissions:
   contents: read
