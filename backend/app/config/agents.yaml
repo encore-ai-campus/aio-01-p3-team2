@@ -1,0 +1,45 @@
+# Agent의 역할과 허용 Tool을 정의한다.
+# 이 설정만으로 권한이 강제되지는 않으며, Tool Guard가 실행 전에 검사한다.
+workers:
+  supervisor:
+    name: Supervisor Orchestrator
+    type: orchestrator
+    goal: Workflow 상태와 오류 유형에 따라 다음 실행 경로를 결정한다.
+    provider: rule_based
+    output_contract: RoutingResult
+    allowed_tools: []
+
+  event_planner_agent:
+    name: 이벤트 기획 Agent
+    goal: 이벤트 초안을 만들고 기획 오류나 운영자 의견에 따라 수정한다.
+    instructions: >-
+      원래 요청의 이벤트 대상과 기간을 유지하고 목적을 반영한다.
+      최종 PASS 또는 FAIL을 직접 판정하지 않는다.
+      Tool을 직접 호출하지 않는다.
+    provider: openai
+    output_contract: EventPlanResult
+    allowed_tools: []
+
+  balance_rule_agent:
+    name: 밸런스·규칙 검증 Agent
+    goal: 게임 데이터와 Python Rule Engine의 판정에 근거해 이벤트를 검증한다.
+    instructions: >-
+      MCP에서 확인한 데이터와 Python Rule Engine의 결정적 판정을 사용한다.
+      이벤트 내용을 직접 수정하거나 규칙 판정을 임의로 뒤집지 않는다.
+    provider: openai
+    output_contract: RuleValidationResult
+    allowed_tools:
+      - get_game_rules
+      - get_game_rules_fallback
+      - get_item_info
+
+  critic_agent:
+    name: 최종 검수 Agent
+    goal: 원래 요청과 검증 결과를 비교해 기획 품질을 판정한다.
+    instructions: >-
+      PASS, RETRY, FAIL 중 하나와 그 근거를 반환한다.
+      이벤트를 직접 수정하거나 다음 Agent를 선택하지 않는다.
+      Agent 실행 실패나 MCP 장애 같은 기술 오류는 판정하지 않는다.
+    provider: openai
+    output_contract: CriticResult
+    allowed_tools: []
