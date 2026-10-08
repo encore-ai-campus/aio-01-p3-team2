@@ -132,9 +132,9 @@ with header_col:
         '<div class="task-head">'
         f"<h2>{escape(str(title))}</h2>"
         + ('<span class="status-pill waiting">데모 데이터</span>' if demo_preview else '')
-        f'<span class="status-pill {status_class}">{escape(str(status))}</span>'
-        f'<span class="status-pill">Result v{escape(str(task.get("result_version", 0)))}</span>'
-        f'<span class="status-pill">Task ID · {escape(str(task_id))}</span>'
+        + f'<span class="status-pill {status_class}">{escape(str(status))}</span>'
+        + f'<span class="status-pill">Result v{escape(str(task.get("result_version", 0)))}</span>'
+        + f'<span class="status-pill">Task ID · {escape(str(task_id))}</span>'
         "</div>",
         unsafe_allow_html=True,
     )

@@ -1,0 +1,134 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation-managed frontend EC2 and ECR for the yejin branch.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+  AmiId:
+    Type: AWS::EC2::Image::Id
+  InstanceType:
+    Type: String
+    Default: t3.small
+  AllowedFrontendCidr:
+    Type: String
+    Description: CIDR allowed to access Streamlit on port 8501.
+
+Resources:
+  FrontendEcr:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: multi-agent-autohealing-yejin-frontend
+      EmptyOnDelete: true
+      ImageTagMutability: IMMUTABLE
+      ImageScanningConfiguration:
+        ScanOnPush: true
+
+  FrontendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Frontend access for multi-agent-autohealing yejin
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          CidrIp: !Ref AllowedFrontendCidr
+      Tags:
+        - Key: Project
+          Value: multi-agent-autohealing
+        - Key: Environment
+          Value: yejin
+        - Key: Component
+          Value: frontend
+
+  FrontendRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: MultiAgentAutohealingYejinFrontendRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: PullFrontendImage
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: !GetAtt FrontendEcr.Arn
+
+  FrontendInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: MultiAgentAutohealingYejinFrontendProfile
+      Roles:
+        - !Ref FrontendRole
+
+  FrontendInstance:
+    Type: AWS::EC2::Instance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SubnetId
+      IamInstanceProfile: !Ref FrontendInstanceProfile
+      SecurityGroupIds:
+        - !GetAtt FrontendSecurityGroup.GroupId
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 2
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            DeleteOnTermination: true
+      Tags:
+        - Key: Name
+          Value: multi-agent-autohealing-yejin-frontend
+        - Key: Project
+          Value: multi-agent-autohealing
+        - Key: Environment
+          Value: yejin
+        - Key: Component
+          Value: frontend
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y docker.io docker-compose-v2 curl unzip
+          if ! command -v aws >/dev/null 2>&1; then
+            cd /tmp
+            curl -fsS https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+            unzip -q awscliv2.zip
+            ./aws/install
+            rm -rf aws awscliv2.zip
+          fi
+          systemctl enable --now docker
+          usermod -aG docker ubuntu
+          snap install amazon-ssm-agent --classic || true
+          systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service || true
+
+Outputs:
+  FrontendInstanceId:
+    Value: !Ref FrontendInstance
+  FrontendEcrUri:
+    Value: !GetAtt FrontendEcr.RepositoryUri
