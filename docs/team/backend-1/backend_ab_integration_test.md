@@ -73,7 +73,7 @@
 ## 남은 사항
 
 - 현재 통합 Swagger는 실제 OpenAI/MCP 서버가 아니라 결정적 Mock 전송을 사용한다.
-- 실제 MCP 팀 브랜치를 추가 병합한 뒤 Streamable HTTP 전송 시험이 필요하다.
+- MCP 팀의 `port` 브랜치 병합 및 Streamable HTTP 직접 연결 시험 결과는 아래에 기록했다.
 - 실제 OpenAI 모델·API Key·비용 정책 확정 후 LLM 전송 시험이 필요하다.
 - 실제 MCP와 OpenAI 연결 전 운영 환경 Timeout과 Secret 설정을 확정해야 한다.
 
@@ -109,3 +109,12 @@
 | `retry_limit_exceeded` | `FAILED` | retry_count 3, `agent_failure` |
 
 Swagger 시험 서버는 결과 확인 후 정상 종료했다.
+
+## 2026-10-08 MCP 병합 및 직접 연결 시험
+
+- `port` 브랜치를 `backend-test`에 병합했다. 병합 커밋: `97e89c5`.
+- MCP 서버 테스트: 17 passed. 백엔드 테스트: 41 passed, 2 skipped (`POSTGRES_TEST_URL` 미설정).
+- 저장소 전체 `ruff check .`, `ruff format --check .` 통과.
+- 실제 MCP 서버를 로컬에서 실행하고 백엔드 `MCPClient`의 Streamable HTTP 전송으로 `get_game_rules(HUNT_001)` 기본 조회, 기본 조회 실패 후 fallback 조회, `get_item_info(ITEM_001)` 조회, 없는 콘텐츠 조회, 허용되지 않은 fallback 차단을 확인했다.
+- 이 시험은 백엔드 MCP 클라이언트에서 MCP 서버까지의 직접 연결 범위다. 현재 `BackendBWorkflowAdapter`는 Mock 전송을 사용하며 기본 `WORKFLOW_ENGINE`도 `mock`이다. Frontend → Backend API → MCP 서버 전체 흐름과 실제 OpenAI 호출은 아직 검증하지 않았다.
+- 실제 API Workflow 연결 전에는 백엔드 런타임 의존성에 MCP SDK를 추가하고 전송 설정을 연결해야 한다. 이번 직접 연결 시험에서는 로컬 백엔드 가상환경에 MCP SDK를 설치해 사용했다.

@@ -10,7 +10,7 @@ Event Planner가 이벤트 초안을 만들고, Balance & Rule Agent와 Critic�
 
 ## 현재 상태
 
-**초기 프로젝트 뼈대 단계입니다.** `yejin` 브랜치 전용 AWS 배포 workflow는 준비되어 있지만, 현재 `frontend/`의 Dockerfile과 애플리케이션 파일이 비어 있어 구현 전에는 배포가 중단됩니다.
+Frontend 화면과 Dockerfile, Backend A API, Backend B Workflow, MCP 서버가 저장소에 구현되어 있습니다. `backend-test`에서 MCP 서버와 백엔드 `MCPClient`의 Streamable HTTP 직접 연결을 검증했습니다. 다만 현재 API Workflow는 Mock 전송을 사용하므로 실제 MCP 서버와 OpenAI 모델을 거치는 전체 흐름은 아직 검증되지 않았습니다. 자세한 결과는 [Backend A/B 통합 및 MCP 연결 시험](docs/team/backend-1/backend_ab_integration_test.md)을 참고하세요.
 
 ## 예정 구성
 
