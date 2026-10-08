@@ -28,11 +28,17 @@ Docker를 사용하는 환경에서는 저장소 루트에서 `docker build -t o
 | 화면 | 현재 동작 |
 | --- | --- |
 | 로그인 (`app.py`) | 데모 ID만 검사하고 브라우저 세션을 시작. 비밀번호 필드는 시안 표시용 비활성 상태 |
-| 이벤트 생성 | 이름·대상·기간(1~7일)·목적을 검증하고 `POST /api/events/generate` 요청. 선택적으로 Test Mode의 별도 경로 사용. 고정 예시는 폼 입력에만 사용 |
+| 이벤트 생성 | 이름·대상·기간(1~7일)·목적을 검증하고 `POST /api/events/generate` 요청. 선택적으로 Test Mode의 별도 경로 사용. 고정 예시 입력과 별도 데모 체험 제공 |
 | 진행 상태 / 결과 | 현재 Task의 기획안, 일자별 미션·보상, 규칙 검증 근거, AutoHealing, Critic 상태를 표시. 승인·수정 요청·거절과 Task·Trace 새로고침 제공 |
 | 운영 · 디버그 | 현재 Task의 구조화된 Trace, 주체별 필터, 세션 입력값, Backend Live·Ready 확인 제공 |
 
 API 호출은 `frontend/services/backend_client.py`에 모았습니다. 현재 연결 대상은 생성 2개, Task 조회, 승인, Trace 조회, Health 2개로 총 7개 엔드포인트입니다. Backend가 아직 해당 계약을 구현하지 않은 경우 요청은 연결 또는 HTTP 오류로 표시됩니다. Frontend는 Backend 성공 결과를 임의로 생성하지 않습니다.
+
+### Backend 없이 예시 화면 체험
+
+이벤트 생성 화면에서 오른쪽 예시 하나를 선택한 다음 **선택한 예시로 체험하기**를 누르면 `frontend/services/demo_data.py`의 고정된 Task·Trace가 결과 화면에 나타납니다. 세 예시 모두 기간별 미션과 보상을 표시하며, 신규 유저 7일 예시에는 AutoHealing 전후 비교가 포함됩니다. 결과·운영 화면에는 **데모 데이터** 경고가 표시됩니다.
+
+이 경로는 AI, MCP, Backend 및 실제 게임 규칙 검증을 실행하지 않습니다. 데모의 승인·수정 요청·거절, Task·Trace 새로고침, Backend Health 조회는 비활성화됩니다. 실제 API로 생성하려면 기존 **AI로 이벤트 생성하기** 버튼을 사용합니다.
 
 이벤트 생성은 완료까지 동기 응답을 기다리며 최대 180초를 설정했습니다. 연결 끊김 또는 시간 초과 후 같은 입력을 다시 제출하면 같은 `idempotency_key`를 재사용합니다. `workflow_status=FAILED` Task는 API 오류와 구분해 결과 화면에 실패 원인과 Trace 이동을 표시합니다. 승인 요청에는 현재 `result_version`을 보내고, `STALE_RESULT_VERSION`이면 Task를 다시 조회합니다.
 

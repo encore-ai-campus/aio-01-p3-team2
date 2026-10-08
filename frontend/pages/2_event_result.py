@@ -14,6 +14,9 @@ from services.session import remember_task
 
 
 def refresh_task(task_id: str, *, show_error: bool = True) -> None:
+    if task_id.startswith("DEMO-"):
+        st.info("데모 결과는 Backend에서 다시 조회하지 않습니다.")
+        return
     try:
         remember_task(get_task(task_id))
     except ApiError as exc:
@@ -27,7 +30,7 @@ def refresh_task(task_id: str, *, show_error: bool = True) -> None:
 
 
 def perform_approval(task: dict[str, Any], action: str, comment: str | None = None) -> None:
-    if st.session_state.get("demo_preview"):
+    if task.get("_demo_preview") is True or str(task.get("task_id", "")).startswith("DEMO-"):
         st.error("데모 결과는 승인 API로 전송할 수 없습니다.")
         return
     with st.spinner("운영자 결정을 처리하고 있습니다."):
@@ -96,9 +99,11 @@ def render_approval(task: dict[str, Any], *, demo_preview: bool = False) -> None
 
 setup_page("진행 상태 / 결과", "AI 기획안과 검증·복구 결과를 확인하고 최종 결정합니다.")
 
-demo_preview = st.session_state.get("demo_preview") is True
 task_id = st.session_state.get("task_id")
 task: dict[str, Any] | None = st.session_state.get("task_response")
+demo_preview = (isinstance(task, dict) and task.get("_demo_preview") is True) or str(
+    task_id or ""
+).startswith("DEMO-")
 if not task_id:
     st.info("진행 중인 Task가 없습니다. 이벤트를 생성하면 결과가 여기에 표시됩니다.")
     st.page_link("pages/1_event_create.py", label="이벤트 생성으로 이동", icon="⭐")
@@ -114,7 +119,9 @@ if not isinstance(task, dict):
     st.stop()
 
 if demo_preview:
-    st.warning("데모 데이터입니다. AI·게임 데이터·Backend를 실행하지 않은 예시 기획안과 Trace입니다.")
+    st.warning(
+        "데모 데이터입니다. AI·게임 데이터·Backend를 실행하지 않은 예시 기획안과 Trace입니다."
+    )
 
 header_col, refresh_col = st.columns([5, 1])
 with header_col:
@@ -128,10 +135,11 @@ with header_col:
     status_class = (
         "success" if status == "COMPLETED" else "error" if status == "FAILED" else "waiting"
     )
+    demo_badge = '<span class="status-pill waiting">데모 데이터</span>' if demo_preview else ""
     st.markdown(
         '<div class="task-head">'
         f"<h2>{escape(str(title))}</h2>"
-        + ('<span class="status-pill waiting">데모 데이터</span>' if demo_preview else '')
+        f"{demo_badge}"
         f'<span class="status-pill {status_class}">{escape(str(status))}</span>'
         f'<span class="status-pill">Result v{escape(str(task.get("result_version", 0)))}</span>'
         f'<span class="status-pill">Task ID · {escape(str(task_id))}</span>'

@@ -126,7 +126,9 @@ with side_col:
 
     with st.container(key="panel-examples", border=True):
         card_title("▤", "이벤트 입력 예시")
-        st.caption("예시를 선택하면 입력칸이 채워집니다. 데모 실행은 실제 Backend를 호출하지 않습니다.")
+        st.caption(
+            "예시를 선택하면 입력칸이 채워집니다. 데모 실행은 실제 Backend를 호출하지 않습니다."
+        )
         for index, example in enumerate(EXAMPLES):
             st.button(
                 f"{example['event_name']}  ·  {TARGET_LABELS[str(example['target_user'])]} / {example['duration']}일",
@@ -145,7 +147,9 @@ with side_col:
             disabled=not isinstance(selected_index, int),
         ):
             run_demo()
-        st.caption("미리 준비한 기획안·검증·Trace를 표시합니다. 실제 AI 실행이나 승인 처리는 아닙니다.")
+        st.caption(
+            "미리 준비한 기획안·검증·Trace를 표시합니다. 실제 AI 실행이나 승인 처리는 아닙니다."
+        )
 
     with st.container(key="panel-data", border=True):
         card_title("▰", "Backend 연결 상태")
