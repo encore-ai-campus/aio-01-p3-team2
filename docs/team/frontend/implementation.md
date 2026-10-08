@@ -1,5 +1,11 @@
 # 프론트엔드 구현 현황
 
+## 2026-10-08 로컬 통합 화면 검증
+
+`backend-test`에 최신 `yejin` 프론트엔드 변경을 병합한 뒤 로컬 Backend와 Frontend를 함께 실행했다. Backend의 `/health/ready`와 `/docs`, Frontend의 `/_stcore/health`와 첫 화면이 모두 HTTP 200으로 응답했다. 사용자가 병합 후 화면 검증 통과를 확인했다. 이 확인은 실제 OpenAI·MCP·PostgreSQL 연동이나 AWS 배포 검증을 의미하지 않는다.
+
+같은 병합 상태에서 `ruff check .`, `ruff format --check .`, Frontend Python 구문 검사가 통과했다. Backend Pytest는 41개 통과, 2개 건너뜀이다. 건너뛴 두 항목은 `POSTGRES_TEST_URL`이 필요한 PostgreSQL 통합 테스트다.
+
 현재 `frontend/`는 Streamlit 기반 데모 로그인과 이벤트 생성, 결과·승인, 운영·디버그 화면을 제공합니다. 화면은 제공된 시안의 레이아웃을 참고해 Streamlit 컴포넌트와 HTML/CSS로 구성했습니다. Backend 구현은 이 작업에 포함하지 않았습니다.
 
 사이드바는 흰색 로고 영역에 `frontend/assets/sidebar_logo.png`의 첨부 로고를 사용합니다. 로그인 화면의 로고 자산은 별도로 유지합니다.
