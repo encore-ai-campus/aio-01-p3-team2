@@ -34,7 +34,7 @@ jobs:
           test -s frontend/app.py
           test -s frontend/requirements.txt
       - name: Check frontend Python syntax
-        run: python3 -m compileall --quiet frontend
+        run: python3 -m compileall -q frontend
       - name: Build frontend image
         run: docker build --file frontend/Dockerfile --tag yejin-frontend:test frontend
 
