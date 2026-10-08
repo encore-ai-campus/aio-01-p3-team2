@@ -12,11 +12,11 @@ def test_planning_context_loader_forwards_typed_arguments_and_envelope():
     async def transport(tool_name, arguments):
         calls.append((tool_name, arguments))
         return {
-            "target_user": arguments["target_user"],
-            "duration": arguments["duration"],
             "game_data_version": "tinyheroes-1.0.0",
             "source": "primary",
             "contents": [{"content_id": "HUNT_001", "required_level": 1}],
+            "items": [],
+            "user_segments": {},
         }
 
     result = asyncio.run(PlanningContextLoader(transport).load("new_user", 3))
@@ -25,8 +25,14 @@ def test_planning_context_loader_forwards_typed_arguments_and_envelope():
 
 
 def test_planning_context_loader_rejects_invalid_version():
-    async def transport(_tool_name, arguments):
-        return {**arguments, "game_data_version": "", "source": "primary"}
+    async def transport(_tool_name, _arguments):
+        return {
+            "contents": [],
+            "items": [],
+            "user_segments": {},
+            "game_data_version": "",
+            "source": "primary",
+        }
 
     with pytest.raises(MCPToolError):
         asyncio.run(PlanningContextLoader(transport).load("new_user", 1))
@@ -41,8 +47,14 @@ def test_planning_context_loader_classifies_connection_failure():
 
 
 def test_adapter_exposes_planning_context_loader(monkeypatch):
-    async def transport(_self, _tool_name, arguments):
-        return {**arguments, "game_data_version": "tinyheroes-1.0.0", "source": "primary"}
+    async def transport(_self, _tool_name, _arguments):
+        return {
+            "contents": [],
+            "items": [],
+            "user_segments": {},
+            "game_data_version": "tinyheroes-1.0.0",
+            "source": "primary",
+        }
 
     monkeypatch.setattr(BackendBWorkflowAdapter, "_mcp_transport", transport)
     adapter = BackendBWorkflowAdapter()

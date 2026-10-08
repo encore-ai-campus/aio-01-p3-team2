@@ -81,6 +81,24 @@ python -m pytest backend/tests/test_postgres_integration.py -q
 Remove-Item Env:POSTGRES_TEST_URL
 ```
 
+## 공용 PostgreSQL 게임 데이터
+
+Backend A가 `game_data_catalog` 테이블과 초기 `tiny_heroes` 데이터를 관리한다.
+`backend/sql/001_game_data_catalog.sql`은 MCP 담당자의 `port` 브랜치 조회 SQL과 호환된다.
+초기 데이터는 `mcp_server/data/tiny_heroes.json`을 읽어 한 행에 저장한다.
+저장소 루트에서 **검토한 DB 주소**를 `DATABASE_URL`로 지정해 다음을 실행한다.
+
+```powershell
+$env:DATABASE_URL="postgresql+psycopg://USER:PASSWORD@HOST:PORT/DATABASE"
+python -m backend.scripts.apply_game_data_catalog
+```
+
+이 명령은 기존 `tiny_heroes` 행이 초기 데이터와 같으면 아무것도 덮어쓰지 않는다.
+버전이나 내용이 다르면 중단하므로 데이터 변경은 별도 검토 후 적용한다. MCP 서버는
+같은 PostgreSQL DB를 `MCP_DATABASE_URL`로 조회하며, 이 스크립트는 MCP 서버의
+DB 역할에 쓰기 권한을 부여하지 않는다. 공용 DB에는 담당자끼리 주소·백업·적용 시점을
+확인한 뒤 실행한다. 임시 테스트 DB에서의 검증은 `POSTGRES_TEST_URL`로 선택 실행한다.
+
 ## Docker
 
 Backend 폴더를 Build Context로 사용한다.

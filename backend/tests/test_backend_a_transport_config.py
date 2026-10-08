@@ -65,7 +65,7 @@ def test_trace_response_preserves_phase_tool_and_timezone(client):
                 "phase": "planning_context",
                 "tool_name": "get_event_planning_context",
                 "game_data_version": "tinyheroes-1.0.0",
-                "data_source": "primary",
+                "source": "primary",
             }
         )
     )
@@ -74,7 +74,30 @@ def test_trace_response_preserves_phase_tool_and_timezone(client):
     assert traces[-1]["phase"] == "planning_context"
     assert traces[-1]["tool_name"] == "get_event_planning_context"
     assert traces[-1]["actor"] == "mcp"
+    assert traces[-1]["data_source"] == "primary"
     assert datetime.fromisoformat(traces[-1]["time"]).utcoffset() is not None
+
+
+def test_failed_planning_lookup_omits_unconfirmed_source_and_version(client):
+    task = client.post("/api/events/generate", json=_event_request()).json()
+    adapter = BackendBWorkflowAdapter()
+    asyncio.run(
+        adapter._save_trace(
+            {
+                "task_id": task["task_id"],
+                "time": datetime.now(UTC).isoformat(),
+                "actor": "mcp",
+                "action": "get_event_planning_context",
+                "status": "ERROR",
+                "phase": "planning_context",
+                "source": "primary",
+                "game_data_version": "unconfirmed",
+            }
+        )
+    )
+    trace = client.get(f"/api/tasks/{task['task_id']}/trace").json()["traces"][-1]
+    assert trace["data_source"] is None
+    assert trace["game_data_version"] is None
 
 
 def test_failed_workflow_has_no_successful_final_review(client, monkeypatch):

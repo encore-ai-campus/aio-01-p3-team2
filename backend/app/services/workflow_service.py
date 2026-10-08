@@ -194,6 +194,15 @@ class BackendBWorkflowAdapter:
         if task is None:
             raise ConnectionError(task_id)
         traces = repository.get_traces(task_id) or []
+        status = str(event.get("status") or "SUCCESS")
+        failed_planning_lookup = event.get("phase") == "planning_context" and status in {
+            "ERROR",
+            "FAILED",
+        }
+        data_source = (
+            None if failed_planning_lookup else event.get("data_source") or event.get("source")
+        )
+        game_data_version = None if failed_planning_lookup else event.get("game_data_version")
         repository.append_trace(
             task_id,
             TraceEntry(
@@ -202,7 +211,7 @@ class BackendBWorkflowAdapter:
                 actor=str(event.get("actor") or "supervisor"),
                 actor_id=None,
                 action=str(event.get("action") or event.get("event_type")),
-                status=str(event.get("status") or "SUCCESS"),
+                status=status,
                 phase=self._optional_string(event.get("phase")),
                 tool_name=self._optional_string(event.get("tool_name")),
                 error_type=self._optional_string(event.get("error_type")),
@@ -214,8 +223,8 @@ class BackendBWorkflowAdapter:
                 result_version=task.result_version,
                 failed_tool=self._optional_string(event.get("failed_tool")),
                 fallback_tool=self._optional_string(event.get("fallback_tool")),
-                data_source=self._optional_string(event.get("data_source")),
-                game_data_version=self._optional_string(event.get("game_data_version")),
+                data_source=self._optional_string(data_source),
+                game_data_version=self._optional_string(game_data_version),
             ),
         )
 

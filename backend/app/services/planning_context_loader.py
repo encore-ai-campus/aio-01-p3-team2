@@ -43,7 +43,7 @@ class PlanningContextLoader:
         if not isinstance(result, Mapping):
             raise MCPToolError(self.TOOL_NAME)
         context = dict(result)
-        if context.get("target_user") != target_user or context.get("duration") != duration:
+        if not all(key in context for key in ("contents", "items", "user_segments")):
             raise MCPToolError(self.TOOL_NAME)
         if (
             not isinstance(context.get("game_data_version"), str)
