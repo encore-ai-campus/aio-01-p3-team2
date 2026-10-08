@@ -25,4 +25,3 @@
 ```
 
 세 시나리오는 `backend/tests/test_backend_a_planning_api.py`로 재현된다. 첫 두 발췌본은 `backend_b_mcp`와 실제 MCP HTTP 서버(로컬 JSON 데이터), Mock LLM을 거친 API 응답이다. 세 번째 안전 종료 발췌본은 A/B 통합 Mock 기반 API 응답이다. 어느 예시도 공용 PostgreSQL·실제 LLM을 모두 거친 응답은 아니다. 외부 연동 시험은 각 테스트 URL과 자격 증명을 갖춘 환경에서 별도로 해야 한다.
-
