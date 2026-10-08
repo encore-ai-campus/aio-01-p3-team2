@@ -6,11 +6,14 @@
 
 | Tool | 입력 | 조회 원천 | 주요 결과 |
 | --- | --- | --- | --- |
+| `get_event_planning_context` | `target_user`, `duration` | DB 설정 시 `game_data_catalog`, 아니면 `data/tiny_heroes.json` | 기획 전 콘텐츠·아이템·대상 유저 기준, `source=primary` |
 | `get_game_rules` | `content_id` | DB 설정 시 `game_data_catalog`, 아니면 `data/tiny_heroes.json` | 콘텐츠 이름·필요 레벨·유저 성장 기준, `source=primary` |
 | `get_game_rules_fallback` | `content_id` | `data/tiny_heroes_fallback.json` | 같은 형식의 검증된 스냅샷, `source=fallback_snapshot` |
 | `get_item_info` | `item_id` | DB 설정 시 `game_data_catalog`, 아니면 `data/tiny_heroes.json` | 아이템 이름·존재 여부, `source=primary` |
 
 모든 결과에 `game_data_version`이 있습니다. 없는 ID는 오류 대신 `exists=false`와 `null` 이름·레벨을 반환합니다. 규칙 조회 결과는 없는 ID여도 `user_segments`를 포함합니다. DB 연결·조회 실패, JSON 파싱 실패, 파일 누락, 필수 데이터 오류는 Tool 오류로 전달합니다. DB 오류가 나도 기본 Tool이 조용히 JSON으로 바뀌지 않습니다. 백엔드가 별도 Fallback Tool을 호출해야 합니다. 데이터는 호출마다 읽으며 서버 안에서 재시도하지 않습니다.
+
+기획 전 조회의 `target_user`는 `new_user`, `returning_user`, `all_user` 중 하나이고 `duration`은 1~7의 정수입니다. 응답은 `target_user`, `duration`, `contents`, `items`, `user_segments`, `game_data_version`, `source`를 포함합니다. `contents`와 `items`는 ID를 키로 하는 객체이고, `user_segments`에는 요청한 대상 하나만 포함합니다. 신규·복귀 유저의 `expected_levels`는 요청 기간 이내의 Day 1·3·5·7 기준값만 포함합니다. Day 2·4·6에는 이전 기준값을 적용할지 백엔드 규칙 엔진이 결정합니다. 전체 유저는 `content_access_only` 기준을 반환합니다. 잘못된 입력이나 DB 오류는 Tool 오류입니다. 기획용 별도 Fallback Tool은 아직 없으며, 이 조회의 재시도·안전 종료는 백엔드가 담당합니다.
 
 백엔드는 MCP SDK의 `call_tool` 결과에서 `isError`를 확인하고, `structuredContent` 또는 `content[0].text`의 JSON을 해석합니다.
 
