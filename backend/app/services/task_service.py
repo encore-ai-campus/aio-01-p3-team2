@@ -77,7 +77,13 @@ def _validate_input_text(value: str, task_id: str | None = None) -> None:
 
 
 def _trace(
-    task: TaskRecord, actor: str, action: str, status: str, reason: str, actor_id: str | None = None
+    task: TaskRecord,
+    actor: str,
+    action: str,
+    status: str,
+    reason: str,
+    actor_id: str | None = None,
+    error_type: str | None = None,
 ) -> None:
     traces = repository.get_traces(task.task_id) or []
     repository.append_trace(
@@ -90,6 +96,7 @@ def _trace(
             action=action,
             status=status,
             reason=reason,
+            error_type=error_type,
             retry_count=task.retry_count,
             revision_count=task.revision_count,
             result_version=task.result_version,
@@ -147,7 +154,17 @@ def generate(request: EventCreateRequest | TestEventCreateRequest) -> tuple[Task
     task.result_version = 1 if task.current_result else 0
     task.updated_at = now()
     repository.save_task(task)
-    _trace(task, "critic_agent", "final_review", "SUCCESS", "MockEngine 검수 결과 PASS")
+    if task.workflow_status == WorkflowStatus.WAITING_APPROVAL:
+        _trace(task, "backend", "candidate_saved", "SUCCESS", "승인 후보를 저장했습니다.")
+    elif task.workflow_status == WorkflowStatus.FAILED:
+        _trace(
+            task,
+            "backend",
+            "safe_stop",
+            "FAILED",
+            task.error.message if task.error else "Workflow가 안전 종료되었습니다.",
+            error_type=task.error.error_type if task.error else None,
+        )
     return _response(task), True
 
 

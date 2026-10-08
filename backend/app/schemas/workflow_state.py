@@ -2,9 +2,9 @@
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .event import AutoHealingEvent, EventBrief, EventResult, RuleValidation
 
@@ -73,6 +73,8 @@ class TraceEntry(BaseModel):
     actor_id: str | None = None
     action: str
     status: str
+    phase: Literal["planning_context", "validation", "revalidation"] | None = None
+    tool_name: str | None = None
     error_type: str | None = None
     reason_code: str | None = None
     reason: str | None = None
@@ -84,6 +86,13 @@ class TraceEntry(BaseModel):
     fallback_tool: str | None = None
     data_source: str | None = None
     game_data_version: str | None = None
+
+    @field_validator("time")
+    @classmethod
+    def require_timezone(cls, value: datetime) -> datetime:
+        if value.utcoffset() is None:
+            raise ValueError("Trace 시간에는 시간대가 필요합니다.")
+        return value
 
 
 class TraceResponse(BaseModel):

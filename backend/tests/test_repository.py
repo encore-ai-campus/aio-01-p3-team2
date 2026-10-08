@@ -34,9 +34,11 @@ def test_sqlalchemy_repository_round_trip():
         TraceEntry(
             sequence=1,
             time=timestamp,
-            actor="backend",
-            action="create_task",
+            actor="mcp",
+            action="get_event_planning_context",
             status="SUCCESS",
+            phase="planning_context",
+            tool_name="get_event_planning_context",
         ),
     )
     repository.append_tool_log(
@@ -55,7 +57,10 @@ def test_sqlalchemy_repository_round_trip():
 
     assert repository.get_task(task.task_id) == task
     assert repository.list_tasks(20) == [task]
-    assert repository.get_traces(task.task_id)[0].action == "create_task"
+    trace = repository.get_traces(task.task_id)[0]
+    assert trace.action == "get_event_planning_context"
+    assert trace.phase == "planning_context"
+    assert trace.tool_name == "get_event_planning_context"
     assert repository.get_tool_logs(task.task_id)[0].tool == "get_game_rules"
     assert repository.find_idempotency("event:key") == ("hash", task.task_id)
     assert repository.ready() is True

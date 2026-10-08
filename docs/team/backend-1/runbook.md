@@ -2,8 +2,9 @@
 
 ## 현재 실행 수준
 
-Backend A는 Mock Workflow Engine을 사용해 생성 → 조회 → 승인/수정/거절을 실행할 수 있다.
-실제 AI Agent, MCP 검증, AutoHealing은 Backend B 연결 전이므로 완료로 표시하지 않는다.
+Backend A는 생성 → 조회 → 승인/수정/거절을 실행할 수 있다. `backend-test`에서는
+Backend B Engine도 연결되어 있으며 Mock LLM·MCP 또는 실제 MCP 전송을 선택할 수 있다.
+실제 OpenAI 모델을 통한 기획·검수 품질은 아직 확인하지 않았다.
 
 ## 로컬 실행
 
@@ -31,8 +32,26 @@ Task 목록은 생성 시각 내림차순으로 반환한다. 생성 시각이 �
 | `DATABASE_URL` | PostgreSQL SQLAlchemy URL | 비어 있으면 인메모리 |
 | `ENABLE_FAULT_INJECTION` | Test 생성 API 허용 | `false` |
 | `APPROVED_ACTOR_IDS` | 승인 가능한 Demo ID 목록 | `liveops01` |
+| `WORKFLOW_ENGINE` | `mock`, `backend_b_mock`, `backend_b_mcp`, `backend_b_live` | `mock` |
+| `MCP_URL` | 실제 MCP Streamable HTTP `/mcp` 주소 | 실제 MCP 모드에서 필수 |
+| `OPENAI_MODEL` | 실제 LLM 호출에 사용할 모델명 | `backend_b_live`에서 필수 |
+| `OPENAI_API_KEY` | OpenAI SDK가 읽는 비밀 환경변수 | `backend_b_live`에서 필수 |
 
 실제 비밀번호는 `.env.example`에 기록하지 않는다.
+
+`backend_b_mcp`는 B Engine과 Mock LLM, 실제 MCP 서버를 사용한다. `backend_b_live`는
+B Engine과 실제 MCP·OpenAI 전송을 사용하며 모델과 키가 없으면 시작하지 않는다.
+`/health/ready`는 Repository와, 실제 MCP 모드일 때 `get_game_rules(HUNT_001)` 조회를
+확인한다. OpenAI API 호출로 준비 상태를 검사하지 않는다. 예시 `.env` 파일은 자동으로
+로드되지 않으므로 실제 실행 환경에 환경변수를 설정해야 한다.
+
+로컬 실제 MCP 연결 예시:
+
+```powershell
+$env:WORKFLOW_ENGINE="backend_b_mcp"
+$env:MCP_URL="http://127.0.0.1:8010/mcp"
+python -m uvicorn backend.app.main:app --reload
+```
 
 ## 테스트
 
@@ -40,6 +59,14 @@ Task 목록은 생성 시각 내림차순으로 반환한다. 생성 시각이 �
 python -m pytest backend/tests -q
 python -m ruff check backend
 python -m ruff format --check backend
+```
+
+실제 MCP 서버를 실행한 뒤 API 경로까지 확인하는 선택 테스트:
+
+```powershell
+$env:MCP_TEST_URL="http://127.0.0.1:8010/mcp"
+python -m pytest backend/tests/test_mcp_api_integration.py -q -rs
+Remove-Item Env:MCP_TEST_URL
 ```
 
 실제 PostgreSQL 시험:

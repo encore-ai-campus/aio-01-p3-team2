@@ -33,8 +33,8 @@ from backend.app.schemas.workflow_state import (
     WorkflowStatus,
 )
 from backend.app.services.db_service import repository
-from backend.app.services.llm_service import LLMService
-from backend.app.services.mcp_client import MCPClient
+from backend.app.services.llm_service import LLMService, create_openai_transport
+from backend.app.services.mcp_client import MCPClient, create_streamable_http_transport
 
 CONTENT = {
     1: ("HUNT_001", "일반 사냥", "monster_kill"),
@@ -116,15 +116,32 @@ class MockWorkflowEngine:
 class BackendBWorkflowAdapter:
     """Run Backend B's async workflow behind Backend A's synchronous service boundary."""
 
-    def __init__(self) -> None:
+    def __init__(self, mode: str = "mock") -> None:
         config_dir = Path(__file__).resolve().parents[1] / "config"
         with (config_dir / "agents.yaml").open(encoding="utf-8") as file:
             agents_config = yaml.safe_load(file)
         with (config_dir / "security_policies.yaml").open(encoding="utf-8") as file:
             security_policy = yaml.safe_load(file)
 
-        llm = LLMService(self._llm_transport, 5)
-        mcp = MCPClient(self._mcp_transport, ToolGuard(agents_config), 5)
+        if mode not in {"mock", "mcp", "live"}:
+            raise ValueError(f"지원하지 않는 Backend B 실행 모드: {mode}")
+        self._mode = mode
+        llm_transport = self._llm_transport
+        if mode == "live":
+            model = os.getenv("OPENAI_MODEL", "").strip()
+            if not model or not os.getenv("OPENAI_API_KEY"):
+                raise ValueError("backend_b_live에는 OPENAI_MODEL과 OPENAI_API_KEY가 필요합니다.")
+            llm_transport = create_openai_transport(model, agents_config)
+        self._real_mcp_transport = None
+        mcp_transport = self._mcp_transport
+        if mode in {"mcp", "live"}:
+            mcp_url = os.getenv("MCP_URL", "").strip()
+            if not mcp_url:
+                raise ValueError("실제 MCP 모드에는 MCP_URL이 필요합니다.")
+            self._real_mcp_transport = create_streamable_http_transport(mcp_url)
+            mcp_transport = self._real_mcp_transport
+        llm = LLMService(llm_transport, 30 if mode == "live" else 5)
+        mcp = MCPClient(mcp_transport, ToolGuard(agents_config), 5)
         self._engine = BackendBEngine(
             Supervisor(security_policy),
             EventPlanner(llm),
@@ -133,6 +150,23 @@ class BackendBWorkflowAdapter:
             revision_loader=self._load_revision,
             trace_sink=self._save_trace,
         )
+
+    def ready(self) -> bool:
+        if self._real_mcp_transport is None:
+            return True
+
+        async def check_mcp() -> bool:
+            assert self._real_mcp_transport is not None
+            result = await asyncio.wait_for(
+                self._real_mcp_transport("get_game_rules", {"content_id": "HUNT_001"}),
+                timeout=5,
+            )
+            return result.get("content_id") == "HUNT_001" and result.get("exists") is True
+
+        try:
+            return asyncio.run(check_mcp())
+        except (ConnectionError, TimeoutError, RuntimeError, TypeError, ValueError):
+            return False
 
     def run(self, task_id: str, brief: EventBrief, fault_type: str | None = None) -> WorkflowResult:
         result = asyncio.run(self._engine.run(task_id, brief.model_dump(mode="json"), fault_type))
@@ -167,12 +201,17 @@ class BackendBWorkflowAdapter:
                 actor_id=None,
                 action=str(event.get("action") or event.get("event_type")),
                 status=str(event.get("status") or "SUCCESS"),
+                phase=self._optional_string(event.get("phase")),
+                tool_name=self._optional_string(event.get("tool_name")),
                 error_type=self._optional_string(event.get("error_type")),
                 reason_code=self._optional_string(event.get("reason_code")),
                 reason=self._optional_string(event.get("reason")),
+                policy_decision=self._optional_string(event.get("policy_decision")),
                 retry_count=int(event.get("retry_count") or 0),
                 revision_count=int(event.get("revision_count") or 0),
                 result_version=task.result_version,
+                failed_tool=self._optional_string(event.get("failed_tool")),
+                fallback_tool=self._optional_string(event.get("fallback_tool")),
                 data_source=self._optional_string(event.get("data_source")),
                 game_data_version=self._optional_string(event.get("game_data_version")),
             ),
@@ -260,7 +299,11 @@ class BackendBWorkflowAdapter:
                     "event_name": brief.event_name,
                     "objective": brief.objective,
                     "event_concept": f"{brief.duration}일 AI 이벤트",
-                    "operation_summary": "Backend B Workflow 통합 Mock 결과입니다.",
+                    "operation_summary": (
+                        "Backend B Workflow 통합 결과입니다."
+                        if self._mode == "live"
+                        else "Backend B Workflow 통합 Mock 기획 결과입니다."
+                    ),
                 }
             )
             current_result = EventResult.model_validate(candidate)
@@ -318,9 +361,16 @@ class BackendBWorkflowAdapter:
 
 def build_workflow_engine() -> MockWorkflowEngine | BackendBWorkflowAdapter:
     mode = os.getenv("WORKFLOW_ENGINE", "mock").strip().casefold()
-    if mode == "backend_b_mock":
-        return BackendBWorkflowAdapter()
-    return MockWorkflowEngine()
+    if mode == "mock":
+        return MockWorkflowEngine()
+    backend_b_modes = {
+        "backend_b_mock": "mock",
+        "backend_b_mcp": "mcp",
+        "backend_b_live": "live",
+    }
+    if mode not in backend_b_modes:
+        raise ValueError(f"지원하지 않는 WORKFLOW_ENGINE: {mode}")
+    return BackendBWorkflowAdapter(backend_b_modes[mode])
 
 
 workflow_engine = build_workflow_engine()

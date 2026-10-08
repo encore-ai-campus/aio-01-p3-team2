@@ -60,3 +60,11 @@ Remove-Item Env:POSTGRES_TEST_URL
 실제 MCP 팀 서버를 연결하면 Tool 응답 Schema, Timeout, Primary 오류 시 Fallback, `data_source/game_data_version`, Trace를 재검증한다. 실제 OpenAI 연결은 모델·키·비용 정책이 확정된 뒤 별도로 검증한다. 현재 Swagger 결과는 결정적 Mock 전송 기준이다.
 
 A/B 공통 Schema·Adapter·Repository 계약이 바뀌면 양쪽 가이드와 관련 테스트를 함께 갱신한다. 프런트엔드에는 기존 API 응답 형태를 유지하고, 내부 B 결과 형식을 그대로 노출하지 않는다.
+
+## 7. 실제 MCP 연결과 공통 계약 결정
+
+현재 A Adapter의 실행 모드는 `mock`(A Mock), `backend_b_mock`(B Engine·Mock 전송), `backend_b_mcp`(B Engine·Mock LLM·실제 MCP), `backend_b_live`(B Engine·실제 MCP·OpenAI)다. `backend_b_mcp` 이상에서는 `MCP_URL`을 필수로 지정한다. 로컬 기본 서버 주소는 `http://127.0.0.1:8010/mcp`이고 Docker 내부 주소는 실제 Compose 서비스명에 맞춰 지정한다. 백엔드 의존성은 MCP 서버와 같은 `mcp>=1.27,<2`, OpenAI Python SDK `openai>=2,<3`으로 정했다. 실제 OpenAI 모드에는 `OPENAI_MODEL`과 `OPENAI_API_KEY`가 필요하다.
+
+`/health/ready`는 DB와 실제 MCP Tool 조회를 확인한다. 실제 OpenAI API 호출은 준비 상태에서 하지 않는다. 현재 MCP 서버와 API를 함께 실행한 선택 테스트에서 생성과 Primary 장애 시 Fallback이 통과했다. 실제 OpenAI 전송은 아직 API 호출로 검증하지 않았다.
+
+화면은 `missions[]`와 `rewards[]`를 같은 `day`로 묶어 **각각 목록으로 표시**한다. MVP에서는 Day별 일대일 제한이나 개별 Mission↔Reward 연결자를 추가하지 않는다. `rule_validation.checks[]`는 현재 Frontend API 계약에서 필수가 아니며, 빈 목록을 허용한다. 검증 근거는 실제 수행한 검사에서 나온 `evidence`를 반환한다. 검사를 수행하지 않은 PASS 항목을 A가 만들어 내지 않는다. 자세한 합의 근거와 B에게 전달할 사항은 `docs/team/backend-1/backend_ab_contract_decisions.md`에 기록한다.
