@@ -9,7 +9,7 @@ from uuid import uuid4
 from ..agents.balance_rule import BalanceRuleAgent, EvaluatedEntry, PlanEvaluation
 from ..agents.critic import Critic, CriticInputError, CriticOutputError
 from ..agents.event_planner import EventPlanner, PlannerInputError
-from ..agents.supervisor import ContextPolicyError, Supervisor
+from ..agents.supervisor import ContextPolicyError, Supervisor, SupervisorDecisionError
 from ..fault_injection.fault_manager import FaultManager
 from ..fault_injection.fault_types import FaultType
 from ..guards.tool_guard import ToolGuardError
@@ -119,7 +119,7 @@ class WorkflowEngine:
                 stored = await self._revision_loader(task_id)
                 break
             except ConnectionError:
-                route = self._supervisor.decide_failure(
+                route = await self._supervisor.review_failure(
                     "db_connection_error", retry_count=retry_count
                 )
                 if route.action == "SAFE_STOP":
@@ -202,7 +202,16 @@ class WorkflowEngine:
                     else:
                         reason = "Event Brief를 확인하고 Event Planner에 초안 생성을 지시"
                     await self._route(
-                        task_id, "RUN_AGENT", "event_planner_agent", reason, faults, revision_count
+                        task_id,
+                        "RUN_AGENT",
+                        "event_planner_agent",
+                        reason,
+                        faults,
+                        revision_count,
+                        decision_context={
+                            "user_request": brief,
+                            "planning_context_loaded": planning_context is not None,
+                        },
                     )
                 owner = "event_planner_agent"
                 plan = await self._plan_with_retry(task_id, state, faults, healing)
@@ -218,6 +227,10 @@ class WorkflowEngine:
                     "기획안 형식을 확인하고 Balance & Rule에 규칙 검증을 지시",
                     faults,
                     revision_count,
+                    decision_context={
+                        "plan_target": plan.get("target_user"),
+                        "plan_duration": plan.get("duration"),
+                    },
                 )
                 await self._accept_handoff(
                     task_id,
@@ -281,7 +294,7 @@ class WorkflowEngine:
                     error_reason = str(rule_validation["reason"])
                     if human_revision:
                         raise WorkflowFailure(error_type, error_reason, owner)
-                    route = self._supervisor.decide_failure(
+                    route = await self._supervisor.review_failure(
                         error_type, current_agent=owner, revision_count=revision_count
                     )
                     if route.action == "SAFE_STOP":
@@ -316,6 +329,7 @@ class WorkflowEngine:
                     "규칙 검증을 통과해 Critic에 최종 검토를 지시",
                     faults,
                     revision_count,
+                    decision_context={"rule_validation": rule_validation},
                 )
                 await self._accept_handoff(
                     task_id,
@@ -338,6 +352,9 @@ class WorkflowEngine:
                 )
                 status = critic_result["status"]
                 if status == "PASS":
+                    approved_plan = deepcopy(evaluation.event_plan)
+                    if critic_result.get("review_note"):
+                        approved_plan["critic_review"] = critic_result["review_note"]
                     await self._route(
                         task_id,
                         "WAIT_APPROVAL",
@@ -345,6 +362,7 @@ class WorkflowEngine:
                         "Critic 검토를 통과해 운영자 승인 대기로 전환",
                         faults,
                         revision_count,
+                        decision_context={"critic_status": status},
                     )
                     await self._emit(
                         task_id,
@@ -361,7 +379,7 @@ class WorkflowEngine:
                         0,
                         revision_count,
                         owner,
-                        evaluation.event_plan,
+                        approved_plan,
                         rule_validation,
                         healing,
                         None,
@@ -377,7 +395,7 @@ class WorkflowEngine:
                 error_reason = str(critic_result["reason"])
                 if human_revision:
                     raise WorkflowFailure(error_type, error_reason, owner, critic_status="RETRY")
-                route = self._supervisor.decide_failure(
+                route = await self._supervisor.review_failure(
                     error_type, current_agent=owner, revision_count=revision_count
                 )
                 if route.action == "SAFE_STOP":
@@ -483,7 +501,7 @@ class WorkflowEngine:
                 tool_name="get_event_planning_context",
                 reason="기획용 게임 데이터 조회 실패",
             )
-            route = self._supervisor.decide_failure(
+            route = await self._supervisor.review_failure(
                 error_type,
                 failed_tool="get_event_planning_context",
                 retry_count=retry_count,
@@ -553,7 +571,7 @@ class WorkflowEngine:
                 error_type = "validation_error"
             except LLMExecutionError:
                 error_type = "agent_failure"
-            route = self._supervisor.decide_failure(
+            route = await self._supervisor.review_failure(
                 error_type, current_agent="event_planner_agent", retry_count=retry_count
             )
             if route.action == "SAFE_STOP":
@@ -665,7 +683,7 @@ class WorkflowEngine:
                         phase="revalidation" if revision_count else "validation",
                         reason="미션 검증용 MCP 조회 실패",
                     )
-                    route = self._supervisor.decide_failure(
+                    route = await self._supervisor.review_failure(
                         error_type,
                         current_agent="balance_rule_agent",
                         failed_tool=exc.tool_name,
@@ -735,7 +753,7 @@ class WorkflowEngine:
                         phase="revalidation" if revision_count else "validation",
                         reason="보상 검증용 MCP 조회 실패",
                     )
-                    route = self._supervisor.decide_failure(
+                    route = await self._supervisor.review_failure(
                         error_type,
                         current_agent="balance_rule_agent",
                         failed_tool=exc.tool_name,
@@ -769,24 +787,58 @@ class WorkflowEngine:
                         action="RETRY",
                     )
 
-        try:
-            return await self._balance_rule.validate_plan(
-                brief, plan, mission_runner=mission_runner, reward_runner=reward_runner
+        agent_retry_count = 0
+        while True:
+            try:
+                return await self._balance_rule.validate_plan(
+                    brief, plan, mission_runner=mission_runner, reward_runner=reward_runner
+                )
+            except MCPToolError as exc:
+                raise WorkflowFailure(
+                    "mcp_tool_error",
+                    "게임 데이터의 버전이나 결과가 일치하지 않습니다.",
+                    "balance_rule_agent",
+                ) from exc
+            except ToolGuardError as exc:
+                raise WorkflowFailure(
+                    "tool_guard_error", "Tool 권한 검사에 실패했습니다.", "balance_rule_agent"
+                ) from exc
+            except LLMTimeoutError:
+                error_type = "llm_timeout"
+            except LLMExecutionError:
+                error_type = "agent_failure"
+            except ValueError:
+                error_type = "validation_error"
+            route = await self._supervisor.review_failure(
+                error_type,
+                current_agent="balance_rule_agent",
+                retry_count=agent_retry_count,
+                revision_count=revision_count,
             )
-        except MCPToolError as exc:
-            raise WorkflowFailure(
-                "mcp_tool_error",
-                "게임 데이터의 버전이나 결과가 일치하지 않습니다.",
+            if route.action == "SAFE_STOP":
+                raise WorkflowFailure(
+                    error_type, route.reason, "balance_rule_agent", agent_retry_count
+                ) from None
+            agent_retry_count = route.retry_count
+            healing.append(
+                {
+                    "action": "RETRY",
+                    "error_type": error_type,
+                    "agent": "balance_rule_agent",
+                    "retry_count": agent_retry_count,
+                }
+            )
+            await self._emit(
+                task_id,
+                "AGENT_RETRY",
                 "balance_rule_agent",
-            ) from exc
-        except ToolGuardError as exc:
-            raise WorkflowFailure(
-                "tool_guard_error", "Tool 권한 검사에 실패했습니다.", "balance_rule_agent"
-            ) from exc
-        except ValueError as exc:
-            raise WorkflowFailure(
-                "validation_error", "게임 규칙 입력이 올바르지 않습니다.", "balance_rule_agent"
-            ) from exc
+                error_type,
+                faults,
+                retry_count=agent_retry_count,
+                revision_count=revision_count,
+                phase="recovery",
+                reason=route.reason,
+            )
 
     async def _critic_with_retry(
         self,
@@ -830,7 +882,7 @@ class WorkflowEngine:
                 error_type = "validation_error"
             except LLMExecutionError:
                 error_type = "agent_failure"
-            route = self._supervisor.decide_failure(
+            route = await self._supervisor.review_failure(
                 error_type, current_agent="critic_agent", retry_count=retry_count
             )
             if route.action == "SAFE_STOP":
@@ -898,8 +950,17 @@ class WorkflowEngine:
         reason: str,
         faults: FaultManager,
         revision_count: int,
+        decision_context: Mapping[str, object] | None = None,
     ) -> None:
         """오류 없이 다음 단계로 넘어가는 Supervisor의 경로 결정을 기록한다."""
+        try:
+            reason = await self._supervisor.review_transition(
+                action, next_agent, reason, decision_context
+            )
+        except (LLMExecutionError, LLMTimeoutError, SupervisorDecisionError) as exc:
+            raise WorkflowFailure(
+                "agent_failure", "Supervisor 판단에 실패해 안전 종료합니다.", "supervisor"
+            ) from exc
         await self._emit(
             task_id,
             action,
@@ -966,7 +1027,7 @@ class WorkflowEngine:
                 await self._trace_sink(event)
                 return
             except ConnectionError as exc:
-                route = self._supervisor.decide_failure(
+                route = await self._supervisor.review_failure(
                     "db_connection_error", retry_count=db_retry_count
                 )
                 if route.action == "SAFE_STOP":

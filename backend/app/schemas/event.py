@@ -1,7 +1,7 @@
 """Frontend request and event-result contracts."""
 
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -70,6 +70,15 @@ class RewardResult(BaseModel):
     quantity: int = Field(ge=1)
 
 
+class OperationReviewNotes(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    mission_operation: str = Field(min_length=1)
+    reward_design: str = Field(min_length=1)
+    critic_review: str = Field(min_length=1)
+    source: Literal["mock", "live"]
+
+
 class EventResult(BaseModel):
     event_name: str
     target_user: TargetUser
@@ -77,6 +86,7 @@ class EventResult(BaseModel):
     objective: str
     event_concept: str | None = None
     operation_summary: str | None = None
+    operation_review_notes: OperationReviewNotes | None = None
     missions: list[MissionResult]
     rewards: list[RewardResult]
 

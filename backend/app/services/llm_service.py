@@ -22,14 +22,19 @@ class LLMService:
     응답의 필드별 Schema 검증은 각 Agent와 A의 공통 Validation이 담당한다.
     """
 
-    def __init__(self, transport: LLMTransport, timeout_seconds: float) -> None:
+    def __init__(
+        self, transport: LLMTransport, timeout_seconds: float, *, source: str = "mock"
+    ) -> None:
         """LLM 전송 함수와 호출당 제한 시간을 설정한다."""
         if isinstance(timeout_seconds, bool) or not isinstance(timeout_seconds, (int, float)):
             raise TypeError("LLM 제한 시간은 숫자여야 합니다.")
         if timeout_seconds <= 0:
             raise ValueError("LLM 제한 시간은 0보다 커야 합니다.")
+        if source not in {"mock", "live"}:
+            raise ValueError("LLM 전송 출처가 올바르지 않습니다.")
         self._transport = transport
         self._timeout_seconds = timeout_seconds
+        self.source = source
 
     async def generate(self, agent_name: str, context: Mapping[str, object]) -> dict[str, object]:
         """Agent Context를 전달하고 구조화된 LLM 응답을 반환한다.
@@ -59,7 +64,7 @@ class LLMService:
 
 
 def create_openai_transport(model: str, agents_config: Mapping[str, object]) -> LLMTransport:
-    """OpenAI Responses API를 사용하는 Planner·Critic 전송 함수를 만든다.
+    """OpenAI Responses API를 사용하는 네 Agent의 전송 함수를 만든다.
 
     SDK와 API 키는 실제 서비스 실행 환경에서 제공한다. 이 함수는 키를
     인자로 받거나 로그에 남기지 않는다. 출력 Schema 검증은 SDK와 A의
@@ -112,6 +117,24 @@ def create_openai_transport(model: str, agents_config: Mapping[str, object]) -> 
 
 
 _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
+    "supervisor": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["approved", "reason"],
+        "properties": {
+            "approved": {"type": "boolean"},
+            "reason": {"type": "string"},
+        },
+    },
+    "balance_rule_agent": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["is_valid", "reason"],
+        "properties": {
+            "is_valid": {"type": "boolean"},
+            "reason": {"type": "string"},
+        },
+    },
     "event_planner_agent": {
         "type": "object",
         "additionalProperties": False,
@@ -120,6 +143,8 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
             "duration",
             "event_concept",
             "operation_summary",
+            "mission_operation",
+            "reward_design",
             "missions",
             "rewards",
         ],
@@ -128,6 +153,8 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
             "duration": {"type": "integer", "minimum": 1, "maximum": 7},
             "event_concept": {"type": "string"},
             "operation_summary": {"type": "string"},
+            "mission_operation": {"type": "string"},
+            "reward_design": {"type": "string"},
             "missions": {
                 "type": "array",
                 "items": {
@@ -171,11 +198,12 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
     "critic_agent": {
         "type": "object",
         "additionalProperties": False,
-        "required": ["status", "error_type", "reason"],
+        "required": ["status", "error_type", "reason", "review_note"],
         "properties": {
             "status": {"type": "string", "enum": ["PASS", "RETRY", "FAIL"]},
             "error_type": {"type": ["string", "null"]},
             "reason": {"type": "string"},
+            "review_note": {"type": "string"},
         },
     },
 }

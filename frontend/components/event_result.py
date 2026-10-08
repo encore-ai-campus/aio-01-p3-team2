@@ -133,27 +133,20 @@ def render_event_result(task: dict[str, Any]) -> None:
 
         with st.container(border=True):
             st.markdown("**운영·검토 메모**")
-            missing_missions = [day for day in range(1, duration + 1) if not missions[day]]
-            missing_rewards = [day for day in range(1, duration + 1) if not rewards[day]]
-            missing_reasons = [
-                day
-                for day in range(1, duration + 1)
-                if missions[day] and any(not m.get("planning_reason") for m in missions[day])
-            ]
-            for label, missing in (
-                ("미션", missing_missions),
-                ("보상", missing_rewards),
-                ("기획 의도", missing_reasons),
-            ):
-                st.write(
-                    f"{label}: "
-                    + (
-                        f"Day {', '.join(map(str, missing))} 정보 없음"
-                        if missing
-                        else "전 일차 기재"
-                    )
-                )
-            st.caption("기재 여부 확인이며 게임 규칙 검증 결과는 아래 별도 카드에서 확인합니다.")
+            notes = result.get("operation_review_notes")
+            if isinstance(notes, dict):
+                for label, field in (
+                    ("미션 운영 방식", "mission_operation"),
+                    ("보상 설계 이유", "reward_design"),
+                    ("Critic 검토 의견", "critic_review"),
+                ):
+                    value = notes.get(field)
+                    if isinstance(value, str) and value.strip():
+                        st.write(f"**{label}** · {value}")
+                if notes.get("source") == "mock":
+                    st.caption("Mock 생성 메모입니다. 실제 AI의 기획·검토 의견이 아닙니다.")
+            else:
+                st.info("이 기획안에는 Backend의 운영·검토 메모가 제공되지 않았습니다.")
 
 
 def render_rule_validation(rule: dict[str, Any] | None) -> None:

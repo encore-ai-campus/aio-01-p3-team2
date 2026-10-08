@@ -4,7 +4,9 @@
 
 Backend A는 생성 → 조회 → 승인/수정/거절을 실행할 수 있다. `backend-test`에서는
 Backend B Engine도 연결되어 있으며 Mock LLM·MCP 또는 실제 MCP 전송을 선택할 수 있다.
-실제 OpenAI 모델을 통한 기획·검수 품질은 아직 확인하지 않았다.
+실제 OpenAI 모델을 통한 기획·규칙 추가 검토·종합 검토·경로 심사는
+`backend_b_live` 모드에서 실행할 수 있다.
+모델 응답 품질과 실제 서비스 연동은 실행마다 별도로 확인한다.
 
 ## 로컬 실행
 
@@ -41,13 +43,17 @@ Task 목록은 생성 시각 내림차순으로 반환한다. 생성 시각이 �
 
 `backend_b_mcp`는 B Engine과 Mock LLM, 실제 MCP 서버를 사용한다. `backend_b_live`는
 B Engine과 실제 MCP·OpenAI 전송을 사용하며 모델과 키가 없으면 시작하지 않는다.
+`backend_b_live`에서는 Event Planner, Balance & Rule, Critic, Supervisor 모두 OpenAI를
+호출한다. Balance & Rule의 LLM은 규칙 엔진의 실패를 통과로 바꿀 수 없고, Supervisor의
+LLM은 허용된 경로를 승인하거나 안전 종료시킬 수 있다. 기술 재시도 3회와 기획 수정 2회의
+상한은 코드에서 강제한다. LLM 판단 이유는 규칙 판정과 Supervisor Trace의 `reason`에 남는다.
+`backend_b_mock`·`backend_b_mcp`의 네 Agent 판단은 Mock 응답이며 실제 AI 호출이 아니다.
 `/health/ready`는 Repository와, 실제 MCP 모드일 때 `get_game_rules(HUNT_001)` 조회를
-확인한다. OpenAI API 호출로 준비 상태를 검사하지 않는다. 예시 `.env` 파일은 자동으로
-로드되지 않으므로 실제 실행 환경에 환경변수를 설정해야 한다.
+확인한다. OpenAI API 호출로 준비 상태를 검사하지 않는다. 일반 Uvicorn 실행은
+`.env`를 자동으로 읽지 않는다. 실제 AI용 실행 명령은 아래의 `backend.app.main`을 사용한다.
 
-기획 전 MCP 조회 Loader는 A Adapter에 준비되어 있으나, B Engine 생성자의 콜백 인자와
-MCP 서버의 `get_event_planning_context` Tool이 아직 없어 실제 Workflow에서는 호출되지 않는다.
-연결 조건과 최소 응답 형식은 `backend_ab_contract_decisions.md`를 참조한다.
+실제 MCP 모드에서는 기획 전에 `get_event_planning_context`를 조회하고 Planner에 전달한다.
+실행 여부는 생성된 Task의 Trace에서 해당 Tool 호출로 확인한다.
 
 로컬 실제 MCP 연결 예시:
 
@@ -56,6 +62,23 @@ $env:WORKFLOW_ENGINE="backend_b_mcp"
 $env:MCP_URL="http://127.0.0.1:8010/mcp"
 python -m uvicorn backend.app.main:app --reload
 ```
+
+로컬 실제 AI 실행 예시(저장소 루트에서 실행):
+
+```powershell
+python -m pip install -r backend/requirements.txt
+python -m mcp_server.server  # 별도 PowerShell 창에서 먼저 실행
+python -m backend.app.main  # 백엔드 실행 창
+```
+
+`python -m backend.app.main`은 `backend/.env`를 읽고 `WORKFLOW_ENGINE=backend_b_live`로
+시작한다. `.env`에는 `MCP_URL`, `OPENAI_MODEL`, `OPENAI_API_KEY`가 필요하다. 이미 셸에
+설정한 값은 `.env` 값보다 우선한다. `DATABASE_URL`을 비워 두면 Task는 인메모리에 저장된다.
+Windows에서 Docker PostgreSQL의 공개 포트로 직접 연결할 때는 `DATABASE_URL`과 MCP 서버의
+`MCP_DATABASE_URL`에 `127.0.0.1` 및 공개 포트를 설정한다. MCP 서버는 직접 실행할 때
+`mcp_server/.env`를 읽는다. 두 서비스가 같은 `game_data_catalog` DB를 사용해야 한다.
+실제 모델 호출에는 API 요금이 발생한다. `/health/ready`는 MCP와 저장소만 확인하므로,
+새 이벤트 생성 뒤 Trace와 결과를 확인해야 OpenAI 호출 성공을 검증할 수 있다.
 
 ## 테스트
 

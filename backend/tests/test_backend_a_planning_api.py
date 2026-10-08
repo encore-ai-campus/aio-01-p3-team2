@@ -44,6 +44,11 @@ def _run(client, monkeypatch, *, fault_type=None, transport=None):
 def test_api_planning_lookup_precedes_planner_and_validation(client, monkeypatch):
     task, traces = _run(client, monkeypatch)
     assert task["workflow_status"] == "WAITING_APPROVAL"
+    notes = task["current_result"]["operation_review_notes"]
+    assert notes["source"] == "mock"
+    assert "Day 1" in notes["mission_operation"]
+    assert "ITEM_001" in notes["reward_design"]
+    assert "Mock" in notes["critic_review"]
     routing = [entry for entry in traces if entry["phase"] == "routing"]
     assert [(entry["action"], entry["next_agent"]) for entry in routing] == [
         ("RUN_AGENT", "event_planner_agent"),

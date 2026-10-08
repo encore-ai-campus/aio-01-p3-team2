@@ -94,6 +94,19 @@ class MockWorkflowEngine:
             **brief.model_dump(),
             event_concept=f"{brief.duration}일 성장 지원 이벤트",
             operation_summary="MockEngine 결과이며 실제 AI·MCP 검증 전 단계입니다.",
+            operation_review_notes={
+                "mission_operation": (
+                    f"Day 1에 {missions[0].mission_name}, Day {brief.duration}에 "
+                    f"{missions[-1].mission_name} 미션을 배치했습니다."
+                ),
+                "reward_design": (
+                    f"Day 1에 {rewards[0].item_name} {rewards[0].quantity}개, "
+                    f"Day {brief.duration}에 {rewards[-1].item_name} "
+                    f"{rewards[-1].quantity}개를 배치했습니다."
+                ),
+                "critic_review": "Mock 판정입니다. 실제 기획 품질 검수는 수행하지 않았습니다.",
+                "source": "mock",
+            },
             missions=missions,
             rewards=rewards,
         )
@@ -141,13 +154,16 @@ class BackendBWorkflowAdapter:
                 raise ValueError("실제 MCP 모드에는 MCP_URL이 필요합니다.")
             self._real_mcp_transport = create_streamable_http_transport(mcp_url)
             mcp_transport = self._real_mcp_transport
-        llm = LLMService(llm_transport, 30 if mode == "live" else 5)
+        llm = LLMService(
+            llm_transport, 30 if mode == "live" else 5,
+            source="live" if mode == "live" else "mock",
+        )
         mcp = MCPClient(mcp_transport, ToolGuard(agents_config), 5)
         self.planning_context_loader = PlanningContextLoader(mcp_transport).load
         self._engine = BackendBEngine(
-            Supervisor(security_policy),
+            Supervisor(security_policy, llm),
             EventPlanner(llm),
-            BalanceRuleAgent(mcp),
+            BalanceRuleAgent(mcp, llm_service=llm),
             Critic(llm),
             revision_loader=self._load_revision,
             trace_sink=self._save_trace,
@@ -233,8 +249,24 @@ class BackendBWorkflowAdapter:
     async def _llm_transport(
         self, agent_name: str, context: dict[str, object]
     ) -> Mapping[str, object]:
+        if agent_name == "supervisor":
+            return {"approved": True, "reason": "Mock 경로 판단입니다."}
+        if agent_name == "balance_rule_agent":
+            validation = context.get("deterministic_validation")
+            is_valid = isinstance(validation, Mapping) and validation.get("is_valid") is True
+            return {"is_valid": is_valid, "reason": "Mock 게임 데이터 검토입니다."}
         if agent_name == "critic_agent":
-            return {"status": "PASS", "error_type": None, "reason": "통합 Mock 검수 통과"}
+            plan = context.get("event_plan")
+            mission_count = len(plan.get("missions", [])) if isinstance(plan, Mapping) else 0
+            return {
+                "status": "PASS",
+                "error_type": None,
+                "reason": "통합 Mock 검수 통과",
+                "review_note": (
+                    f"{mission_count}일차 미션에 대한 Mock 품질 판정입니다. "
+                    "실제 AI의 기획 품질 검토는 수행하지 않았습니다."
+                ),
+            }
         brief = context["user_request"]
         assert isinstance(brief, Mapping)
         duration = int(brief["duration"])
@@ -261,6 +293,14 @@ class BackendBWorkflowAdapter:
             "duration": duration,
             "missions": missions,
             "rewards": rewards,
+            "mission_operation": (
+                f"Day 1에 {missions[0]['mission_name']}, Day {duration}에 "
+                f"{missions[-1]['mission_name']} 미션을 배치했습니다."
+            ),
+            "reward_design": (
+                f"Day 1부터 Day {duration}까지 매일 "
+                f"{rewards[0]['item_id']} {rewards[0]['quantity']}개를 배치했습니다."
+            ),
         }
 
     async def _mcp_transport(
@@ -344,6 +384,13 @@ class BackendBWorkflowAdapter:
         current_result = None
         if result.current_result is not None:
             candidate = deepcopy(result.current_result)
+            note_fields = ("mission_operation", "reward_design", "critic_review")
+            notes = {field: candidate.pop(field, None) for field in note_fields}
+            if all(isinstance(value, str) and value.strip() for value in notes.values()):
+                candidate["operation_review_notes"] = {
+                    **notes,
+                    "source": "live" if self._mode == "live" else "mock",
+                }
             candidate.update(
                 {
                     "event_name": brief.event_name,
