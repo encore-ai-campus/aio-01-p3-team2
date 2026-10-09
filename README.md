@@ -35,6 +35,7 @@ GitHub Environment `yejin-frontend`에는 `AWS_REGION`, `AWS_ACCOUNT_ID`, `AWS_R
 
 ## 문서 안내
 
+- [Workflow 장애 복구 기록·평가 합의](docs/workflow_evaluation_contract.md): 백엔드 B·백엔드 A·MCP의 Trace 기준, 평가 지표, 담당 범위
 - [시스템 기획안](docs/last/게임%20라이브%20이벤트%20기획·검수%20AutoHealing%20시스템%203f181f168976802fa10cf20099fe09eb.md): 목표, 사용자 흐름, 시스템 정책 및 배포 구상
 - [개발 기획안](docs/last/개발%20기획안%203f181f168976803581dbf5ff867e2125.md): 디렉터리 구조, Agent·데이터 계약, 테스트 및 개발 계획
 - [작업 지침](AGENTS.md): Ruff, 문서 작성, 브랜치 관리 원칙
