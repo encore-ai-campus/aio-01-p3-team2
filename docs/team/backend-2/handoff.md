@@ -1,6 +1,6 @@
 # 백엔드 B 작업 Handoff
 
-최종 갱신: 2026-10-08 (Asia/Seoul). 2026-10-07 당시 상태는 아래 원문에 보존하고, 현재 추가 개발 계획은 마지막 절에 기록한다.
+최종 갱신: 2026-10-09 (Asia/Seoul). 과거 시점의 상태는 아래 원문에 보존하고, 현재 결과는 마지막 절에 기록한다.
 
 ## 현재 브랜치와 소유 범위
 
@@ -311,3 +311,13 @@ Clash Balance & Rule 검토의 범위는 **공개 표본으로 상한을 정한 
 ### 반복 평가 도구와 결과 (2026-10-09)
 
 위 절의 평가 도구 미구현 상태를 해소했다. 백엔드 B의 API·Trace 비교기와 실행 CLI를 추가했으며, 정상·기획 수정·Tool Retry·Fallback·Safe Stop을 Mock 모드에서 각 3회 실행해 15/15건 통과했다. 실제 OpenAI `gpt-4.1-mini`와 MCP HTTP의 정상·기획 수정 사례는 각 3회 실행해 6/6건 통과했다. 실제 오류가 발생한 기획 수정 3건은 모두 재검증 후 승인 대기에 도달했다. 도구 사용법, 시나리오별 분모, 복구 시간과 검증 한계는 [백엔드 B 장애 복구 반복 평가](recovery_evaluation.md)에 기록했다. 보고서 원본 JSON은 저장소 밖의 일시 파일에 두고 비밀값을 커밋하지 않는다.
+
+### `checkpoint` 반영 후 백엔드 B의 PostgreSQL 복구 Trace 보존 검증 (2026-10-09)
+
+백엔드 A의 저장·재시작 시험을 확장해, 백엔드 B의 다섯 장애 복구 시나리오를 전용 로컬 PostgreSQL에서 실행한 뒤 **별도 API 프로세스**에서 Task·Trace와 원래 평가 판정을 다시 비교했다. `backend/evaluation/recovery.py`에 읽기 전용 `verify_persisted_suite`를, `backend/scripts/verify_workflow_recovery_report.py`에 기존 평가 JSON 재조회 명령을 추가했다. `backend/tests/test_backend_b_recovery_persistence.py`는 전용 `POSTGRES_TEST_URL`이 있을 때만 수행하며 DB 전체를 초기화하지 않고 시험 Task만 정리한다. 일회용 `postgres:16-alpine`에서 정상·기획 수정·Tool Retry·Fallback·Safe Stop 각 1회, **5/5건 보존·동일 판정 통과**를 확인했고 컨테이너는 종료·제거했다. 단위 시험 3건도 통과했다. 이번 재시작 시험은 Mock LLM·Mock MCP이며 실제 MCP HTTP·OpenAI 경로의 재시작 보존은 아직 검증하지 않았다. 재현 명령과 범위는 [평가 기록](recovery_evaluation.md)에 남겼다.
+
+### 실제 LLM·MCP·전용 PostgreSQL 복구 반복 평가 및 계약 정리 (2026-10-09)
+
+위 절의 실제 외부 연동 재시작 보존 미검증 상태를 해소했다. 전용 일회용 PostgreSQL에 Backend A의 카탈로그를 적용하고 실제 MCP HTTP 서버와 `backend_b_live`의 OpenAI `gpt-4.1-mini`를 함께 사용했다. 기획 오류 수정·MCP Timeout 재시도·Primary Fallback·Safe Stop을 각 2회 실행해 **8/8건 기대 상태·Trace 판정 통과**, Backend API 재시작 후 **8/8건 동일 판정**을 확인했다. 오류 관찰 8건 중 자동 복구 6건, 의도한 안전 종료 2건이다. 시험용 서버와 DB는 종료·제거했으며 상세 시간·범위는 [평가 기록](recovery_evaluation.md)에 있다. 실제 Clash API·공용 DB·다른 입력과 모델의 안정성은 이 시험에 포함하지 않았다.
+
+백엔드 A·B의 현행 결정에 따라 같은 Day의 Mission·Reward는 별도 목록으로 표시하고 개별 연결이나 보상 복제를 하지 않는다. `rule_validation.checks[]`는 MVP 필수가 아닌 후속 확장이다. 9장 체크리스트와 이전 handoff 절의 미확정 문구는 당시 기록이며, 현행 기준은 [백엔드 B 가이드 12장](백엔드%20B%20개발%20가이드_업데이트.md)과 [백엔드 A·B 결정 문서](../backend-1/backend_ab_contract_decisions.md)를 따른다. 공용 DB 적용·백업 책임은 팀장과 백엔드 A의 운영 결정 사항이다.

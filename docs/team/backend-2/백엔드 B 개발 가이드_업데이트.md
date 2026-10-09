@@ -226,3 +226,12 @@ B Engine은 오류 없이 다음 단계로 넘어갈 때 `actor=supervisor`, `ph
 ### `feature/demo-game` 병합 후 상태
 
 위의 A 반영 대기 설명은 과거 기록이다. 현재 병합 브랜치에는 A `TraceEntry`와 Adapter의 `routing`·`recovery`·`next_agent` 지원이 포함되어 있다. 실제 MCP HTTP 서버와 Backend API의 `backend_b_mcp` 실행으로 6가지 Trace를 다시 수집했다. 최신 결과와 기존 실제 LLM 기록의 구분은 `frontend_trace_handoff.md`의 마지막 절을 따른다. `backend_b_live`는 Supervisor·Balance & Rule까지 실제 LLM을 사용하며, 네 Agent 선택형 실제 LLM 시험 2건이 통과했다. 실제 OpenAI·MCP·격리된 임시 PostgreSQL을 함께 사용하는 정상 API 요청 1건도 `WAITING_APPROVAL`에 도달했다. 공용 DB와 반복 품질 평가는 별도 검증 대상이다.
+
+## 12. 현행 계약과 검증 상태 (2026-10-09)
+
+9장의 체크리스트와 11장의 과거 미완료 설명은 작성 당시의 작업 기록이다. 현재 MVP 계약은 [백엔드 A·B 연동 결정](../backend-1/backend_ab_contract_decisions.md)과 [프론트엔드·백엔드 API 계약](../../frontend_backend_api_contract.md)을 따른다.
+
+- Mission·Reward는 API에서 별도 배열로 유지하고 같은 `day`의 항목을 한 Day 카드에 함께 표시한다. 한 Day의 여러 항목을 허용하며 개별 Mission·Reward 연결이나 보상 복제를 요구하지 않는다. 백엔드 B는 Day 범위와 각 항목의 규칙을 검증한다.
+- `rule_validation.checks[]`는 MVP 필수 응답이 아니며 후속 확장이다. 백엔드 B의 내부 검사 근거는 유지하지만 외부 `checks[]`가 반드시 채워진 것으로 가정하지 않는다. Frontend는 `reason`, `error_type`, `evidence`, 출처·버전을 사용한다.
+- 기획 전 MCP 조회 Tool과 백엔드 A Loader·Trace 저장 연결은 현재 병합본에 들어 있다. 전용 로컬 DB에서 실제 MCP HTTP·OpenAI를 연결한 정상 요청을 확인했고, 기획 오류 수정·Timeout Retry·Primary Fallback·Safe Stop을 각 2회 실행한 결과와 API 재시작 후의 보존 검증은 [백엔드 B 평가 기록](recovery_evaluation.md)에 있다.
+- 팀 공용 PostgreSQL 적용, 백업·복구 책임, 실제 Clash API의 반복 안정성 및 더 넓은 LLM 입력·모델 품질 평가는 위 로컬 검증으로 완료된 것이 아니다.

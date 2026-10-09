@@ -335,3 +335,67 @@ def run_suite(client: Any, scenarios: tuple[Scenario, ...], repetitions: int) ->
         "summary": summarize(runs),
         "scenarios": [asdict(item) for item in scenarios],
     }
+
+
+def verify_persisted_suite(client: Any, report: dict[str, Any]) -> dict[str, Any]:
+    """서버 재시작 후 저장된 Task·Trace를 다시 읽어 원래 판정과 비교한다.
+
+    원본 보고서에 없는 Task나 Trace는 복구 성공으로 간주하지 않는다. 이 함수는
+    조회만 수행하므로 DB의 기존 기록을 변경하지 않는다.
+    """
+    scenarios = {scenario.name: scenario for scenario in SCENARIOS}
+    fields = (
+        "task_id",
+        "actual_status",
+        "observed_error_type",
+        "recovery_actions",
+        "revalidation_status",
+        "recovery_ms",
+        "data_source",
+        "game_data_version",
+    )
+    results = []
+    for original in report.get("runs", []):
+        task_id = original.get("task_id")
+        scenario = scenarios.get(original.get("scenario"))
+        result = {
+            "scenario": original.get("scenario"),
+            "repetition": original.get("repetition"),
+            "task_id": task_id,
+            "original_passed": original.get("passed") is True,
+            "persisted_passed": False,
+            "unchanged": False,
+            "passed": False,
+        }
+        if not task_id or scenario is None:
+            result["error"] = "보고서에 Task ID 또는 알려진 시나리오가 없습니다."
+            results.append(result)
+            continue
+        task_response = client.get(f"/api/tasks/{task_id}")
+        trace_response = client.get(f"/api/tasks/{task_id}/trace")
+        if task_response.status_code != 200 or trace_response.status_code != 200:
+            result["error"] = (
+                f"Task HTTP {task_response.status_code}, Trace HTTP {trace_response.status_code}"
+            )
+            results.append(result)
+            continue
+        trace_body = trace_response.json()
+        persisted = evaluate_run(scenario, task_response.json(), trace_body.get("traces", []))
+        persisted["checks"]["trace_task_id"] = trace_body.get("task_id") == task_id
+        persisted["passed"] = all(persisted["checks"].values())
+        result["persisted_passed"] = persisted["passed"]
+        result["unchanged"] = (
+            all(original.get(field) == persisted.get(field) for field in fields)
+            and original.get("checks") == persisted["checks"]
+        )
+        result["passed"] = (
+            result["original_passed"] and result["persisted_passed"] and result["unchanged"]
+        )
+        results.append(result)
+    return {
+        "runs": results,
+        "summary": {
+            "total_runs": len(results),
+            "passed_runs": sum(result["passed"] for result in results),
+        },
+    }

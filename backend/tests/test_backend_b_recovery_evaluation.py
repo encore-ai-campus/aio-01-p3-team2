@@ -4,7 +4,13 @@ from copy import deepcopy
 
 from backend.app.services import task_service
 from backend.app.services.workflow_service import BackendBWorkflowAdapter
-from backend.evaluation.recovery import SCENARIOS, evaluate_run, run_suite, summarize
+from backend.evaluation.recovery import (
+    SCENARIOS,
+    evaluate_run,
+    run_suite,
+    summarize,
+    verify_persisted_suite,
+)
 
 
 def test_repeated_api_scenarios_report_recovery_and_safe_stop(client, monkeypatch):
@@ -51,3 +57,24 @@ def test_trace_gap_and_missing_time_cannot_pass_evaluation(client, monkeypatch):
     assert broken_time["recovery_time_note"] == "Trace 시각 결손"
     assert broken_time["checks"]["recovery_time"] is False
     assert summarize([broken_time])["recovered_runs"] == 0
+
+
+def test_persisted_suite_detects_missing_or_changed_trace(client, monkeypatch):
+    """기존 보고서와 재조회한 Task·Trace가 달라지면 보존 실패로 판정한다."""
+    monkeypatch.setenv("ENABLE_FAULT_INJECTION", "true")
+    monkeypatch.setattr(task_service, "workflow_engine", BackendBWorkflowAdapter("mock"))
+    scenario = next(item for item in SCENARIOS if item.name == "planning_revision")
+    report = run_suite(client, (scenario,), 1)
+
+    verified = verify_persisted_suite(client, report)
+    assert verified["summary"] == {"total_runs": 1, "passed_runs": 1}
+
+    changed = deepcopy(report)
+    changed["runs"][0]["recovery_ms"] = -1
+    assert verify_persisted_suite(client, changed)["runs"][0]["unchanged"] is False
+
+    missing = deepcopy(report)
+    missing["runs"][0]["task_id"] = "TASK-MISSING"
+    failed = verify_persisted_suite(client, missing)["runs"][0]
+    assert failed["passed"] is False
+    assert failed["error"] == "Task HTTP 404, Trace HTTP 404"
