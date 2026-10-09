@@ -257,3 +257,49 @@ Clash 이벤트 생성은 `get_clash_event_sample`로 가져온 동일한 공개
 실제 실패가 발생한 경우에만 `autohealing_events`에 오류 원인, 선택한 조치, 수정 전후의 미션·보상 핵심 값, 재검증 결과를 기록한다. 정상 실행에는 오류를 주입하거나 AutoHealing 이벤트를 만들어 넣지 않는다. 따라서 네 Agent가 정상 경로에서 실행되더라도 AutoHealing 표시 여부는 실제 오류 발생에 달려 있다. MCP 표본 조회 실패 시에는 Supervisor가 대체 경로 유무를 판단하고, 사용할 경로가 없으면 승인 후보 없이 안전 종료한 기록을 남긴다. 관련 단위 검사는 `backend/tests/test_clash_event.py`에 있다.
 
 Clash Balance & Rule 검토의 범위는 **공개 표본으로 상한을 정한 데모 게임 이벤트**다. 실제 Clash 계정에 미션이나 보상을 발급하는 기능은 제공하지 않으며, 그 부재만을 근거로 기획안을 거부하지 않는다. Agent가 거부하려면 원래 요청, 표본 상한 또는 데모 미션·보상 규칙과 충돌하는 구체적 필드를 제시해야 한다. 이벤트의 참여 매력과 운영 품질은 Critic이 검토한다. 실제 검증 오류가 있으면 기존 Supervisor 수정 한도와 재검증을 그대로 적용한다.
+
+## 2026-10-09 `youngmin`의 최신 통합 확인
+
+`checkpoint`의 `4ba7ef2`까지 로컬 `youngmin`에 반영한 상태에서 확인했다. 백엔드 기본 시험은 `88 passed, 13 skipped`였고, B의 Clash 단위·API 시험은 `9 passed`였다. 저장소 전체 `ruff check .`와 `ruff format --check .`도 통과했다. 시험과 검사 결과는 이 절 작성 시점의 로컬 결과이며 공용 DB나 실제 Clash API 연결을 뜻하지 않는다.
+
+`backend/tests/test_backend_b_llm_live.py`에 고정된 Clash 공개 표본으로 네 Agent의 실제 OpenAI 판단을 확인하는 선택 시험을 추가했다. `LLM_TEST_MODEL=gpt-4.1-mini`를 명시해 실행한 결과, Clash 시험은 1회 통과했다. 같은 표본을 한 번 조회하고 Planner·Balance & Rule·Critic·Supervisor를 실행해 `WAITING_APPROVAL`, Critic `PASS`, 규칙 검증 `true`, AutoHealing 이벤트 없음으로 끝났다. 공개 Clash API와 MCP HTTP 서버는 이 시험에서 사용하지 않았다.
+
+기존 오퐁 실제 LLM 시험은 첫 실행에서 승인 대기까지 성공했지만, Balance & Rule의 정상 경로 Trace가 한 번 더 기록돼 고정 행 수 단언만 실패했다. 재실행을 허용하면서 Planner → Balance & Rule → Critic → 승인 대기의 순서를 검증하도록 시험을 고쳤고, 해당 선택 시험이 다시 통과했다. 실제 모델 응답에 따른 반복 실행 결과를 고정된 Trace 행 수로 가정하지 않는다. 기본 시험은 이제 `88 passed, 14 skipped`이며, 추가된 Skip 1건은 새 Clash 실제 LLM 선택 시험이다.
+
+남은 담당자 확인: MCP 담당자는 MCP 서버 실행 환경의 `CLASH_OF_CLANS_API_KEY`와 외부 API 허용 IP를 설정하고 `get_clash_event_sample`의 실제 공개 API 호출 결과를 확인해야 한다. Backend A 담당자는 공용 PostgreSQL의 `game_data_catalog` 적용 상태와 Backend·MCP가 사용할 검토된 연결 정보를 알려줘야 한다. B는 이 두 환경이 준비되면 실제 MCP·API 경로와 공용 DB 경로를 각각 다시 검증한다. 키·연결 값은 문서나 Trace에 기록하지 않는다.
+
+### Clash 키 설정 후 실제 MCP 연결 확인
+
+사용자가 이 컴퓨터의 `mcp_server/.env`에 `CLASH_OF_CLANS_API_KEY`를 설정했다. 공식 Clash API의 공개 순위 요청은 HTTP 403과 `accessDenied.invalidIp`를 반환했다. 현재 키의 허용 IP 설정에는 이 컴퓨터에서 외부 API로 나가는 공인 IP가 맞지 않는다. 키 값이나 공인 IP는 이 문서에 기록하지 않는다. 실제 MCP HTTP 서버를 임시 포트로 실행해 B Clash Workflow에 연결했을 때 `mcp_tool_error` → Supervisor `SAFE_STOP`으로 끝났고, 승인 후보는 생성되지 않았다. Trace action은 `get_clash_event_sample`, `SAFE_STOP` 순서였으며 임시 서버는 종료했다. MCP 담당자가 키의 허용 IP를 현재 MCP 서버의 외부 요청 IP에 맞춘 뒤 같은 Tool 호출을 재검증해야 한다. 이 확인은 실제 Clash 표본 조회 성공이나 전체 Backend API 성공을 뜻하지 않는다.
+
+### Clash 허용 IP 등록 후 실제 API 통합 검증
+
+사용자가 API 키의 허용 IP를 등록한 뒤 같은 컴퓨터에서 공식 Clash 공개 API 표본 조회가 통과했다. 응답은 `source=clash_of_clans`, 플레이어 20명과 클랜 3명의 집계 표본이었다. 개인 태그와 키 값은 출력·기록하지 않았다. 임시 MCP HTTP 서버를 띄우고 Backend API의 `POST /api/events/generate`를 `game_source=clash_of_clans`, 전체 유저, 1일 요청으로 실행했다.
+
+- `backend_b_mcp`(Mock LLM, 실제 Clash API·MCP): HTTP 201, `WAITING_APPROVAL`, Critic `PASS`, 규칙 검증 `true`, AutoHealing 이벤트 0건, Trace 7행.
+- `backend_b_live`(`gpt-4.1-mini`, 실제 Clash API·MCP·OpenAI): HTTP 201, `WAITING_APPROVAL`, Critic `PASS`, 규칙 검증 `true`, Balance & Rule의 실제 LLM 판단, AutoHealing 이벤트 0건, Trace 7행. Trace에 MCP 조회 성공과 Event Planner·Balance & Rule·Critic·Supervisor가 순서대로 기록됐다.
+
+두 실행은 로컬 인메모리 Repository와 임시 MCP 서버를 사용했고, 외부 팀 공용 PostgreSQL은 사용하지 않았다. 실제 모델의 반복 품질 평가는 아니다. 테스트 종료 후 임시 MCP 서버를 중지했다. 위 403 및 Safe Stop 기록은 허용 IP 등록 **전**의 결과로 보존한다. 남은 공용 DB 확인은 Backend A의 카탈로그 적용 상태와 연결 정보가 준비되면 별도로 진행한다.
+
+### 각자 로컬 Docker DB 방침과 B 통합 확인
+
+팀 방침이 공용 DB 우선 적용에서 **각자 로컬 Docker PostgreSQL로 시험**하는 것으로 바뀌었다. 이 컴퓨터에서 다른 프로젝트의 `backend-db-1`은 사용하거나 변경하지 않았다. 별도의 일회용 `postgres:16-alpine` 컨테이너를 자동 할당된 localhost 포트로 실행해 백엔드 A의 `apply_game_data_catalog`로 `tiny_heroes` 버전 `tinyheroes-1.0.0`을 적용했다.
+
+- 백엔드 A 카탈로그·PostgreSQL Repository 선택 시험: 4 passed. MCP의 DB Primary와 JSON Fallback 독립성 시험: 1 passed.
+- 같은 로컬 시험 DB를 Backend의 `DATABASE_URL`과 MCP의 `MCP_DATABASE_URL`에 연결한 `backend_b_mcp` API 1일 정상 요청: HTTP 201, `WAITING_APPROVAL`, `rule_validation.data_source=primary`, `game_data_version=tinyheroes-1.0.0`, Trace 15행. 새 PostgreSQL Repository 인스턴스에서 Task를 재조회했다.
+
+시험 뒤 MCP 서버와 일회용 PostgreSQL 컨테이너를 종료·제거했다. DB URL·비밀번호는 문서에 남기지 않았다. 이 결과로 **현재 로컬 Docker DB 기준 B 연동 확인은 완료**됐으며, 위 절의 공용 DB 연결 요청은 팀이 공용 환경을 마련할 때의 후속 항목이다. 각 팀원의 로컬 DB 생성·초기 데이터 적용은 해당 컴퓨터에서 별도로 해야 한다. 실제 LLM과 로컬 PostgreSQL을 동시에 쓰는 최신 `youngmin` 실행은 이번 절에서 재검증하지 않았고, 과거 `feature/demo-game`의 격리 DB 결과만 있다.
+
+### 최신 `youngmin`의 실제 LLM·MCP·로컬 Docker PostgreSQL 동시 검증
+
+위 절의 최신 브랜치 동시 검증 미완료 상태를 해소했다. 다른 프로젝트 DB와 분리된 일회용 `postgres:16-alpine`에 백엔드 A 카탈로그(`tinyheroes-1.0.0`)를 적용하고, Backend `DATABASE_URL`과 MCP `MCP_DATABASE_URL`을 같은 DB로 설정했다. MCP HTTP 서버와 `backend_b_live` API에서 `OPENAI_MODEL=gpt-4.1-mini`의 실제 LLM을 사용해 신규 유저 1일 정상 요청을 한 번 실행했다.
+
+- `POST /api/events/generate`: HTTP 201, `WAITING_APPROVAL`, Critic `PASS`, 규칙 검증 `true`, `data_source=primary`, `game_data_version=tinyheroes-1.0.0`. 수정 횟수와 AutoHealing 이벤트는 모두 0건이었다.
+- Balance & Rule 검증 이유에 실제 `LLM 판단:` 표시가 있었다. Trace는 15행이며 Supervisor의 정상 경로는 Planner → Balance & Rule → Critic → 승인 대기 순서로 기록됐다.
+- 별도로 연 PostgreSQL Repository 인스턴스에서 저장된 Task를 다시 조회했다. 시험 뒤 MCP 서버와 일회용 DB 컨테이너를 종료·제거했다.
+
+이 결과는 최신 `youngmin`에서 실제 OpenAI·MCP·PostgreSQL을 동시에 거친 **정상 요청 1회**의 확인이다. 다른 대상·기간이나 오류 복구의 반복 품질 평가는 포함하지 않으며 팀 공용 DB를 사용한 결과도 아니다. DB URL, 비밀번호, OpenAI 키는 기록하지 않았다.
+
+### 현재 팀 공유·결정 요청
+
+백엔드 B의 현재 합의 범위에서 즉시 추가할 필수 기능은 없다. 백엔드 A·프론트엔드 담당자와 `rule_validation.checks[]`의 MVP 응답 포함 여부, 같은 Day에 Mission·Reward가 여러 개일 때의 연결·검증 규칙을 확정해야 한다. 계약이 바뀌면 백엔드 B 구현과 시험을 함께 갱신한다. 로컬 Docker DB 방침에 따라 백엔드 A에게 공용 DB 연결을 당장 요청하지 않는다. 위의 과거 공용 DB 요청과 Clash IP 오류 기록은 당시 상황이며, 최신 검증 결과와 팀 방침은 이 절을 따른다.

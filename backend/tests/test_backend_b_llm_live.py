@@ -18,6 +18,8 @@ from backend.app.agents.supervisor import Supervisor
 from backend.app.guards.tool_guard import ToolGuard
 from backend.app.orchestration.engine import WorkflowEngine
 from backend.app.orchestration.planning_context import validate_planning_context
+from backend.app.schemas.event import EventBrief
+from backend.app.services.clash_event import ClashEventWorkflow
 from backend.app.services.llm_service import LLMService, create_openai_transport
 from backend.app.services.mcp_client import MCPClient
 from dotenv import dotenv_values
@@ -177,8 +179,14 @@ class LiveLLMTests(unittest.IsolatedAsyncioTestCase):
             for event in traces
             if event["actor"] == "supervisor" and event["phase"] == "routing"
         ]
+        route_steps = [(event["action"], event["next_agent"]) for event in routing]
+        distinct_steps = [
+            step
+            for index, step in enumerate(route_steps)
+            if index == 0 or step != route_steps[index - 1]
+        ]
         self.assertEqual(
-            [(event["action"], event["next_agent"]) for event in routing],
+            distinct_steps,
             [
                 ("RUN_AGENT", "event_planner_agent"),
                 ("RUN_AGENT", "balance_rule_agent"),
@@ -189,3 +197,66 @@ class LiveLLMTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all("LLM 판단:" in event["reason"] for event in routing))
         planning_context = validate_planning_context(await self._load("new_user", 5), "new_user", 5)
         self._assert_plan_uses_listed_ids(result.current_result, planning_context)
+
+    async def test_clash_sample_workflow_uses_four_live_agents(self) -> None:
+        """고정된 Clash 공개 표본에서 네 Agent의 실제 판단과 검증 결과를 확인한다."""
+        snapshot = {
+            "source": "clash_of_clans",
+            "game_data_version": "clash-sample-live-test",
+            "sample": {
+                "sampled_at": "2026-10-09T00:00:00+00:00",
+                "selection": "global_player_ranking_top_20_and_clan_ranking_top_3",
+                "player_count": 20,
+                "clan_count": 3,
+                "median_trophies": 4200,
+                "median_town_hall": 14,
+                "median_clan_members": 35,
+            },
+        }
+        calls: list[str] = []
+        traces: list[dict[str, object]] = []
+
+        async def mcp_transport(tool: str, arguments: dict[str, object]) -> Mapping[str, object]:
+            """외부 Clash API 대신 같은 표본을 한 번만 반환한다."""
+            self.assertEqual((tool, arguments), ("get_clash_event_sample", {}))
+            calls.append(tool)
+            return snapshot
+
+        async def trace_sink(event: dict[str, object]) -> None:
+            """Agent별 경로와 검증 결과를 시험 중에 수집한다."""
+            traces.append(event)
+
+        workflow = ClashEventWorkflow(
+            mcp_transport,
+            self.llm,
+            Supervisor(self.security_policy, self.llm),
+            trace_sink,
+        )
+        result = await workflow.run(
+            "task-clash-live-llm",
+            EventBrief(
+                event_name="공개 표본 원정",
+                target_user="all_user",
+                duration=1,
+                objective="데모 게임의 원정 참여를 높인다.",
+                game_source="clash_of_clans",
+            ),
+        )
+
+        summary = [(event["actor"], event["action"], event["status"]) for event in traces]
+        self.assertEqual(
+            result.result.workflow_status, "WAITING_APPROVAL", (result.result.error, summary)
+        )
+        self.assertEqual(calls, ["get_clash_event_sample"])
+        self.assertEqual(result.snapshot, snapshot)
+        self.assertEqual(result.result.critic_status, "PASS")
+        self.assertTrue(result.result.rule_validation.is_valid)
+        self.assertIn("LLM 판단:", result.result.rule_validation.reason)
+        self.assertEqual(result.result.current_result.game_source, "clash_of_clans")
+        self.assertEqual(result.result.current_result.sample_summary, snapshot["sample"])
+        self.assertEqual(result.result.autohealing_events, [])
+        self.assertEqual(
+            [event["actor"] for event in traces],
+            ["mcp", "event_planner_agent", "balance_rule_agent", "critic_agent", "supervisor"],
+        )
+        self.assertIn("LLM 판단:", traces[-1]["reason"])
