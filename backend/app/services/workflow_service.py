@@ -248,7 +248,6 @@ class BackendBWorkflowAdapter:
         task = repository.get_task(task_id)
         if task is None:
             raise ConnectionError(task_id)
-        traces = repository.get_traces(task_id) or []
         status = str(event.get("status") or "SUCCESS")
         failed_planning_lookup = event.get("phase") == "planning_context" and status in {
             "ERROR",
@@ -261,7 +260,7 @@ class BackendBWorkflowAdapter:
         repository.append_trace(
             task_id,
             TraceEntry(
-                sequence=len(traces) + 1,
+                sequence=0,
                 time=datetime.fromisoformat(str(event["time"])),
                 actor=str(event.get("actor") or "supervisor"),
                 actor_id=None,

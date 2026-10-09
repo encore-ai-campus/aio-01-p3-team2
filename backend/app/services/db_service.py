@@ -72,7 +72,10 @@ class InMemoryRepository:
 
     def append_trace(self, task_id: str, trace: TraceEntry) -> None:
         with self._lock:
-            self._traces.setdefault(task_id, []).append(deepcopy(trace))
+            if task_id not in self._tasks:
+                raise KeyError(task_id)
+            traces = self._traces.setdefault(task_id, [])
+            traces.append(trace.model_copy(update={"sequence": len(traces) + 1}, deep=True))
 
     def get_traces(self, task_id: str) -> list[TraceEntry] | None:
         with self._lock:
@@ -82,7 +85,12 @@ class InMemoryRepository:
 
     def append_tool_log(self, task_id: str, tool_log: ToolLogEntry) -> None:
         with self._lock:
-            self._tool_logs.setdefault(task_id, []).append(deepcopy(tool_log))
+            if task_id not in self._tasks:
+                raise KeyError(task_id)
+            tool_logs = self._tool_logs.setdefault(task_id, [])
+            tool_logs.append(
+                tool_log.model_copy(update={"sequence": len(tool_logs) + 1}, deep=True)
+            )
 
     def get_tool_logs(self, task_id: str) -> list[ToolLogEntry] | None:
         with self._lock:

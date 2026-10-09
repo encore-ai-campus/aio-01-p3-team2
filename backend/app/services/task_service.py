@@ -93,11 +93,10 @@ def _trace(
     actor_id: str | None = None,
     error_type: str | None = None,
 ) -> None:
-    traces = repository.get_traces(task.task_id) or []
     repository.append_trace(
         task.task_id,
         TraceEntry(
-            sequence=len(traces) + 1,
+            sequence=0,
             time=now(),
             actor=actor,
             actor_id=actor_id,

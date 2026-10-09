@@ -7,7 +7,18 @@ from datetime import datetime
 from threading import RLock
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, select, text
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    Integer,
+    String,
+    UniqueConstraint,
+    create_engine,
+    delete,
+    func,
+    select,
+    text,
+)
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.pool import StaticPool
@@ -37,6 +48,7 @@ class TaskCreationOrderRow(Base):
 
 class TraceRow(Base):
     __tablename__ = "traces"
+    __table_args__ = (UniqueConstraint("task_id", "sequence", name="uq_traces_task_sequence"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     task_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
@@ -55,6 +67,7 @@ class IdempotencyRow(Base):
 
 class ToolLogRow(Base):
     __tablename__ = "tool_logs"
+    __table_args__ = (UniqueConstraint("task_id", "sequence", name="uq_tool_logs_task_sequence"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     task_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
@@ -65,6 +78,7 @@ class ToolLogRow(Base):
 class SqlAlchemyRepository:
     def __init__(self, database_url: str, *, create_schema: bool = True) -> None:
         self._local_idempotency_lock = RLock()
+        self._local_sequence_lock = RLock()
         options: dict[str, Any] = {"pool_pre_ping": True}
         if database_url in {"sqlite://", "sqlite:///:memory:"}:
             options.update(
@@ -150,12 +164,26 @@ class SqlAlchemyRepository:
             return True
 
     def append_trace(self, task_id: str, trace: TraceEntry) -> None:
-        with Session(self.engine) as session, session.begin():
+        with self._local_sequence_lock, Session(self.engine) as session, session.begin():
+            if (
+                session.scalar(
+                    select(WorkflowRunRow.task_id)
+                    .where(WorkflowRunRow.task_id == task_id)
+                    .with_for_update()
+                )
+                is None
+            ):
+                raise KeyError(task_id)
+            sequence = (
+                session.scalar(
+                    select(func.max(TraceRow.sequence)).where(TraceRow.task_id == task_id)
+                )
+                or 0
+            ) + 1
+            assigned = trace.model_copy(update={"sequence": sequence})
             session.add(
                 TraceRow(
-                    task_id=task_id,
-                    sequence=trace.sequence,
-                    payload=trace.model_dump(mode="json"),
+                    task_id=task_id, sequence=sequence, payload=assigned.model_dump(mode="json")
                 )
             )
 
@@ -170,12 +198,26 @@ class SqlAlchemyRepository:
             return [TraceEntry.model_validate(row.payload) for row in rows]
 
     def append_tool_log(self, task_id: str, tool_log: ToolLogEntry) -> None:
-        with Session(self.engine) as session, session.begin():
+        with self._local_sequence_lock, Session(self.engine) as session, session.begin():
+            if (
+                session.scalar(
+                    select(WorkflowRunRow.task_id)
+                    .where(WorkflowRunRow.task_id == task_id)
+                    .with_for_update()
+                )
+                is None
+            ):
+                raise KeyError(task_id)
+            sequence = (
+                session.scalar(
+                    select(func.max(ToolLogRow.sequence)).where(ToolLogRow.task_id == task_id)
+                )
+                or 0
+            ) + 1
+            assigned = tool_log.model_copy(update={"sequence": sequence})
             session.add(
                 ToolLogRow(
-                    task_id=task_id,
-                    sequence=tool_log.sequence,
-                    payload=tool_log.model_dump(mode="json"),
+                    task_id=task_id, sequence=sequence, payload=assigned.model_dump(mode="json")
                 )
             )
 

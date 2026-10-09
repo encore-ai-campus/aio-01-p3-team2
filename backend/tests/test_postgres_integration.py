@@ -16,9 +16,73 @@ from uuid import uuid4
 import pytest
 from backend.app.repositories.postgres import SqlAlchemyRepository
 from backend.app.schemas.event import EventBrief
-from backend.app.schemas.workflow_state import TaskRecord, TraceEntry, WorkflowStatus
+from backend.app.schemas.workflow_state import TaskRecord, ToolLogEntry, TraceEntry, WorkflowStatus
 from backend.scripts.apply_game_data_catalog import apply_catalog
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+
+
+@pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
+def test_postgres_assigns_unique_sequences_across_concurrent_writers():
+    database_url = os.environ["POSTGRES_TEST_URL"]
+    repositories = [SqlAlchemyRepository(database_url) for _ in range(3)]
+    repositories[0].reset()
+    inspector = inspect(repositories[0].engine)
+    for table_name in ("traces", "tool_logs"):
+        constraints = inspector.get_unique_constraints(table_name)
+        assert any(item["column_names"] == ["task_id", "sequence"] for item in constraints)
+    timestamp = datetime.now().astimezone()
+    task = TaskRecord(
+        task_id="TASK-CONCURRENT-SEQUENCE",
+        actor_id="liveops01",
+        brief=EventBrief(
+            event_name="동시 순번 시험",
+            target_user="new_user",
+            duration=1,
+            objective="Trace와 Tool log의 원자적 순번 할당 확인",
+        ),
+        workflow_status=WorkflowStatus.RUNNING,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    repositories[0].create_task(task)
+
+    def append(index: int) -> None:
+        repository = repositories[index % len(repositories)]
+        repository.append_trace(
+            task.task_id,
+            TraceEntry(
+                sequence=0,
+                time=timestamp,
+                actor="backend",
+                action=f"concurrent_{index}",
+                status="SUCCESS",
+            ),
+        )
+        repository.append_tool_log(
+            task.task_id,
+            ToolLogEntry(
+                sequence=0,
+                time=timestamp,
+                tool=f"tool_{index}",
+                status="SUCCESS",
+                response_time_ms=1,
+            ),
+        )
+
+    try:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(append, range(40)))
+        reopened = SqlAlchemyRepository(database_url, create_schema=False)
+        traces = reopened.get_traces(task.task_id)
+        tool_logs = reopened.get_tool_logs(task.task_id)
+        assert traces is not None and tool_logs is not None
+        assert [entry.sequence for entry in traces] == list(range(1, 41))
+        assert [entry.sequence for entry in tool_logs] == list(range(1, 41))
+        assert {entry.action for entry in traces} == {f"concurrent_{i}" for i in range(40)}
+        assert {entry.tool for entry in tool_logs} == {f"tool_{i}" for i in range(40)}
+    finally:
+        repositories[0].reset()
 
 
 @pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
