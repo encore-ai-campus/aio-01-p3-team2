@@ -22,10 +22,72 @@ python -m uvicorn backend.app.main:app --reload
 `DATABASE_URL`이 비어 있으면 인메모리 Repository를 사용한다. 프로세스를 다시 시작하면 데이터가
 사라지므로 실제 연동 환경에서는 PostgreSQL URL을 설정한다.
 
+### 저장 모드 확인과 재시작 검증
+
+저장 모드는 **백엔드 프로세스 시작 시점**의 `DATABASE_URL`로 결정된다.
+일반 `uvicorn backend.app.main:app` 실행은 `backend/.env`를 자동으로 읽지 않는다.
+이 실행 방식에서는 같은 PowerShell 창에서 환경변수를 설정한 뒤 서버를 시작한다.
+`python -m backend.app.main`은 `backend/.env`를 읽지만 실행 모드를
+`backend_b_live`로 강제하고 MCP 주소·OpenAI 모델·키도 요구한다.
+셸에 이미 설정된 값은 `.env` 값보다 우선하므로, 파일 내용만 보고 실제 저장 모드를
+판단하지 말고 서버를 시작한 창의 `DATABASE_URL` 설정도 확인한다. 비밀값을 화면이나
+문서에 출력하지 않는다.
+
+| 실행 시 `DATABASE_URL` | 실제 저장소 | 서버 재시작 후 Task·Trace |
+| --- | --- | --- |
+| 비어 있음 | 인메모리 | 보존되지 않음 |
+| PostgreSQL URL | SQLAlchemy PostgreSQL | 같은 DB에 연결하면 보존됨 |
+
+로컬 재시작 검증에는 **전용 테스트 DB**를 사용한다. `POSTGRES_TEST_URL`을 지정해
+`backend/tests/test_postgres_integration.py`를 실행하면 별도 Python 프로세스에서
+Task·Trace를 다시 읽는 저장소 시험과, 별도 API 앱 프로세스에서 이벤트 생성 후
+새 API 앱 프로세스로 Task·Trace를 조회하는 시험이 포함된다. API 시험은 Mock Workflow를
+사용하며 실제 MCP·OpenAI 호출을 검증하지 않는다. 이 테스트 파일은 `reset()`으로 연결된 DB의
+운영 기록을 삭제하므로 공용 DB나 다른 팀원의 DB 주소를 지정하면 안 된다.
+실제 API 검증은 전용 DB를 `DATABASE_URL`로 지정해 Task를 만든 후 서버를 종료·재실행하고,
+같은 Task ID의 상세·Trace를 다시 조회한다. 새 DB를 가리키거나 인메모리로 재시작한
+결과를 PostgreSQL 보존 실패로 해석하지 않는다.
+
+현재 운영 테이블은 SQLAlchemy `create_all`로 생성하며, 기존 테이블을 단계적으로
+변경하는 마이그레이션 체계는 아직 없다. 공용 DB 적용 전에는 A가 스키마 변경안과
+초기 데이터 적용 절차를 제시하고, 팀장·MCP 담당자와 적용 시점, 백업 생성·보관,
+복구 담당 및 검증 DB 절차를 합의해야 한다. 로컬 테스트 성공은 공용 DB 적용 완료가 아니다.
+
 Task 목록은 생성 시각 내림차순으로 반환한다. 생성 시각이 같으면 저장소가 기록한 생성 순번의
 내림차순을 적용한다. PostgreSQL 사용 시 `task_creation_order` 테이블이 자동 생성되며, 기존
 `workflow_runs` 데이터에 순번이 없으면 시작할 때 생성 시각과 Task ID 순으로 순번을 채운다.
 기존 데이터의 실제 생성 순서는 기록되어 있지 않아 동률 시각의 과거 Task 순서는 복원할 수 없다.
+
+## 동시 요청 멱등성
+
+이벤트 생성은 `event:<idempotency_key>`, 승인·수정 요청·거절은
+`approval:<task_id>:<result_version>` 단위로 직렬화한다. PostgreSQL에서는
+키별 advisory lock을 사용하고, Task 생성과 멱등성 키 기록 또는 승인 결과와
+멱등성 키 기록을 각각 한 DB 트랜잭션으로 저장한다. 같은 키·같은 내용의
+재요청은 기존 Task를 반환하고, 같은 키·다른 내용은 409로 거절한다.
+같은 결과 버전에 서로 다른 운영자 결정이 동시에 들어오면 먼저 완료된 결정만
+반영하고 다른 요청은 상태 충돌로 거절한다. 인메모리 저장소는 프로세스 내부
+잠금만 제공하므로 여러 서버 프로세스에서 공유하지 않는다.
+
+Task·멱등성 키의 원자적 저장과 별개로 Agent 실행·Trace 기록 전체가 하나의
+트랜잭션은 아니다. 실행 도중 프로세스가 중단되면 `RUNNING` Task 복구 정책은
+별도로 필요하다. 인증되지 않은 `actor_id`의 권한 문제도 이 변경으로 해결되지 않는다.
+
+## 장애 복구 평가에서 Backend A의 기록 경계
+
+2026-10-09 팀 합의 `workflow_evaluation_contract.md` 기준으로 복구 판정의
+공식 근거는 `GET /api/tasks/{task_id}/trace`와 Task 응답이다.
+`GET /api/tasks/{task_id}/tool-logs`는 보조 진단 자료이며, 비어 있어도
+정상·기획 오류 후 재검증·첫 MCP 조회 실패와 안전 종료를 판정할 수 있어야 한다.
+A는 B의 실행 이벤트를 Task별 `sequence`와 시간대가 있는 `time`으로 저장·조회한다.
+전체 Trace 행 수는 고정하지 않고 필수 이벤트의 상대 순서를 확인한다.
+관련 API 회귀 테스트는 `backend/tests/test_backend_a_planning_api.py`에 있다.
+
+시나리오 정의, 실제 오류 관찰 여부, 복구율·복구시간 집계와 평가 보고서는
+B가 담당한다. 이번 합의는 새 DB 테이블이나 API를 요구하지 않는다.
+실제 누락 사례가 발견되면 A·B가 API/저장 필드 변경을 협의한다.
+여러 프로세스가 같은 Task에 동시에 Trace를 기록할 때의 순번 중복 방지는
+별도 운영 과제로 남아 있다.
 
 ## 환경변수
 
@@ -103,6 +165,36 @@ $env:POSTGRES_TEST_URL="postgresql+psycopg://USER:PASSWORD@HOST:PORT/DATABASE"
 python -m pytest backend/tests/test_postgres_integration.py -q
 Remove-Item Env:POSTGRES_TEST_URL
 ```
+
+Backend A API와 Backend B Workflow를 **전용 로컬 PostgreSQL**에서 함께 확인하려면
+`DATABASE_URL`과 `POSTGRES_TEST_URL`을 같은 테스트 DB로 지정하고 다음을 실행한다.
+테스트가 운영 기록을 `reset()`하므로 공용 DB에는 절대 연결하지 않는다.
+
+```powershell
+$env:POSTGRES_TEST_URL="postgresql+psycopg://USER:PASSWORD@HOST:PORT/TEST_DATABASE"
+$env:DATABASE_URL=$env:POSTGRES_TEST_URL
+$env:WORKFLOW_ENGINE="mock"
+python -m pytest backend/tests/test_postgres_integration.py backend/tests/test_backend_a_planning_api.py backend/tests/test_game_data_catalog.py -q
+Remove-Item Env:POSTGRES_TEST_URL
+Remove-Item Env:DATABASE_URL
+Remove-Item Env:WORKFLOW_ENGINE
+```
+
+2026-10-09 전용 로컬 PostgreSQL에서 위 3개 파일 **13건 통과**를 확인했다.
+정상 생성, 기획 오류 후 재검증, 첫 조회 실패 후 안전 종료는 A API와 B Engine의
+Mock LLM·Mock MCP 전송으로 실행했다. `backend_b_mock` 경로는 API 앱을 새 프로세스로
+시작해 Task·Trace를 다시 조회하는 시험에도 포함된다. 게임 데이터 초기값은 같은 DB에
+적용했지만 B의 Mock MCP 전송은 DB를 읽지 않는다. 따라서 실제 MCP HTTP·OpenAI·Clash
+API 연결 검증이나 팀 공용 DB 적용 완료로 해석하지 않는다.
+
+2026-10-09에는 별도 임시 PostgreSQL과 실제 MCP HTTP 서버를 띄우고,
+`backend_b_live` 모드에서 기본 게임과 Clash 공개 표본 이벤트를 각각 생성했다.
+두 경로 모두 실제 OpenAI 호출 후 `WAITING_APPROVAL`, Critic `PASS`로 끝났고,
+Task의 `current_result.operation_review_notes.source`는 `live`였다.
+Clash 경로의 Trace에는 `get_clash_event_sample` 성공과 데이터 출처가 순서대로
+저장됐다. 다만 Clash 조회가 한 차례 실패한 뒤 재시도에 성공했으므로 외부 API의
+반복 안정성까지 보장하는 결과는 아니다. 임시 DB와 서버는 종료했으며 공용 DB에는
+적용하지 않았다. API 키는 Git 제외 대상인 `backend/.env`에만 둔다.
 
 ## 공용 PostgreSQL 게임 데이터
 

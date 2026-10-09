@@ -1,6 +1,8 @@
 """Repository selection and the in-memory development implementation."""
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from copy import deepcopy
 from threading import RLock
 
@@ -95,6 +97,26 @@ class InMemoryRepository:
     def save_idempotency(self, key: str, request_hash: str, task_id: str) -> None:
         with self._lock:
             self._idempotency[key] = (request_hash, task_id)
+
+    @contextmanager
+    def idempotency_lock(self, key: str) -> Iterator[None]:
+        del key
+        with self._lock:
+            yield
+
+    def create_task_with_idempotency(self, task: TaskRecord, key: str, request_hash: str) -> None:
+        with self._lock:
+            if key in self._idempotency:
+                raise ValueError("멱등성 키가 이미 사용됐습니다.")
+            self.create_task(task)
+            self._idempotency[key] = (request_hash, task.task_id)
+
+    def save_task_with_idempotency(self, task: TaskRecord, key: str, request_hash: str) -> None:
+        with self._lock:
+            if key in self._idempotency:
+                raise ValueError("멱등성 키가 이미 사용됐습니다.")
+            self.save_task(task)
+            self._idempotency[key] = (request_hash, task.task_id)
 
 
 def build_repository() -> WorkflowRepository:

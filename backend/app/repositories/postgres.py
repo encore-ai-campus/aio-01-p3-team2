@@ -1,9 +1,13 @@
 """SQLAlchemy repository for PostgreSQL and SQLite-based repository tests."""
 
+import hashlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
+from threading import RLock
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, select
+from sqlalchemy import JSON, DateTime, Integer, String, create_engine, delete, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.pool import StaticPool
@@ -60,6 +64,7 @@ class ToolLogRow(Base):
 
 class SqlAlchemyRepository:
     def __init__(self, database_url: str, *, create_schema: bool = True) -> None:
+        self._local_idempotency_lock = RLock()
         options: dict[str, Any] = {"pool_pre_ping": True}
         if database_url in {"sqlite://", "sqlite:///:memory:"}:
             options.update(
@@ -197,6 +202,60 @@ class SqlAlchemyRepository:
                     idempotency_key=key,
                     request_hash=request_hash,
                     task_id=task_id,
+                    created_at=datetime.now().astimezone(),
+                )
+            )
+
+    @contextmanager
+    def idempotency_lock(self, key: str) -> Iterator[None]:
+        if self.engine.dialect.name != "postgresql":
+            with self._local_idempotency_lock:
+                yield
+            return
+        lock_id = int.from_bytes(hashlib.sha256(key.encode()).digest()[:8], "big", signed=True)
+        with self.engine.connect() as connection:
+            connection.execute(text("SELECT pg_advisory_lock(:lock_id)"), {"lock_id": lock_id})
+            connection.commit()
+            try:
+                yield
+            finally:
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)"), {"lock_id": lock_id}
+                )
+                connection.commit()
+
+    def create_task_with_idempotency(self, task: TaskRecord, key: str, request_hash: str) -> None:
+        with Session(self.engine) as session, session.begin():
+            session.add(
+                WorkflowRunRow(
+                    task_id=task.task_id,
+                    payload=task.model_dump(mode="json"),
+                    created_at=task.created_at,
+                    updated_at=task.updated_at,
+                )
+            )
+            session.add(TaskCreationOrderRow(task_id=task.task_id))
+            session.add(
+                IdempotencyRow(
+                    idempotency_key=key,
+                    request_hash=request_hash,
+                    task_id=task.task_id,
+                    created_at=datetime.now().astimezone(),
+                )
+            )
+
+    def save_task_with_idempotency(self, task: TaskRecord, key: str, request_hash: str) -> None:
+        with Session(self.engine) as session, session.begin():
+            row = session.get(WorkflowRunRow, task.task_id)
+            if row is None:
+                raise KeyError(task.task_id)
+            row.payload = task.model_dump(mode="json")
+            row.updated_at = task.updated_at
+            session.add(
+                IdempotencyRow(
+                    idempotency_key=key,
+                    request_hash=request_hash,
+                    task_id=task.task_id,
                     created_at=datetime.now().astimezone(),
                 )
             )

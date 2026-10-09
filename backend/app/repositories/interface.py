@@ -1,5 +1,6 @@
 """Repository contract shared with the Workflow layer."""
 
+from contextlib import AbstractContextManager
 from typing import Protocol
 
 from backend.app.schemas.workflow_state import TaskRecord, ToolLogEntry, TraceEntry
@@ -29,3 +30,11 @@ class WorkflowRepository(Protocol):
     def find_idempotency(self, key: str) -> tuple[str, str] | None: ...
 
     def save_idempotency(self, key: str, request_hash: str, task_id: str) -> None: ...
+
+    def idempotency_lock(self, key: str) -> AbstractContextManager[None]: ...
+
+    def create_task_with_idempotency(
+        self, task: TaskRecord, key: str, request_hash: str
+    ) -> None: ...
+
+    def save_task_with_idempotency(self, task: TaskRecord, key: str, request_hash: str) -> None: ...

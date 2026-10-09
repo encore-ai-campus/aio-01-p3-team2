@@ -129,6 +129,13 @@ def generate(request: EventCreateRequest | TestEventCreateRequest) -> tuple[Task
         )
     key = f"event:{request.idempotency_key}"
     request_hash = _request_hash(request)
+    with repository.idempotency_lock(key):
+        return _generate_locked(request, key, request_hash)
+
+
+def _generate_locked(
+    request: EventCreateRequest | TestEventCreateRequest, key: str, request_hash: str
+) -> tuple[TaskResponse, bool]:
     existing = repository.find_idempotency(key)
     if existing:
         old_hash, task_id = existing
@@ -159,8 +166,7 @@ def generate(request: EventCreateRequest | TestEventCreateRequest) -> tuple[Task
         created_at=timestamp,
         updated_at=timestamp,
     )
-    repository.create_task(task)
-    repository.save_idempotency(key, request_hash, task_id)
+    repository.create_task_with_idempotency(task, key, request_hash)
     _trace(
         task, "backend", "create_task", "SUCCESS", "Workflow Task를 생성했습니다.", request.actor_id
     )
@@ -241,14 +247,22 @@ def get_tool_logs(task_id: str) -> ToolLogResponse:
 
 
 def approve(task_id: str, request: ApprovalRequest) -> TaskResponse:
-    task = repository.get_task(task_id)
-    if task is None:
-        raise ServiceError("TASK_NOT_FOUND", "요청한 작업을 찾을 수 없습니다.", 404, task_id)
     if request.actor_id not in approved_actor_ids():
         raise ServiceError("INVALID_ACTOR", "승인 권한이 없는 사용자입니다.", 403, task_id)
 
     approval_key = f"approval:{task_id}:{request.result_version}:{request.action.value}"
     request_hash = _approval_hash(request)
+    # Serialize every decision for this result version, including different actions.
+    with repository.idempotency_lock(f"approval:{task_id}:{request.result_version}"):
+        return _approve_locked(task_id, request, approval_key, request_hash)
+
+
+def _approve_locked(
+    task_id: str, request: ApprovalRequest, approval_key: str, request_hash: str
+) -> TaskResponse:
+    task = repository.get_task(task_id)
+    if task is None:
+        raise ServiceError("TASK_NOT_FOUND", "요청한 작업을 찾을 수 없습니다.", 404, task_id)
     existing = repository.find_idempotency(approval_key)
     if existing:
         old_hash, stored_task_id = existing
@@ -321,7 +335,6 @@ def approve(task_id: str, request: ApprovalRequest) -> TaskResponse:
         reason = "운영자 수정 의견을 반영한 새 결과를 생성했습니다."
 
     task.updated_at = now()
-    repository.save_task(task)
+    repository.save_task_with_idempotency(task, approval_key, request_hash)
     _trace(task, "human", request.action.value, "SUCCESS", reason, request.actor_id)
-    repository.save_idempotency(approval_key, request_hash, task_id)
     return _response(task)
