@@ -166,6 +166,36 @@ python -m pytest backend/tests/test_postgres_integration.py -q
 Remove-Item Env:POSTGRES_TEST_URL
 ```
 
+Backend A API와 Backend B Workflow를 **전용 로컬 PostgreSQL**에서 함께 확인하려면
+`DATABASE_URL`과 `POSTGRES_TEST_URL`을 같은 테스트 DB로 지정하고 다음을 실행한다.
+테스트가 운영 기록을 `reset()`하므로 공용 DB에는 절대 연결하지 않는다.
+
+```powershell
+$env:POSTGRES_TEST_URL="postgresql+psycopg://USER:PASSWORD@HOST:PORT/TEST_DATABASE"
+$env:DATABASE_URL=$env:POSTGRES_TEST_URL
+$env:WORKFLOW_ENGINE="mock"
+python -m pytest backend/tests/test_postgres_integration.py backend/tests/test_backend_a_planning_api.py backend/tests/test_game_data_catalog.py -q
+Remove-Item Env:POSTGRES_TEST_URL
+Remove-Item Env:DATABASE_URL
+Remove-Item Env:WORKFLOW_ENGINE
+```
+
+2026-10-09 전용 로컬 PostgreSQL에서 위 3개 파일 **13건 통과**를 확인했다.
+정상 생성, 기획 오류 후 재검증, 첫 조회 실패 후 안전 종료는 A API와 B Engine의
+Mock LLM·Mock MCP 전송으로 실행했다. `backend_b_mock` 경로는 API 앱을 새 프로세스로
+시작해 Task·Trace를 다시 조회하는 시험에도 포함된다. 게임 데이터 초기값은 같은 DB에
+적용했지만 B의 Mock MCP 전송은 DB를 읽지 않는다. 따라서 실제 MCP HTTP·OpenAI·Clash
+API 연결 검증이나 팀 공용 DB 적용 완료로 해석하지 않는다.
+
+2026-10-09에는 별도 임시 PostgreSQL과 실제 MCP HTTP 서버를 띄우고,
+`backend_b_live` 모드에서 기본 게임과 Clash 공개 표본 이벤트를 각각 생성했다.
+두 경로 모두 실제 OpenAI 호출 후 `WAITING_APPROVAL`, Critic `PASS`로 끝났고,
+Task의 `current_result.operation_review_notes.source`는 `live`였다.
+Clash 경로의 Trace에는 `get_clash_event_sample` 성공과 데이터 출처가 순서대로
+저장됐다. 다만 Clash 조회가 한 차례 실패한 뒤 재시도에 성공했으므로 외부 API의
+반복 안정성까지 보장하는 결과는 아니다. 임시 DB와 서버는 종료했으며 공용 DB에는
+적용하지 않았다. API 키는 Git 제외 대상인 `backend/.env`에만 둔다.
+
 ## 공용 PostgreSQL 게임 데이터
 
 Backend A가 `game_data_catalog` 테이블과 초기 `tiny_heroes` 데이터를 관리한다.

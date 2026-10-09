@@ -17,6 +17,7 @@ import pytest
 from backend.app.repositories.postgres import SqlAlchemyRepository
 from backend.app.schemas.event import EventBrief
 from backend.app.schemas.workflow_state import TaskRecord, TraceEntry, WorkflowStatus
+from backend.scripts.apply_game_data_catalog import apply_catalog
 from sqlalchemy.exc import IntegrityError
 
 
@@ -110,13 +111,15 @@ def test_postgres_persists_after_process_restart():
 
 
 @pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
-def test_api_task_and_trace_survive_process_restart():
+@pytest.mark.parametrize("engine_mode", ["mock", "backend_b_mock"])
+def test_api_task_and_trace_survive_process_restart(engine_mode: str):
     database_url = os.environ["POSTGRES_TEST_URL"]
     repository = SqlAlchemyRepository(database_url)
     repository.reset()
+    assert apply_catalog(database_url) == "tinyheroes-1.0.0"
     child_env = os.environ.copy()
     child_env["DATABASE_URL"] = database_url
-    child_env["WORKFLOW_ENGINE"] = "mock"
+    child_env["WORKFLOW_ENGINE"] = engine_mode
     repo_root = Path(__file__).resolve().parents[2]
     create_script = """
 import json
@@ -173,7 +176,23 @@ print(json.dumps({'task_status': task.status_code, 'task': task.json(),
     assert reopened_body["task"]["workflow_status"] == WorkflowStatus.WAITING_APPROVAL
     assert reopened_body["trace_status"] == 200
     assert reopened_body["trace"]["task_id"] == created_body["task_id"]
-    assert [entry["sequence"] for entry in reopened_body["trace"]["traces"]] == [1, 2]
+    traces = reopened_body["trace"]["traces"]
+    assert [entry["sequence"] for entry in traces] == list(range(1, len(traces) + 1))
+    if engine_mode == "backend_b_mock":
+        actions = [(entry["actor"], entry["action"]) for entry in traces]
+        required = [
+            ("mcp", "get_event_planning_context"),
+            ("event_planner_agent", "create_plan"),
+            ("mcp", "get_game_rules"),
+            ("balance_rule_agent", "validate_plan"),
+            ("critic_agent", "final_review"),
+        ]
+        assert [actions.index(item) for item in required] == sorted(
+            actions.index(item) for item in required
+        )
+        assert any(entry["phase"] == "routing" for entry in traces)
+    else:
+        assert len(traces) == 2
     repository.reset()
 
 
