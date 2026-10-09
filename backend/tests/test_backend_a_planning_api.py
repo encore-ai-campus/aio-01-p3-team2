@@ -38,6 +38,9 @@ def _run(client, monkeypatch, *, fault_type=None, transport=None):
     traces = trace_body["traces"]
     assert [entry["sequence"] for entry in traces] == list(range(1, len(traces) + 1))
     assert all(datetime.fromisoformat(entry["time"]).utcoffset() is not None for entry in traces)
+    tool_logs = client.get(f"/api/tasks/{task['task_id']}/tool-logs")
+    assert tool_logs.status_code == 200
+    assert tool_logs.json() == {"task_id": task["task_id"], "tool_logs": []}
     return task, traces
 
 
@@ -94,6 +97,25 @@ def test_api_planning_error_requeries_and_revalidates(client, monkeypatch):
         and entry["phase"] == "revalidation"
         for entry in traces
     )
+    failed_validation = next(
+        entry["sequence"]
+        for entry in traces
+        if entry["action"] == "validate_plan" and entry["status"] in {"ERROR", "FAILED"}
+    )
+    revision = next(entry["sequence"] for entry in traces if entry["action"] == "regenerate_plan")
+    requery = next(
+        entry["sequence"]
+        for entry in traces
+        if entry["action"] == "get_game_rules" and entry["phase"] == "revalidation"
+    )
+    passed = next(
+        entry["sequence"]
+        for entry in traces
+        if entry["action"] == "validate_plan"
+        and entry["phase"] == "revalidation"
+        and entry["status"] == "SUCCESS"
+    )
+    assert failed_validation < revision < requery < passed
 
 
 def test_api_failed_first_lookup_stops_without_planner_or_result(client, monkeypatch):
@@ -115,3 +137,5 @@ def test_api_failed_first_lookup_stops_without_planner_or_result(client, monkeyp
     assert all(
         entry["game_data_version"] is None and entry["data_source"] is None for entry in failed
     )
+    safe_stop = next(entry for entry in traces if entry["action"] == "SAFE_STOP")
+    assert max(entry["sequence"] for entry in failed) < safe_stop["sequence"]

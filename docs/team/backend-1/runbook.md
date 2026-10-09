@@ -42,6 +42,22 @@ Task·멱등성 키의 원자적 저장과 별개로 Agent 실행·Trace 기록 
 트랜잭션은 아니다. 실행 도중 프로세스가 중단되면 `RUNNING` Task 복구 정책은
 별도로 필요하다. 인증되지 않은 `actor_id`의 권한 문제도 이 변경으로 해결되지 않는다.
 
+## 장애 복구 평가에서 Backend A의 기록 경계
+
+2026-10-09 팀 합의 `workflow_evaluation_contract.md` 기준으로 복구 판정의
+공식 근거는 `GET /api/tasks/{task_id}/trace`와 Task 응답이다.
+`GET /api/tasks/{task_id}/tool-logs`는 보조 진단 자료이며, 비어 있어도
+정상·기획 오류 후 재검증·첫 MCP 조회 실패와 안전 종료를 판정할 수 있어야 한다.
+A는 B의 실행 이벤트를 Task별 `sequence`와 시간대가 있는 `time`으로 저장·조회한다.
+전체 Trace 행 수는 고정하지 않고 필수 이벤트의 상대 순서를 확인한다.
+관련 API 회귀 테스트는 `backend/tests/test_backend_a_planning_api.py`에 있다.
+
+시나리오 정의, 실제 오류 관찰 여부, 복구율·복구시간 집계와 평가 보고서는
+B가 담당한다. 이번 합의는 새 DB 테이블이나 API를 요구하지 않는다.
+실제 누락 사례가 발견되면 A·B가 API/저장 필드 변경을 협의한다.
+여러 프로세스가 같은 Task에 동시에 Trace를 기록할 때의 순번 중복 방지는
+별도 운영 과제로 남아 있다.
+
 ## 환경변수
 
 | 이름 | 용도 | 기본 동작 |
