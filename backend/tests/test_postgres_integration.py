@@ -4,6 +4,8 @@ Run with POSTGRES_TEST_URL set. The default unit-test run skips this test.
 """
 
 import os
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from threading import Event
@@ -11,7 +13,7 @@ from threading import Event
 import pytest
 from backend.app.repositories.postgres import SqlAlchemyRepository
 from backend.app.schemas.event import EventBrief
-from backend.app.schemas.workflow_state import TaskRecord, WorkflowStatus
+from backend.app.schemas.workflow_state import TaskRecord, TraceEntry, WorkflowStatus
 from sqlalchemy.exc import IntegrityError
 
 
@@ -39,6 +41,60 @@ def test_postgres_persists_across_repository_instances():
     second = SqlAlchemyRepository(database_url)
     assert second.get_task(task.task_id) == task
     second.reset()
+
+
+@pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
+def test_postgres_persists_after_process_restart():
+    database_url = os.environ["POSTGRES_TEST_URL"]
+    repository = SqlAlchemyRepository(database_url)
+    repository.reset()
+    timestamp = datetime.now().astimezone()
+    task = TaskRecord(
+        task_id="TASK-PROCESS-RESTART-1",
+        actor_id="liveops01",
+        brief=EventBrief(
+            event_name="프로세스 재시작 보존 시험",
+            target_user="new_user",
+            duration=1,
+            objective="새 Python 프로세스에서 Task 조회 확인",
+        ),
+        workflow_status=WorkflowStatus.WAITING_APPROVAL,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    repository.create_task(task)
+    repository.append_trace(
+        task.task_id,
+        TraceEntry(
+            sequence=1,
+            time=timestamp,
+            actor="backend",
+            action="candidate_saved",
+            status="SUCCESS",
+            reason="재시작 후 Trace 조회 확인",
+        ),
+    )
+
+    child = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import os; "
+                "from backend.app.repositories.postgres import SqlAlchemyRepository; "
+                "repo = SqlAlchemyRepository(os.environ['POSTGRES_TEST_URL'], create_schema=False); "
+                "task = repo.get_task('TASK-PROCESS-RESTART-1'); "
+                "traces = repo.get_traces('TASK-PROCESS-RESTART-1'); "
+                "print(f'{task.workflow_status}|{traces[0].action}' if task and traces else 'MISSING')"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=True,
+    )
+    assert child.stdout.strip() == f"{WorkflowStatus.WAITING_APPROVAL}|candidate_saved"
+    repository.reset()
 
 
 @pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")

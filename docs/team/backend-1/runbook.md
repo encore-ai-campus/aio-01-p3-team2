@@ -22,6 +22,35 @@ python -m uvicorn backend.app.main:app --reload
 `DATABASE_URL`이 비어 있으면 인메모리 Repository를 사용한다. 프로세스를 다시 시작하면 데이터가
 사라지므로 실제 연동 환경에서는 PostgreSQL URL을 설정한다.
 
+### 저장 모드 확인과 재시작 검증
+
+저장 모드는 **백엔드 프로세스 시작 시점**의 `DATABASE_URL`로 결정된다.
+일반 `uvicorn backend.app.main:app` 실행은 `backend/.env`를 자동으로 읽지 않는다.
+이 실행 방식에서는 같은 PowerShell 창에서 환경변수를 설정한 뒤 서버를 시작한다.
+`python -m backend.app.main`은 `backend/.env`를 읽지만 실행 모드를
+`backend_b_live`로 강제하고 MCP 주소·OpenAI 모델·키도 요구한다.
+셸에 이미 설정된 값은 `.env` 값보다 우선하므로, 파일 내용만 보고 실제 저장 모드를
+판단하지 말고 서버를 시작한 창의 `DATABASE_URL` 설정도 확인한다. 비밀값을 화면이나
+문서에 출력하지 않는다.
+
+| 실행 시 `DATABASE_URL` | 실제 저장소 | 서버 재시작 후 Task·Trace |
+| --- | --- | --- |
+| 비어 있음 | 인메모리 | 보존되지 않음 |
+| PostgreSQL URL | SQLAlchemy PostgreSQL | 같은 DB에 연결하면 보존됨 |
+
+로컬 재시작 검증에는 **전용 테스트 DB**를 사용한다. `POSTGRES_TEST_URL`을 지정해
+`backend/tests/test_postgres_integration.py`를 실행하면 별도 Python 프로세스에서
+Task를 다시 읽는 시험이 포함된다. 이 테스트 파일은 `reset()`으로 연결된 DB의
+운영 기록을 삭제하므로 공용 DB나 다른 팀원의 DB 주소를 지정하면 안 된다.
+실제 API 검증은 전용 DB를 `DATABASE_URL`로 지정해 Task를 만든 후 서버를 종료·재실행하고,
+같은 Task ID의 상세·Trace를 다시 조회한다. 새 DB를 가리키거나 인메모리로 재시작한
+결과를 PostgreSQL 보존 실패로 해석하지 않는다.
+
+현재 운영 테이블은 SQLAlchemy `create_all`로 생성하며, 기존 테이블을 단계적으로
+변경하는 마이그레이션 체계는 아직 없다. 공용 DB 적용 전에는 A가 스키마 변경안과
+초기 데이터 적용 절차를 제시하고, 팀장·MCP 담당자와 적용 시점, 백업 생성·보관,
+복구 담당 및 검증 DB 절차를 합의해야 한다. 로컬 테스트 성공은 공용 DB 적용 완료가 아니다.
+
 Task 목록은 생성 시각 내림차순으로 반환한다. 생성 시각이 같으면 저장소가 기록한 생성 순번의
 내림차순을 적용한다. PostgreSQL 사용 시 `task_creation_order` 테이블이 자동 생성되며, 기존
 `workflow_runs` 데이터에 순번이 없으면 시작할 때 생성 시각과 Task ID 순으로 순번을 채운다.
