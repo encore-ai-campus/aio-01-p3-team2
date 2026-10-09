@@ -58,7 +58,7 @@ Clash of Clans 공개 API 표본은 MCP가 외부에서 조회한다. `game_data
 | 팀장·통합 담당 | Backend A가 구축할 팀 사용 DB의 적용 시점·중단 가능 시간 승인. 계정 권한 방식과 백업·복구 책임자 확정. 최종 통합 결과 승인 |
 | Backend A (임다혁) | 팀 사용 DB 생성, 운영 기록 스키마와 `game_data_catalog` 초기 데이터 적용, Backend 연결·Task·Trace 보존 확인, 변경 기록 정리 |
 | MCP 담당 | Backend A가 만든 **같은 DB**의 카탈로그 조회 계약과 `source`·`game_data_version` 검증. 별도 DB 생성·초기 데이터 중복 적용은 하지 않음 |
-| Backend B 담당 | 정상·복구·안전 종료 Workflow와 Trace를 공용 환경에서 검증. DB 스키마 변경은 하지 않음 |
+| Backend B 담당 | 정상·복구·안전 종료 Workflow와 Trace를 Backend A가 구축한 팀 사용 DB 환경에서 검증. DB 스키마 변경은 하지 않음 |
 | Frontend 담당 | 생성·Trace·승인 화면의 최종 연결 확인 |
 
 Backend A가 팀 사용 DB의 **생성·애플리케이션 스키마·초기 데이터 적용**을 맡는다. 호스트 운영·백업 보관·복구 실행 책임은 팀장과 별도 확정한다.
