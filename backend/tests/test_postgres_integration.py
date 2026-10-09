@@ -23,6 +23,86 @@ from sqlalchemy.exc import IntegrityError
 
 
 @pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
+def test_postgres_reconnect_preserves_seeded_task_logs_and_catalog():
+    database_url = os.environ["POSTGRES_TEST_URL"]
+    first = SqlAlchemyRepository(database_url)
+    first.reset()
+    assert apply_catalog(database_url) == "tinyheroes-1.0.0"
+    timestamp = datetime.now().astimezone()
+    task = TaskRecord(
+        task_id="TASK-PREEXISTING-DATA",
+        actor_id="liveops01",
+        brief=EventBrief(
+            event_name="기존 데이터 보존 시험",
+            target_user="new_user",
+            duration=1,
+            objective="데이터가 있는 DB에 재연결해 새 기록 추가",
+        ),
+        workflow_status=WorkflowStatus.WAITING_APPROVAL,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    first.create_task(task)
+    first.append_trace(
+        task.task_id,
+        TraceEntry(
+            sequence=0,
+            time=timestamp,
+            actor="backend",
+            action="existing_trace",
+            status="SUCCESS",
+        ),
+    )
+    first.append_tool_log(
+        task.task_id,
+        ToolLogEntry(
+            sequence=0,
+            time=timestamp,
+            tool="existing_tool",
+            status="SUCCESS",
+            response_time_ms=1,
+        ),
+    )
+
+    try:
+        reopened = SqlAlchemyRepository(database_url)
+        assert reopened.get_task(task.task_id) == task
+        assert apply_catalog(database_url) == "tinyheroes-1.0.0"
+        reopened.append_trace(
+            task.task_id,
+            TraceEntry(
+                sequence=0,
+                time=timestamp,
+                actor="backend",
+                action="new_trace",
+                status="SUCCESS",
+            ),
+        )
+        reopened.append_tool_log(
+            task.task_id,
+            ToolLogEntry(
+                sequence=0,
+                time=timestamp,
+                tool="new_tool",
+                status="SUCCESS",
+                response_time_ms=1,
+            ),
+        )
+        traces = reopened.get_traces(task.task_id)
+        tool_logs = reopened.get_tool_logs(task.task_id)
+        assert [(entry.sequence, entry.action) for entry in traces] == [
+            (1, "existing_trace"),
+            (2, "new_trace"),
+        ]
+        assert [(entry.sequence, entry.tool) for entry in tool_logs] == [
+            (1, "existing_tool"),
+            (2, "new_tool"),
+        ]
+    finally:
+        first.reset()
+
+
+@pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
 def test_postgres_assigns_unique_sequences_across_concurrent_writers():
     database_url = os.environ["POSTGRES_TEST_URL"]
     repositories = [SqlAlchemyRepository(database_url) for _ in range(3)]

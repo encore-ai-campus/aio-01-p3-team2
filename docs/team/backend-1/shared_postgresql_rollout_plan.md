@@ -43,6 +43,14 @@ Clash of Clans 공개 API 표본은 MCP가 외부에서 조회한다. `game_data
 
 2026-10-09 전용 PostgreSQL에서 세 Repository 인스턴스·8개 작업 스레드로 같은 Task에 Trace와 Tool log를 각각 40건 기록했다. 두 테이블의 고유 제약 존재, 순번 1~40의 유일성·연속성, 모든 기록의 보존을 확인했다. 전체 백엔드 테스트는 `104 passed, 11 skipped`였다. 제외된 시험은 별도 키·환경이 필요한 항목이다. 이는 로컬 코드와 전용 DB 결과이며 공용 DB에 적용했다는 뜻은 아니다. Backend B에는 Trace 저장 인터페이스나 조회 결과에 영향이 있는지 확인받는다.
 
+### 데이터가 이미 있는 DB의 추가 검증
+
+팀장 의견에 따라 **별도 임시 PostgreSQL**에 테스트용 Task·Trace·Tool log와 `tiny_heroes` 카탈로그를 먼저 저장한 다음 같은 DB로 Repository를 다시 생성했다. 기존 Task·카탈로그는 유지되고 새 Trace·Tool log는 각각 2번 순번으로 추가됐다. 관련 PostgreSQL 테스트는 `12 passed`였다.
+
+같은 DB에 실제 MCP HTTP 서버와 Backend API(`backend_b_mcp`, Mock LLM)를 연결했다. 사전 입력 Task는 API에서 조회 가능했고, 새 이벤트는 HTTP 201·`WAITING_APPROVAL`·Critic `PASS`로 생성됐다. 새 Task의 Trace 15건은 순번 1~15이며 MCP 조회의 `data_source=primary`, `game_data_version=tinyheroes-1.0.0`을 확인했다. Backend를 종료·재시작한 뒤 사전 입력 Task(Trace 1건)와 새 Task(Trace 15건)가 모두 보존됐다. 임시 서버와 DB는 테스트 후 종료·삭제했다.
+
+이 검증은 **이번 코드로 만든 최신 스키마에 데이터가 들어 있는 경우**다. 과거 스키마에 `(task_id, sequence)` 고유 제약이 없는 DB를 자동으로 갱신한다는 뜻은 아니다. SQLAlchemy `create_all`은 기존 테이블에 그 제약을 추가하지 않는다. 따라서 공용 DB 적용 전 새 빈 DB 여부와 실제 제약을 확인하고, 비어 있지 않은 과거 스키마가 발견되면 자동 적용을 중단해 별도 마이그레이션을 결정한다.
+
 ## 3. 역할과 승인
 
 | 담당 | 제안 역할 |
