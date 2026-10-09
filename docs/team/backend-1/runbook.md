@@ -40,7 +40,9 @@ python -m uvicorn backend.app.main:app --reload
 
 로컬 재시작 검증에는 **전용 테스트 DB**를 사용한다. `POSTGRES_TEST_URL`을 지정해
 `backend/tests/test_postgres_integration.py`를 실행하면 별도 Python 프로세스에서
-Task를 다시 읽는 시험이 포함된다. 이 테스트 파일은 `reset()`으로 연결된 DB의
+Task·Trace를 다시 읽는 저장소 시험과, 별도 API 앱 프로세스에서 이벤트 생성 후
+새 API 앱 프로세스로 Task·Trace를 조회하는 시험이 포함된다. API 시험은 Mock Workflow를
+사용하며 실제 MCP·OpenAI 호출을 검증하지 않는다. 이 테스트 파일은 `reset()`으로 연결된 DB의
 운영 기록을 삭제하므로 공용 DB나 다른 팀원의 DB 주소를 지정하면 안 된다.
 실제 API 검증은 전용 DB를 `DATABASE_URL`로 지정해 Task를 만든 후 서버를 종료·재실행하고,
 같은 Task ID의 상세·Trace를 다시 조회한다. 새 DB를 가리키거나 인메모리로 재시작한

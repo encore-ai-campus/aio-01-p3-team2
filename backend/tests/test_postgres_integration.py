@@ -3,12 +3,15 @@
 Run with POSTGRES_TEST_URL set. The default unit-test run skips this test.
 """
 
+import json
 import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from pathlib import Path
 from threading import Event
+from uuid import uuid4
 
 import pytest
 from backend.app.repositories.postgres import SqlAlchemyRepository
@@ -94,6 +97,74 @@ def test_postgres_persists_after_process_restart():
         check=True,
     )
     assert child.stdout.strip() == f"{WorkflowStatus.WAITING_APPROVAL}|candidate_saved"
+    repository.reset()
+
+
+@pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
+def test_api_task_and_trace_survive_process_restart():
+    database_url = os.environ["POSTGRES_TEST_URL"]
+    repository = SqlAlchemyRepository(database_url)
+    repository.reset()
+    child_env = os.environ.copy()
+    child_env["DATABASE_URL"] = database_url
+    child_env["WORKFLOW_ENGINE"] = "mock"
+    repo_root = Path(__file__).resolve().parents[2]
+    create_script = """
+import json
+import sys
+from fastapi.testclient import TestClient
+from backend.app.main import app
+request = json.loads(sys.stdin.read())
+response = TestClient(app).post('/api/events/generate', json=request)
+print(json.dumps({'status_code': response.status_code, 'task_id': response.json()['task_id']}))
+"""
+    request = {
+        "actor_id": "liveops01",
+        "event_name": "API 재시작 보존 시험",
+        "target_user": "new_user",
+        "duration": 1,
+        "objective": "별도 프로세스에서 Task와 Trace 재조회",
+        "idempotency_key": str(uuid4()),
+    }
+    created = subprocess.run(
+        [sys.executable, "-c", create_script],
+        input=json.dumps(request),
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=True,
+        cwd=repo_root,
+        env=child_env,
+    )
+    created_body = json.loads(created.stdout)
+    assert created_body["status_code"] == 201
+
+    read_script = """
+import json
+import sys
+from fastapi.testclient import TestClient
+from backend.app.main import app
+client = TestClient(app)
+task = client.get(f'/api/tasks/{sys.argv[1]}')
+trace = client.get(f'/api/tasks/{sys.argv[1]}/trace')
+print(json.dumps({'task_status': task.status_code, 'task': task.json(),
+                  'trace_status': trace.status_code, 'trace': trace.json()}))
+"""
+    reopened = subprocess.run(
+        [sys.executable, "-c", read_script, created_body["task_id"]],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=True,
+        cwd=repo_root,
+        env=child_env,
+    )
+    reopened_body = json.loads(reopened.stdout)
+    assert reopened_body["task_status"] == 200
+    assert reopened_body["task"]["workflow_status"] == WorkflowStatus.WAITING_APPROVAL
+    assert reopened_body["trace_status"] == 200
+    assert reopened_body["trace"]["task_id"] == created_body["task_id"]
+    assert [entry["sequence"] for entry in reopened_body["trace"]["traces"]] == [1, 2]
     repository.reset()
 
 
