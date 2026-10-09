@@ -1,6 +1,6 @@
 # Workflow 장애 복구 기록·평가 합의
 
-상태: 2026-10-09 팀 합의. 이 문서는 백엔드 B·백엔드 A·MCP 담당자가 장애 주입 시험과 복구 평가에 함께 적용할 기준이다. 평가 도구와 반복 측정 결과는 아직 구현·작성되지 않았다.
+상태: 2026-10-09 팀 합의. 이 문서는 백엔드 B·백엔드 A·MCP 담당자가 장애 주입 시험과 복구 평가에 함께 적용할 기준이다. 백엔드 B의 반복 평가 도구와 Mock·실제 LLM의 제한된 실행 결과는 [백엔드 B 평가 기록](team/backend-2/recovery_evaluation.md)에 있다. 더 넓은 입력·모델의 LLM 품질 평가는 별도 검증 대상이다.
 
 ## 공식 기록과 용도
 
@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | `GET /api/tasks/{task_id}/trace` | 실행 순서, 오류 감지, Supervisor 결정, Retry·Fallback·Safe Stop, 재검증, 최종 상태를 판정하는 공식 근거 | 백엔드 B가 이벤트를 생성하고 백엔드 A가 저장·조회한다. |
 | `GET /api/tasks/{task_id}/tool-logs` | 개별 Tool 호출의 시간·오류·출처를 살피는 보조 진단 자료 | API와 Schema는 있지만, 현재 백엔드 B 복구 결과의 공식 판정 자료로 사용하지 않는다. |
-| 장애 복구 평가 보고서 | 시험 입력·기대 결과와 API 응답·Trace의 실제 결과를 비교하고 복구율·시간을 집계 | 앞으로 백엔드 B가 작성할 산출물이다. 현재 별도 DB 테이블이나 API를 요구하지 않는다. |
+| 장애 복구 평가 보고서 | 시험 입력·기대 결과와 API 응답·Trace의 실제 결과를 비교하고 복구율·시간을 집계 | 백엔드 B 평가 CLI가 JSON 보고서를 생성한다. 현재 별도 DB 테이블이나 API를 요구하지 않는다. |
 
 **Tool logs가 비어 있거나 없어도** API 응답과 Trace만으로 복구 성공·안전 종료 여부를 판정할 수 있어야 한다. Tool logs의 호출 시간은 복구 시간과 다른 지표이며, 서로 대체하지 않는다.
 
@@ -45,4 +45,4 @@ Trace의 `sequence`와 시간대가 있는 `time`을 기준으로 순서를 확�
 - **백엔드 A:** Trace의 저장·조회와 Task별 순서를 유지한다. 백엔드 B가 실제 누락 사례를 제시한 경우에만 API·저장 필드 변경을 협의한다. 여러 프로세스가 같은 Task에 동시에 기록하는 경우의 순서·중복 방지는 기존 Trace 계약의 별도 운영 과제다.
 - **MCP:** Tool 오류, `source`, `game_data_version`을 기존 계약대로 반환한다. 실패한 조회의 출처·버전을 추측해 채우지 않는다. 호출 시간 측정이 필요하면 보조 진단 항목으로 백엔드 A·B와 협의한다.
 
-현재 구현된 Trace 사례는 [백엔드 B 프론트엔드 Trace handoff](team/backend-2/frontend_trace_handoff.md)와 [백엔드 B handoff](team/backend-2/handoff.md)에 있다. 이 문서는 **평가의 합의 기준**이며 반복 평가 도구·운영 지표가 완성됐다는 기록은 아니다.
+현재 구현된 Trace 사례는 [백엔드 B 프론트엔드 Trace handoff](team/backend-2/frontend_trace_handoff.md)와 [백엔드 B handoff](team/backend-2/handoff.md)에 있다. 반복 평가의 실행 조건과 결과는 [백엔드 B 평가 기록](team/backend-2/recovery_evaluation.md)에 있다. 이 문서는 **평가의 합의 기준**이며 제한된 반복 실행을 운영 지표의 달성으로 해석하지 않는다.
