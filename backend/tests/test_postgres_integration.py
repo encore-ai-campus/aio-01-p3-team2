@@ -56,12 +56,18 @@ def test_postgres_persists_after_process_restart():
         task_id="TASK-PROCESS-RESTART-1",
         actor_id="liveops01",
         brief=EventBrief(
-            event_name="프로세스 재시작 보존 시험",
-            target_user="new_user",
+            event_name="Clash 표본 재시작 보존 시험",
+            target_user="all_user",
             duration=1,
-            objective="새 Python 프로세스에서 Task 조회 확인",
+            objective="새 Python 프로세스에서 Task와 표본 조회 확인",
+            game_source="clash_of_clans",
         ),
         workflow_status=WorkflowStatus.WAITING_APPROVAL,
+        clash_snapshot={
+            "source": "clash_of_clans",
+            "game_data_version": "clash-sample-storage-test",
+            "sample": {"player_count": 20},
+        },
         created_at=timestamp,
         updated_at=timestamp,
     )
@@ -88,7 +94,8 @@ def test_postgres_persists_after_process_restart():
                 "repo = SqlAlchemyRepository(os.environ['POSTGRES_TEST_URL'], create_schema=False); "
                 "task = repo.get_task('TASK-PROCESS-RESTART-1'); "
                 "traces = repo.get_traces('TASK-PROCESS-RESTART-1'); "
-                "print(f'{task.workflow_status}|{traces[0].action}' if task and traces else 'MISSING')"
+                "print(f\"{task.workflow_status}|{task.clash_snapshot['game_data_version']}|"
+                "{traces[0].action}\" if task and traces else 'MISSING')"
             ),
         ],
         capture_output=True,
@@ -96,7 +103,9 @@ def test_postgres_persists_after_process_restart():
         timeout=15,
         check=True,
     )
-    assert child.stdout.strip() == f"{WorkflowStatus.WAITING_APPROVAL}|candidate_saved"
+    assert child.stdout.strip() == (
+        f"{WorkflowStatus.WAITING_APPROVAL}|clash-sample-storage-test|candidate_saved"
+    )
     repository.reset()
 
 
