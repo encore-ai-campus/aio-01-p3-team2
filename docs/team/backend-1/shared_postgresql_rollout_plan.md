@@ -1,7 +1,7 @@
 # 팀 공용 PostgreSQL 구축·적용 계획서 (Backend A 제안)
 
-작성일: 2026-10-09  
-대상 기준: `checkpoint` 브랜치  
+작성일: 2026-10-09
+대상 기준: `checkpoint` 브랜치
 상태: **Backend A 순번 보강·전용 PostgreSQL 검증 완료, 공용 DB 적용 대기**. 공용 DB 생성·변경·백업은 아직 실행하지 않았다.
 
 ## 합의된 적용 기준
