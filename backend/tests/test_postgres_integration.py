@@ -4,12 +4,15 @@ Run with POSTGRES_TEST_URL set. The default unit-test run skips this test.
 """
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from threading import Event
 
 import pytest
 from backend.app.repositories.postgres import SqlAlchemyRepository
 from backend.app.schemas.event import EventBrief
 from backend.app.schemas.workflow_state import TaskRecord, WorkflowStatus
+from sqlalchemy.exc import IntegrityError
 
 
 @pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
@@ -66,3 +69,57 @@ def test_postgres_lists_same_timestamp_by_creation_order():
         "TASK-Z-FIRST",
     ]
     reopened.reset()
+
+
+@pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
+def test_postgres_idempotency_lock_serializes_repository_instances():
+    database_url = os.environ["POSTGRES_TEST_URL"]
+    first = SqlAlchemyRepository(database_url)
+    second = SqlAlchemyRepository(database_url)
+    entered = Event()
+    attempted = Event()
+
+    def acquire_second() -> None:
+        attempted.set()
+        with second.idempotency_lock("event:shared-key"):
+            entered.set()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with first.idempotency_lock("event:shared-key"):
+            future = pool.submit(acquire_second)
+            assert attempted.wait(timeout=2)
+            assert not entered.wait(timeout=0.2)
+        future.result(timeout=5)
+
+    assert entered.is_set()
+
+
+@pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
+def test_postgres_duplicate_key_rolls_back_new_task():
+    repository = SqlAlchemyRepository(os.environ["POSTGRES_TEST_URL"])
+    repository.reset()
+    timestamp = datetime.now().astimezone()
+
+    def task(task_id: str) -> TaskRecord:
+        return TaskRecord(
+            task_id=task_id,
+            actor_id="liveops01",
+            brief=EventBrief(
+                event_name=task_id,
+                target_user="new_user",
+                duration=1,
+                objective="원자적 생성 확인",
+            ),
+            workflow_status=WorkflowStatus.RUNNING,
+            created_at=timestamp,
+            updated_at=timestamp,
+        )
+
+    repository.create_task_with_idempotency(task("TASK-ATOMIC-1"), "event:key", "hash")
+    with pytest.raises(IntegrityError):
+        repository.create_task_with_idempotency(task("TASK-ATOMIC-2"), "event:key", "hash")
+
+    assert repository.get_task("TASK-ATOMIC-1") is not None
+    assert repository.get_task("TASK-ATOMIC-2") is None
+    assert repository.find_idempotency("event:key") == ("hash", "TASK-ATOMIC-1")
+    repository.reset()
