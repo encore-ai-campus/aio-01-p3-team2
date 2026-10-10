@@ -23,6 +23,8 @@ test("supported plan approval and runtime registration survive reload", async ({
   const appliedEvent = await applied.json();
   const runtimeEventId = appliedEvent.runtime_event_id;
   await expect(page.getByText("Runtime 이벤트 등록 완료")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "이벤트 진행 현황" })).toBeVisible();
+  await expect(page.locator(".runtime-mission strong").first()).toHaveText("0 / 3");
 
   const progressBefore = await page.request.get(`/api/game/events/${runtimeEventId}/progress`);
   expect(progressBefore.status()).toBe(200);
@@ -61,6 +63,9 @@ test("supported plan approval and runtime registration survive reload", async ({
   ]);
   expect(completedProgress.user.inventory.GOLD).toBe(initialGold + actionGoldGranted);
   expect(actionGoldGranted).toBeGreaterThanOrEqual(20);
+  await page.getByRole("button", { name: "진행 현황 새로고침" }).click();
+  await expect(page.locator(".runtime-mission strong").first()).toHaveText("3 / 3");
+  await expect(page.locator(".runtime-reward-summary")).toContainText("골드 × 20");
 
   const workflowIdText = await page.locator(".page-intro .eyebrow").first().innerText();
   const workflowId = workflowIdText.replace("WORKFLOW ", "");
@@ -109,6 +114,20 @@ test("prompt injection is rejected before a workflow result is shown", async ({ 
   await expect(page.locator("#toast")).toContainText("허용되지 않은 문구");
   await expect(page.locator(".workflow-grid")).toHaveCount(0);
   await expect(page.locator('textarea[name="objective"]')).toBeVisible();
+});
+
+test("policy history stays compact and policy editors match the dark UI", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "복구 정책" }).click();
+  await expect(page.locator(".page-intro .state-chip")).toContainText("ACTIVE v");
+  await expect(page.locator("[data-policy-action]").first()).toBeVisible();
+  const auditMaxHeight = await page.locator(".policy-audit-list").evaluate((element) => getComputedStyle(element).maxHeight);
+  const editorStyle = await page.locator("[data-policy-action]").first().evaluate((element) => ({
+    background: getComputedStyle(element).backgroundColor,
+    colorScheme: getComputedStyle(element).colorScheme,
+  }));
+  expect(auditMaxHeight).toBe("290px");
+  expect(editorStyle).toEqual({ background: "rgb(18, 27, 30)", colorScheme: "dark" });
 });
 
 test("fault demo recovers or safely stops with stable traces and unchanged game state", async ({ page }) => {
@@ -178,6 +197,8 @@ test("restores workflow after backend restart", async ({ page }) => {
   await expect(page.locator(".page-intro .state-chip")).toHaveText("APPLIED");
   await expect(page.getByText("Runtime 이벤트 등록 완료")).toBeVisible();
   await expect(page.getByText("runtime · event_registered")).toBeVisible();
+  await expect(page.locator(".runtime-mission strong").first()).toHaveText("3 / 3");
+  await expect(page.locator(".runtime-reward-summary")).toContainText("골드 × 20");
   const progressResponse = await page.request.get(`/api/game/events/${runtimeEventId}/progress`);
   expect(progressResponse.status()).toBe(200);
   const progress = await progressResponse.json();

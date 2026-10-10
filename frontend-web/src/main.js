@@ -4,6 +4,10 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const app = $("#app");
 let activeView = "create";
 let currentRun = null;
+let runtimeProgress = null;
+let runtimeProgressEventId = "";
+let runtimeProgressLoading = false;
+let runtimeProgressError = "";
 let faultRun = null;
 let policyState = null;
 let policyPreview = null;
@@ -99,6 +103,43 @@ function resultCard() {
   return `<section class="panel result-panel ${tone}"><div class="result-head"><div><span class="eyebrow">PLAN ${plan.plan_id} · V${plan.result_version}</span><h3>${label}</h3><p>${tone === "success" ? "게임 규칙과 Runtime 지원 범위에서 검증되었습니다." : "지원 여부와 필요한 후속 작업을 확인하세요."}</p></div><span class="status-orb">${plan.runtime_eligible ? "✓" : "!"}</span></div><div class="result-grid"><div><small>상태</small><b>${plan.plan_status}</b></div><div><small>데이터 기준</small><b>${plan.game_context.game_data_snapshot_id}</b></div><div><small>미션 / 보상</small><b>${plan.missions.length} / ${plan.rewards.length}</b></div><div><small>영향 근거</small><b>${plan.impact_assessment[0]?.status ?? "unknown"}</b></div></div>${plan.development_requirements.length ? `<div class="notice-list"><b>추가 개발 필요</b>${plan.development_requirements.map((item) => `<p>${escapeHtml(item.requested_behavior)} · ${escapeHtml(item.impact)}</p>`).join("")}</div>` : ""}${plan.validation_summary.findings.length ? `<div class="notice-list"><b>검증 결과</b>${plan.validation_summary.findings.map((item) => `<p>${escapeHtml(item.code)} · ${escapeHtml(item.message_safe)}</p>`).join("")}</div>` : ""}${decisionActions}<details><summary>근거와 진행 Trace 보기</summary><pre>${escapeHtml(JSON.stringify({ evidence_refs: plan.evidence_refs, agent_analysis: currentRun.agent_analysis, workflow: currentRun.trace, source: currentRun.execution_profile }, null, 2))}</pre></details></section>`;
 }
 
+function runtimeProgressPanel() {
+  const runtimeEvent = currentRun?.runtimeEvent ?? currentRun?.runtime_event;
+  const eventId = runtimeEvent?.runtime_event_id;
+  if (!eventId) return "";
+  if (runtimeProgressEventId !== eventId || runtimeProgressLoading) {
+    return `<section class="panel runtime-progress"><div class="panel-heading"><div><span class="step">GAME RUNTIME</span><h3>이벤트 진행 현황</h3></div><span class="state-chip">${runtimeProgressLoading ? "불러오는 중" : "갱신 필요"}</span></div><p>${runtimeProgressError ? escapeHtml(runtimeProgressError) : "Runtime에 저장된 미션과 보상 기록을 불러옵니다."}</p><button class="secondary-button" data-refresh-runtime-progress ${runtimeProgressLoading ? "disabled" : ""}>다시 불러오기</button></section>`;
+  }
+  if (!runtimeProgress) {
+    return `<section class="panel runtime-progress"><div class="panel-heading"><div><span class="step">GAME RUNTIME</span><h3>이벤트 진행 현황</h3></div><span class="state-chip warning-chip">확인 실패</span></div><p>${escapeHtml(runtimeProgressError || "Runtime 진행 상태를 읽지 못했습니다.")}</p><button class="secondary-button" data-refresh-runtime-progress>다시 불러오기</button></section>`;
+  }
+  const missions = runtimeProgress.missions ?? [];
+  const rewards = runtimeProgress.rewards ?? [];
+  const balances = runtimeProgress.user?.inventory ?? {};
+  return `<section class="panel runtime-progress"><div class="panel-heading"><div><span class="step">GAME RUNTIME · ${escapeHtml(runtimeProgress.event?.versions?.game_data_snapshot_id ?? "")}</span><h3>이벤트 진행 현황</h3></div><span class="state-chip">${escapeHtml(runtimeProgress.event?.status ?? "UNKNOWN")}</span></div><p class="runtime-source">${escapeHtml(runtimeProgress.event?.event_name ?? "이벤트")} · source ${escapeHtml(runtimeProgress.event?.source_task_id ?? "")} · ${escapeHtml(eventId)}</p><div class="runtime-mission-list">${missions.map((mission) => `<div class="runtime-mission"><div><b>${escapeHtml(mission.name ?? mission.action_type ?? mission.mission_id)}</b><small>Day ${mission.day} · ${escapeHtml(mission.status ?? "active")}</small></div><strong>${mission.current_value} / ${mission.target}</strong></div>`).join("") || `<p>등록된 미션이 없습니다.</p>`}</div><div class="runtime-reward-summary"><b>지급된 보상</b>${rewards.length ? rewards.map((reward) => `<div><span>${escapeHtml(reward.item_name ?? reward.item_id)} × ${reward.quantity}</span><small>현재 보유 ${balances[reward.item_id] ?? 0}</small></div>`).join("") : `<p>아직 지급된 보상이 없습니다.</p>`}</div><button class="secondary-button" data-refresh-runtime-progress>진행 현황 새로고침</button></section>`;
+}
+
+async function loadRuntimeProgress(eventId) {
+  if (runtimeProgressLoading) return;
+  runtimeProgressEventId = eventId;
+  runtimeProgressLoading = true;
+  runtimeProgressError = "";
+  render();
+  try {
+    const response = await fetch(`/api/game/events/${encodeURIComponent(eventId)}/progress`);
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.message ?? body.detail?.message ?? "Runtime 진행 현황을 불러오지 못했습니다.");
+    runtimeProgress = body;
+    runtimeProgressError = "";
+  } catch (error) {
+    runtimeProgress = null;
+    runtimeProgressError = error.message;
+  } finally {
+    runtimeProgressLoading = false;
+    render();
+  }
+}
+
 async function decideCurrentPlan(action) {
   try {
     const plan = currentRun.plan;
@@ -169,7 +210,7 @@ function workflowView() {
   if (!currentRun) return `<div class="empty-state"><div class="empty-icon">⌁</div><h2>진행 기록이 없습니다.</h2><p>기획안 만들기에서 Brief를 제출하면 실제 workflow event와 검증 결과가 표시됩니다.</p><button class="secondary-button" data-goto="create">기획안 만들기 →</button></div>`;
   const timeline = currentRun.trace.map((step, index) => `<div class="timeline-row"><span class="timeline-index">0${index + 1}</span><span class="timeline-marker ${step.status === "PASS" || step.status === "VALIDATED" ? "done" : ""}"></span><div><b>${escapeHtml(step.event.replaceAll(".", " · "))}</b><small>${escapeHtml(step.status)}</small></div></div>`).join("");
   const outcome = currentRun.plan ? resultCard() : `<div class="notice-list warning-note"><b>${escapeHtml(currentRun.error?.code ?? "SAFE_STOP")}</b><p>${escapeHtml(currentRun.error?.message ?? "안전 종료 기록을 저장했습니다.")}</p>${currentRun.llm_usage ? `<details><summary>사용량 계측 보기</summary><pre>${escapeHtml(JSON.stringify(currentRun.llm_usage, null, 2))}</pre></details>` : ""}</div>`;
-  return `<div class="page-intro"><div><span class="eyebrow">WORKFLOW ${currentRun.workflow_id}</span><h2>실제 검증 경로와 결과</h2><p>단계는 실행된 이벤트에서 표시됩니다. 미리 정해진 총 단계 수를 보여주지 않습니다.</p></div><span class="state-chip">${currentRun.current_status ?? currentRun.workflow_status}</span></div><div class="workflow-grid"><section class="panel"><div class="panel-heading"><div><span class="step">TRACE</span><h3>진행 기록</h3></div><span class="link-badge">${currentRun.execution_profile}</span></div><div class="timeline">${timeline}</div><details><summary>실행 정보</summary><pre>${escapeHtml(JSON.stringify({ workflow_id: currentRun.workflow_id, recovery_policy_version: currentRun.recovery_policy_version, snapshot_digest: currentRun.snapshot_digest, created_at: currentRun.created_at }, null, 2))}</pre></details></section><section class="panel plan-mini">${outcome}</section></div>`;
+  return `<div class="page-intro"><div><span class="eyebrow">WORKFLOW ${currentRun.workflow_id}</span><h2>실제 검증 경로와 결과</h2><p>단계는 실행된 이벤트에서 표시됩니다. 미리 정해진 총 단계 수를 보여주지 않습니다.</p></div><span class="state-chip">${currentRun.current_status ?? currentRun.workflow_status}</span></div><div class="workflow-grid"><section class="panel"><div class="panel-heading"><div><span class="step">TRACE</span><h3>진행 기록</h3></div><span class="link-badge">${currentRun.execution_profile}</span></div><div class="timeline">${timeline}</div><details><summary>실행 정보</summary><pre>${escapeHtml(JSON.stringify({ workflow_id: currentRun.workflow_id, recovery_policy_version: currentRun.recovery_policy_version, snapshot_digest: currentRun.snapshot_digest, created_at: currentRun.created_at }, null, 2))}</pre></details></section><section class="panel plan-mini">${outcome}${runtimeProgressPanel()}</section></div>`;
 }
 
 function policiesView() {
@@ -178,10 +219,14 @@ function policiesView() {
   const draft = [...versions].reverse().find((row) => row.status === "DRAFT");
   const routes = draft?.policy?.routes ?? active?.policy?.routes ?? {};
   const routeRows = Object.entries(routes).map(([code, route]) => `<div class="log-row policy-row"><span>${escapeHtml(code)}</span><select data-policy-action="${escapeHtml(code)}">${["FAIL_FAST", "RETRY_OPERATION", "RETRY_AGENT", "REVISE_PLAN", "SAFE_STOP"].map((action) => `<option ${route.action === action ? "selected" : ""}>${action}</option>`).join("")}</select><input data-policy-attempts="${escapeHtml(code)}" type="number" min="1" max="${policyState?.hard_max_attempts ?? 4}" value="${route.max_attempts}" /></div>`).join("");
-  const audit = (policyState?.audit ?? []).map((item) => `<div class="log-row"><span>v${item.version}</span><span>${escapeHtml(item.action)} · ${escapeHtml(item.actor)}</span><span>${escapeHtml(item.created_at)}</span></div>`).join("");
+  const auditEntries = policyState?.audit ?? [];
+  const auditRow = (item) => `<div class="log-row"><span>v${item.version}</span><span>${escapeHtml(item.action)} · ${escapeHtml(item.actor)}</span><span>${escapeHtml(item.created_at)}</span></div>`;
+  const audit = auditEntries.slice(0, 8).map(auditRow).join("");
+  const olderAudit = auditEntries.slice(8).map(auditRow).join("");
+  const retiredVersions = versions.filter((row) => row.status === "RETIRED");
   return `<div class="page-intro"><div><span class="eyebrow">RECOVERY POLICY</span><h2>복구 규칙을 통제합니다.</h2><p>코드로 고정된 보안·계약 안전조건은 수정할 수 없고, 허용된 오류 경로만 버전으로 관리합니다.</p></div><span class="state-chip">${active ? `ACTIVE v${active.version}` : "불러오는 중"}</span></div>
     ${!policyState ? `<section class="panel"><p>${policyLoadError ? escapeHtml(policyLoadError) : "정책 저장소를 불러오는 중입니다…"}</p>${policyLoadError ? `<button class="secondary-button" id="reload-policies">다시 시도</button>` : ""}</section>` : `<section class="panel policy-panel"><div class="panel-heading"><div><span class="step">VERSIONED POLICY</span><h3>오류별 대응</h3></div><span class="link-badge">최대 ${policyState.hard_max_attempts}회 · 코드 hard cap</span></div><div class="log-table"><div class="log-row header"><span>오류 코드</span><span>대응</span><span>최대 시도</span></div>${routeRows}</div><div class="policy-actions"><button class="secondary-button" id="save-policy-draft">초안 저장</button>${draft ? `<button class="secondary-button" id="validate-policy" data-version="${draft.version}">검증</button><button class="secondary-button" id="preview-policy" data-version="${draft.version}">변경 미리보기</button><button class="primary-button" id="activate-policy" data-version="${draft.version}">검증 후 활성화</button>` : ""}</div>${policyPreview ? `<div class="notice-list ${policyPreview.valid ? "success-note" : "warning-note"}"><b>미리보기 · Runtime/Workflow 미변경</b><p>${policyPreview.valid ? `${policyPreview.changed_routes.length}개 대응 경로 변경` : escapeHtml(policyPreview.errors.join(" · "))}</p>${policyPreview.changed_routes.map((item) => `<p>${escapeHtml(item.error_code)}: ${escapeHtml(JSON.stringify(item.before))} → ${escapeHtml(JSON.stringify(item.after))}</p>`).join("")}</div>` : ""}</section>
-    <section class="panel"><div class="panel-heading"><div><span class="step">AUDIT</span><h3>정책 변경 기록</h3></div><span class="link-badge">불변 감사 기록</span></div><div class="log-table">${audit || `<p>감사 기록이 없습니다.</p>`}</div>${versions.filter((row) => row.status === "RETIRED").map((row) => `<button class="text-button" data-rollback="${row.version}">v${row.version}으로 rollback</button>`).join("")}</section>`}`;
+    <section class="panel"><div class="panel-heading"><div><span class="step">AUDIT</span><h3>정책 변경 기록</h3></div><span class="link-badge">불변 감사 기록</span></div><div class="log-table policy-audit-list">${audit || `<p>감사 기록이 없습니다.</p>`}</div>${olderAudit ? `<details class="policy-history"><summary>이전 변경 기록 ${auditEntries.length - 8}건</summary><div class="log-table">${olderAudit}</div></details>` : ""}${retiredVersions.length ? `<details class="policy-history"><summary>이전 정책 버전으로 되돌리기 · ${retiredVersions.length}</summary><div class="policy-rollback-list">${retiredVersions.map((row) => `<button class="text-button" data-rollback="${row.version}">v${row.version}으로 rollback</button>`).join("")}</div></details>` : ""}</section>`}`;
 }
 
 async function loadPolicies() {
@@ -303,6 +348,10 @@ function render() {
   document.querySelector("[data-approve-plan]")?.addEventListener("click", () => decideCurrentPlan("APPROVE"));
   document.querySelector("[data-reject-plan]")?.addEventListener("click", () => decideCurrentPlan("REJECT"));
   document.querySelector("[data-apply-plan]")?.addEventListener("click", applyCurrentPlan);
+  document.querySelector("[data-refresh-runtime-progress]")?.addEventListener("click", () => {
+    const runtimeEvent = currentRun?.runtimeEvent ?? currentRun?.runtime_event;
+    if (runtimeEvent?.runtime_event_id) loadRuntimeProgress(runtimeEvent.runtime_event_id);
+  });
   if (activeView === "policies" && !policyState && !policiesLoading && !policyLoadError) loadPolicies();
   if (activeView === "logs" && logsState === null) loadLogs();
   $("#save-policy-draft")?.addEventListener("click", savePolicyDraft);
@@ -315,6 +364,10 @@ function render() {
   document.querySelectorAll("[data-workflow-id]").forEach((button) => button.addEventListener("click", () => selectLoggedWorkflow(button.dataset.workflowId)));
   document.querySelectorAll("[data-goto]").forEach((button) => button.addEventListener("click", () => { activeView = button.dataset.goto; render(); }));
   showToast();
+  const appliedEvent = activeView === "workflow" ? currentRun?.runtimeEvent ?? currentRun?.runtime_event : null;
+  if (appliedEvent?.runtime_event_id && runtimeProgressEventId !== appliedEvent.runtime_event_id && !runtimeProgressLoading) {
+    loadRuntimeProgress(appliedEvent.runtime_event_id);
+  }
 }
 
 render();
