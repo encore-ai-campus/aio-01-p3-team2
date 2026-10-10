@@ -25,11 +25,14 @@ def configure_live_environment(env_path: Path | None = None) -> None:
 def create_app() -> FastAPI:
     """Build the API after the selected process environment is ready."""
     from backend.app.api.event import router as event_router
+    from backend.app.api.game import router as game_router
     from backend.app.api.health import router as health_router
+    from backend.app.game.service import GameError
     from backend.app.services.task_service import ServiceError
 
     application = FastAPI(title="Game Event AutoHealing Backend", version="0.1.0")
     application.include_router(event_router, prefix="/api")
+    application.include_router(game_router, prefix="/api")
     application.include_router(health_router)
 
     @application.exception_handler(ServiceError)
@@ -41,6 +44,17 @@ def create_app() -> FastAPI:
                 "message": exc.message,
                 "task_id": exc.task_id,
                 "detail": None,
+            },
+        )
+
+    @application.exception_handler(GameError)
+    async def game_error_handler(_: Request, exc: GameError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error_code": exc.code,
+                "message": exc.message,
+                "detail": exc.detail,
             },
         )
 

@@ -1,0 +1,647 @@
+{
+  "domain_schema_version": "1.3.0",
+  "event_schema_version": "1.0.0",
+  "game_id": "opong_heroes",
+  "display_name": "오퐁 히어로즈",
+  "world_theme": "달빛 균열이 열린 판타지 왕국",
+  "game_ruleset_version": "opong-rules-1.3.0",
+  "game_data_snapshot_id": "opong-data-1.3.0",
+  "planner_source_game_data_versions": [
+    "tinyheroes-1.0.0"
+  ],
+  "game_day_timezone": "Asia/Seoul",
+  "daily_reset_time": "00:00:00",
+  "progression": {
+    "start_level": 1,
+    "start_experience": 0,
+    "level_thresholds": [
+      0,
+      40,
+      100,
+      190,
+      310,
+      460,
+      640,
+      850
+    ],
+    "max_level": 8
+  },
+  "segments": {
+    "new_user": {
+      "max_level": 4
+    },
+    "returning_user": {
+      "min_level": 3
+    },
+    "all_user": {}
+  },
+  "items": {
+    "GOLD": {
+      "name": "왕국 골드",
+      "kind": "currency",
+      "max_balance": 9007199254740991
+    },
+    "GEM": {
+      "name": "별빛 보석",
+      "kind": "currency",
+      "max_balance": 9007199254740991
+    },
+    "MOON_SHARD": {
+      "name": "월광 파편",
+      "kind": "material",
+      "max_balance": 9007199254740991
+    },
+    "ITEM_001": {
+      "name": "회복 포션",
+      "kind": "consumable",
+      "max_balance": 999
+    },
+    "ITEM_002": {
+      "name": "성장 상자",
+      "kind": "chest",
+      "max_balance": 999
+    },
+    "ITEM_003": {
+      "name": "한정 코스튬",
+      "kind": "cosmetic",
+      "max_balance": 99
+    },
+    "SKIN_STAR_CANDY": {
+      "name": "별사탕 모험가",
+      "kind": "skin",
+      "max_balance": 1,
+      "asset_id": "hero",
+      "tint": "#ffd27f",
+      "style": "귀엽고 밝은 별사탕 장식"
+    },
+    "SKIN_MUSHROOM": {
+      "name": "숲버섯 여행자",
+      "kind": "skin",
+      "max_balance": 1,
+      "asset_id": "hero",
+      "tint": "#a8d7a2",
+      "style": "둥근 버섯 모자와 숲빛"
+    },
+    "SKIN_MOON_BUNNY": {
+      "name": "달토끼 수호자",
+      "kind": "skin",
+      "max_balance": 1,
+      "asset_id": "hero",
+      "tint": "#c7b9f5",
+      "style": "달빛 망토와 토끼 귀"
+    }
+  },
+  "shop_offers": [
+    {"offer_id": "offer_star_candy", "item_id": "SKIN_STAR_CANDY", "price_item_id": "GEM", "price": 1},
+    {"offer_id": "offer_mushroom", "item_id": "SKIN_MUSHROOM", "price_item_id": "GEM", "price": 1},
+    {"offer_id": "offer_moon_bunny", "item_id": "SKIN_MOON_BUNNY", "price_item_id": "GEM", "price": 1}
+  ],
+  "cosmetic_milestones": [
+    {"stage_order": 5, "item_id": "GEM", "quantity": 1},
+    {"stage_order": 10, "item_id": "GEM", "quantity": 1},
+    {"stage_order": 15, "item_id": "GEM", "quantity": 1}
+  ],
+  "stages": [
+    {
+      "id": "stage_01",
+      "name": "달빛 초원",
+      "order": 1,
+      "unlock_level": 1,
+      "experience_reward": 35,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 8
+        }
+      ],
+      "monster": {
+        "name": "초원 슬라임",
+        "visual_slot": 1,
+        "archetype": "slime"
+      },
+      "combat": {
+        "monster_hp": 32,
+        "monster_attack": 5,
+        "monster_defense": 1
+      }
+    },
+    {
+      "id": "stage_02",
+      "name": "속삭임 숲",
+      "order": 2,
+      "unlock_level": 1,
+      "experience_reward": 40,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 9
+        }
+      ],
+      "monster": {
+        "name": "숲 고블린",
+        "visual_slot": 2,
+        "archetype": "goblin"
+      },
+      "combat": {
+        "monster_hp": 37,
+        "monster_attack": 5,
+        "monster_defense": 1
+      }
+    },
+    {
+      "id": "stage_03",
+      "name": "수정 협곡",
+      "order": 3,
+      "unlock_level": 1,
+      "experience_reward": 45,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 10
+        }
+      ],
+      "monster": {
+        "name": "수정 박쥐",
+        "visual_slot": 3,
+        "archetype": "bat"
+      },
+      "combat": {
+        "monster_hp": 43,
+        "monster_attack": 6,
+        "monster_defense": 1
+      }
+    },
+    {
+      "id": "stage_04",
+      "name": "별무리 폐광",
+      "order": 4,
+      "unlock_level": 1,
+      "experience_reward": 50,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 11
+        }
+      ],
+      "monster": {
+        "name": "폐광 수호자",
+        "visual_slot": 4,
+        "archetype": "goblin"
+      },
+      "combat": {
+        "monster_hp": 49,
+        "monster_attack": 6,
+        "monster_defense": 1
+      }
+    },
+    {
+      "id": "stage_05",
+      "name": "고요한 호수",
+      "order": 5,
+      "unlock_level": 2,
+      "experience_reward": 55,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 12
+        }
+      ],
+      "monster": {
+        "name": "달빛 정령",
+        "visual_slot": 5,
+        "archetype": "spirit"
+      },
+      "combat": {
+        "monster_hp": 54,
+        "monster_attack": 7,
+        "monster_defense": 1
+      }
+    },
+    {
+      "id": "stage_06",
+      "name": "달빛 초원 2구역",
+      "order": 6,
+      "unlock_level": 2,
+      "experience_reward": 60,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 13
+        }
+      ],
+      "monster": {
+        "name": "초원 슬라임",
+        "visual_slot": 1,
+        "archetype": "slime"
+      },
+      "combat": {
+        "monster_hp": 60,
+        "monster_attack": 7,
+        "monster_defense": 2
+      }
+    },
+    {
+      "id": "stage_07",
+      "name": "속삭임 숲 2구역",
+      "order": 7,
+      "unlock_level": 2,
+      "experience_reward": 65,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 14
+        }
+      ],
+      "monster": {
+        "name": "숲 고블린",
+        "visual_slot": 2,
+        "archetype": "goblin"
+      },
+      "combat": {
+        "monster_hp": 66,
+        "monster_attack": 8,
+        "monster_defense": 2
+      }
+    },
+    {
+      "id": "stage_08",
+      "name": "수정 협곡 2구역",
+      "order": 8,
+      "unlock_level": 2,
+      "experience_reward": 70,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 15
+        }
+      ],
+      "monster": {
+        "name": "수정 박쥐",
+        "visual_slot": 3,
+        "archetype": "bat"
+      },
+      "combat": {
+        "monster_hp": 71,
+        "monster_attack": 8,
+        "monster_defense": 2
+      }
+    },
+    {
+      "id": "stage_09",
+      "name": "별무리 폐광 2구역",
+      "order": 9,
+      "unlock_level": 3,
+      "experience_reward": 75,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 16
+        }
+      ],
+      "monster": {
+        "name": "폐광 수호자",
+        "visual_slot": 4,
+        "archetype": "goblin"
+      },
+      "combat": {
+        "monster_hp": 77,
+        "monster_attack": 9,
+        "monster_defense": 2
+      }
+    },
+    {
+      "id": "stage_10",
+      "name": "고요한 호수 2구역",
+      "order": 10,
+      "unlock_level": 3,
+      "experience_reward": 80,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 17
+        }
+      ],
+      "monster": {
+        "name": "달빛 정령",
+        "visual_slot": 5,
+        "archetype": "spirit"
+      },
+      "combat": {
+        "monster_hp": 83,
+        "monster_attack": 9,
+        "monster_defense": 2
+      }
+    },
+    {
+      "id": "stage_11",
+      "name": "달빛 초원 3구역",
+      "order": 11,
+      "unlock_level": 3,
+      "experience_reward": 85,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 18
+        }
+      ],
+      "monster": {
+        "name": "초원 슬라임",
+        "visual_slot": 1,
+        "archetype": "slime"
+      },
+      "combat": {
+        "monster_hp": 89,
+        "monster_attack": 10,
+        "monster_defense": 3
+      }
+    },
+    {
+      "id": "stage_12",
+      "name": "속삭임 숲 3구역",
+      "order": 12,
+      "unlock_level": 3,
+      "experience_reward": 90,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 19
+        }
+      ],
+      "monster": {
+        "name": "숲 고블린",
+        "visual_slot": 2,
+        "archetype": "goblin"
+      },
+      "combat": {
+        "monster_hp": 94,
+        "monster_attack": 10,
+        "monster_defense": 3
+      }
+    },
+    {
+      "id": "stage_13",
+      "name": "수정 협곡 3구역",
+      "order": 13,
+      "unlock_level": 4,
+      "experience_reward": 95,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 20
+        }
+      ],
+      "monster": {
+        "name": "수정 박쥐",
+        "visual_slot": 3,
+        "archetype": "bat"
+      },
+      "combat": {
+        "monster_hp": 100,
+        "monster_attack": 11,
+        "monster_defense": 3
+      }
+    },
+    {
+      "id": "stage_14",
+      "name": "별무리 폐광 3구역",
+      "order": 14,
+      "unlock_level": 4,
+      "experience_reward": 100,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 21
+        }
+      ],
+      "monster": {
+        "name": "폐광 수호자",
+        "visual_slot": 4,
+        "archetype": "goblin"
+      },
+      "combat": {
+        "monster_hp": 106,
+        "monster_attack": 11,
+        "monster_defense": 3
+      }
+    },
+    {
+      "id": "stage_15",
+      "name": "고요한 호수 3구역",
+      "order": 15,
+      "unlock_level": 4,
+      "experience_reward": 105,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 22
+        }
+      ],
+      "monster": {
+        "name": "달빛 정령",
+        "visual_slot": 5,
+        "archetype": "spirit"
+      },
+      "combat": {
+        "monster_hp": 111,
+        "monster_attack": 12,
+        "monster_defense": 3
+      }
+    }
+  ],
+  "dungeons": [
+    {
+      "id": "dungeon_01",
+      "name": "별무리 폐광",
+      "entry_level": 2,
+      "daily_attempt_limit": null,
+      "experience_reward": 80,
+      "rewards": [
+        {
+          "item_id": "GOLD",
+          "quantity": 15
+        },
+        {
+          "item_id": "MOON_SHARD",
+          "quantity": 1
+        }
+      ],
+      "combat": {
+        "monster_hp": 72,
+        "monster_attack": 10,
+        "monster_defense": 2
+      }
+    }
+  ],
+  "dungeon_enemy_roster": [
+    {"enemy_id": "MINE_SOOT_RAT", "name": "갱도 그슬음쥐", "role": "minion", "visual_asset_id": "mine-soot-rat"},
+    {"enemy_id": "MINE_VEIN_BEETLE", "name": "광맥 딱정벌레", "role": "minion", "visual_asset_id": "mine-vein-beetle"},
+    {"enemy_id": "MINE_CRYSTAL_MIMIC", "name": "수정 미믹", "role": "minion", "visual_asset_id": "mine-crystal-mimic"},
+    {"enemy_id": "MINE_BOSS_STARVEIN_DRAGON", "name": "별무리 광맥룡", "role": "boss", "visual_asset_id": "mine-starvein-dragon"}
+  ],
+  "dungeon_encounter_profile": {
+    "party_size": 3,
+    "boss_floor_interval": 5,
+    "minion_hp_share": [1, 3],
+    "escort_hp_share": [1, 5],
+    "boss_hp_share": [3, 5],
+    "boss_attack_scale": [5, 4],
+    "escort_attack_scale": [9, 10]
+  },
+  "special_dungeon_templates": [
+    {
+      "template_id": "moon_rift_v1",
+      "name": "월광 균열",
+      "theme_id": "moonlit_ruins",
+      "layout_id": "rift_3_floors",
+      "difficulty_id": "normal",
+      "daily_attempt_limit": 3,
+      "floors": [
+        {
+          "id": "rift_floor_01",
+          "name": "봉인의 문",
+          "order": 1,
+          "entry_level": 2,
+          "monster_count": 8,
+          "experience_reward": 55,
+          "rewards": [
+            {
+              "item_id": "GOLD",
+              "quantity": 10
+            }
+          ],
+          "monster": {
+            "name": "봉인의 문",
+            "visual_slot": 5,
+            "archetype": "goblin"
+          },
+          "combat": {
+            "monster_hp": 60,
+            "monster_attack": 8,
+            "monster_defense": 1
+          }
+        },
+        {
+          "id": "rift_floor_02",
+          "name": "파수자의 회랑",
+          "order": 2,
+          "entry_level": 3,
+          "monster_count": 8,
+          "experience_reward": 75,
+          "rewards": [
+            {
+              "item_id": "GOLD",
+              "quantity": 12
+            }
+          ],
+          "monster": {
+            "name": "파수자의 회랑",
+            "visual_slot": 5,
+            "archetype": "goblin"
+          },
+          "combat": {
+            "monster_hp": 72,
+            "monster_attack": 9,
+            "monster_defense": 1
+          }
+        },
+        {
+          "id": "rift_boss_03",
+          "name": "심연의 파수자",
+          "order": 3,
+          "entry_level": 4,
+          "monster_count": 12,
+          "experience_reward": 120,
+          "rewards": [
+            {
+              "item_id": "GOLD",
+              "quantity": 20
+            },
+            {
+              "item_id": "MOON_SHARD",
+              "quantity": 2
+            }
+          ],
+          "is_boss": true,
+          "monster": {
+            "name": "심연의 파수자",
+            "visual_slot": 5,
+            "archetype": "boss"
+          },
+          "combat": {
+            "monster_hp": 110,
+            "monster_attack": 14,
+            "monster_defense": 3
+          }
+        }
+      ]
+    }
+  ],
+  "demo_user": {
+    "id": "demo-hero-001",
+    "display_name": "달빛 원정대",
+    "segment_id": "new_user",
+    "starting_inventory": {
+      "GOLD": 30,
+      "GEM": 3
+    }
+  },
+  "hero_stats": {
+    "base_hp": 90,
+    "hp_per_level": 12,
+    "base_attack": 11,
+    "attack_per_level": 2,
+    "base_defense": 0
+  },
+  "growth_actions": {
+    "weapon_training": {
+      "name": "무기 단련",
+      "item_id": "GOLD",
+      "costs": [
+        20,
+        35,
+        55,
+        80,
+        110
+      ],
+      "stat": "attack",
+      "amount": 4,
+      "max_level": 5
+    },
+    "armor_training": {
+      "name": "갑옷 단련",
+      "item_id": "GOLD",
+      "costs": [
+        18,
+        32,
+        50,
+        72,
+        100
+      ],
+      "stat": "max_hp",
+      "amount": 18,
+      "max_level": 5
+    }
+  },
+  "endless_progression": {
+    "stage_anchor_order": 15,
+    "stage_hp_per_order": 6,
+    "stage_attack_every_two": 1,
+    "stage_defense_every_five": 1,
+    "stage_experience_per_order": 5,
+    "stage_gold_per_order": 1,
+    "dungeon_hp_base": 72,
+    "dungeon_hp_per_floor": 6,
+    "dungeon_attack_base": 10,
+    "dungeon_attack_every_two": 1,
+    "dungeon_defense_base": 2,
+    "dungeon_defense_every_five": 1,
+    "dungeon_experience_base": 80,
+    "dungeon_experience_per_floor": 5,
+    "dungeon_gold_base": 15,
+    "dungeon_gold_per_floor": 1,
+    "dungeon_shard_every_clears": 5,
+    "weapon_cost_step": 20,
+    "armor_cost_step": 18,
+    "moon_shard_rank_interval": 5
+  }
+}

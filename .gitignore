@@ -29,6 +29,7 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+node_modules/
 
 # Logs and local databases
 *.log
