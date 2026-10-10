@@ -1,0 +1,169 @@
+# Runtime Capability·MCP 데이터 계약
+
+## 1. 목적과 현재 상태
+
+이 문서는 기획 Workflow가 가상 게임의 규칙·콘텐츠와 실제 적용 범위를 동일한 버전 기준으로 조회하는 계약을 정한다. MCP는 조회 transport이며, capability의 권위는 게임 Runtime의 버전 고정 카탈로그와 이벤트 적용 adapter다.
+
+현재 MCP primary는 `tiny_heroes` 데이터 카탈로그(`tinyheroes-1.0.0`)에서 콘텐츠 3종·아이템 3종·세그먼트 기준을 읽는다. Runtime은 `opong-data-1.3.0` 카탈로그 snapshot을 사용하며 스테이지, 던전, 특별 던전, 성장, 재화, 아이템과 무한 진행 규칙을 가진다. Runtime은 과거 Planner 버전 `tinyheroes-1.0.0`을 허용 출처 목록으로 연결하지만, 이 버전은 두 카탈로그의 동등성을 보증하지 않는다. MCP 결과만으로 현재 Runtime이 지원하는 이벤트를 모두 판정할 수 없는 상태다.
+
+또한 현재 MCP의 `get_game_rules`는 주로 이름·입장 레벨을, `get_item_info`는 이름·존재 여부를 반환한다. 이 출력만으로 전투·보상·성장·보상 한도·실제 이벤트 적용 가능성을 검증할 수 없다. 세그먼트별 예상 레벨은 데이터에 `mock_historical_aggregate`로 표시된 가정 자료이므로 실제 유저 통계로 취급하지 않는다.
+
+## 2. 데이터 권위와 버전 계약
+
+### 2.1 권위 원천
+
+1. `backend/data/virtual_game_v1.json`의 검토된 카탈로그를 게임 Runtime seed의 원천으로 둔다.
+2. 실행 중 Runtime은 PostgreSQL의 무결성 검사를 통과한 `game_data_snapshot_id` 카탈로그를 권위 데이터로 사용한다.
+3. MCP는 해당 Runtime snapshot을 읽기 전용으로 조회한다. `mcp_server/data/tiny_heroes*.json`을 새 기획 생성의 권위 원천으로 사용하지 않는다.
+4. 새 Brief와 Plan은 다음 버전 집합을 함께 고정한다.
+
+```yaml
+game_id: opong_heroes
+domain_schema_version: "1.3.0"
+event_schema_version: "1.0.0"
+game_ruleset_version: opong-rules-1.3.0
+game_data_snapshot_id: opong-data-1.3.0
+runtime_capability_catalog_version: opong-capabilities-1.0.0
+balance_policy_version: string
+```
+
+`runtime_capability_catalog_version`은 action mapping, event adapter 제약, 장소·대상·기간 지원 조합 중 하나라도 바뀌면 증가시킨다. 카탈로그를 조회할 때 요청 snapshot과 반환 snapshot이 다르면 결과를 조합하거나 검증을 계속하지 않고 `ERR-DATA-CONTEXT-001`/`NEEDS_DATA`로 종료한다.
+
+### 2.2 과거 Task 호환
+
+`tinyheroes-1.0.0`은 과거 Task의 승인 이벤트 적용을 위해서만 명시적 legacy adapter로 읽는다. 새 기획 생성에서는 사용할 수 없다. Legacy Task를 적용할 때도 기존 Task의 원본 version을 보존하고, Runtime adapter가 해석할 수 없는 미션·보상은 적용을 거부한다. 버전 문자열만으로 현재 카탈로그와 동일하다고 판정하지 않는다.
+
+## 3. Capability 계약
+
+Capability 결과는 Runtime adapter와 catalog의 지원 조합에서 생성한다. LLM이 capability 항목이나 지원 상태를 만들거나 변경하지 않는다.
+
+```yaml
+capability_catalog_version: opong-capabilities-1.0.0
+game_context: { game_id: opong_heroes, game_data_snapshot_id: opong-data-1.3.0,
+                game_ruleset_version: opong-rules-1.3.0, event_schema_version: "1.0.0" }
+event_constraints:
+  operation_modes: [finite]
+  start_policy: immediate
+  duration_days: { minimum: 1, maximum: 7 }
+  audience_cardinality: 1
+  audiences: [new_user, returning_user, all_user]
+event_types:
+  - event_type: growth_progression
+    missions: [stage_clear, level_reach]
+  - event_type: dungeon_challenge
+    missions: [dungeon_clear]
+  - event_type: special_dungeon
+    missions: [special_dungeon_floor_clear]
+venues: []
+rewards: []
+```
+
+실제 응답은 위 예시의 `venues`, `rewards`, `missions`를 같은 Runtime snapshot에서 조회한 상세 객체로 채운다. 각 capability 객체에는 다음이 필수다.
+
+| 필드 | 계약 |
+|---|---|
+| `capability_id`, `capability_catalog_version` | 안정 ID 및 registry 버전 |
+| `kind`, `status` | `event_type`, `mission_action`, `venue`, `reward`, `schedule`, `audience`; 지원 상태는 `SUPPORTED`, `NEEDS_DEVELOPMENT`, `NEEDS_DATA`, `UNSUPPORTED_BY_POLICY` |
+| `input_constraints` | 허용 metric·goal·target·filter·수량·기간·대상 조합 |
+| `runtime_adapter_ref` | 실제 등록/진행 코드의 adapter ID와 버전. 미연결이면 지원으로 표시 금지 |
+| `evidence_refs` | catalog snapshot, ruleset, validator 및 rule ID |
+| `reason_code` | 지원 제한 또는 미확인 사유의 안정 코드 |
+
+### 3.1 로컬 MVP의 지원 범위
+
+현재 Runtime과 adapter가 확인하는 범위의 초기 capability는 다음으로 제한한다.
+
+| 구분 | 지원 계약 | 제한/판정 |
+|---|---|---|
+| 기간 | 유한 이벤트, 즉시 시작, 1–7일 | 미래 시작·무기한 진행은 `NEEDS_DEVELOPMENT` |
+| 대상 | `new_user`, `returning_user`, `all_user` 중 하나 | 한 이벤트에 한 세그먼트. 여러 세그먼트 동시 설정은 개발 필요 또는 사용자 대안 확인 |
+| 스테이지 | `stage_clear` → Runtime `stage_cleared` | `HUNT_001` 또는 Runtime stage ID로 변환 가능한 경우만 허용 |
+| 던전 | `dungeon_clear` → Runtime `dungeon_cleared` | 현재 일반 던전 ID/레거시 alias의 명시 매핑만 허용 |
+| 성장 | `level_reach` → Runtime `growth_milestone_reached` | metric은 `hero_level`; 임계값과 상한은 동일 snapshot에서 검증 |
+| 특별 던전 | Runtime 의미는 `special_dungeon_floor_clear` | 현재 적용기의 레거시 `monster_kill`은 실제로 floor clear에 매핑된다. 몬스터 처치 수와 층 완료를 혼동하지 않도록 새 계약에서는 legacy action을 새 Plan에 허용하지 않는다. 명시적 action adapter가 구현되기 전까지 특별 던전 미션은 지원되지 않는 것으로 판정한다. |
+| 장소/template | 카탈로그에 등록된 `special_dungeon_template_id`만 허용 | 임의 template/layout/theme/difficulty ID 생성 금지 |
+| 보상 | 카탈로그 item ID와 정수 수량, 잔액 상한 내 지급 | item kind, max balance, 지급 source·한도를 검증. 환산 규칙 없는 스킨/코스튬은 화폐 가치 계산 금지 |
+
+현재 Runtime adapter의 day 기반 보상 연결은 해당 day의 첫 미션에 보상을 연결한다. 이는 명시적 `mission_id` 연결 계약과 동등하지 않다. 따라서 새 Plan이 요청한 mission-reward link를 무손실로 변환할 수 없으면 지원으로 표시하지 않는다. 구현 전 adapter가 `mission_id` 기반 연결을 직접 수용하게 바꾸거나, MVP 계약에서 day별 단일 연결 제약을 schema로 강제해야 한다. 자동으로 첫 미션에 붙이는 동작은 금지한다.
+
+## 4. 결정적 게임 규칙·밸런스 입력
+
+`get_game_rules`와 `get_event_planning_context`는 같은 snapshot에서 다음 정보를 제공한다.
+
+- stage/dungeon/special dungeon ID·이름·종류·해금 조건·반복/진행 규칙
+- action signal과 판정 단위(전투 승리, 던전 클리어, 특별 던전 층 완료, 영웅 레벨)
+- 목표 가능한 metric, 목표 연산자와 허용 범위, reset/기간 의미
+- 콘텐츠별 전투 스탯·경험치·재화 보상 및 반복 진행 formula 참조
+- 성장 action별 비용·효과·상한과 세그먼트/유저 profile 입력
+- item ID·kind·최대 보유량·지급 가능 여부·상점 가격/전환 규칙(있는 경우)
+- 조회 근거의 `game_data_snapshot_id`, `game_ruleset_version`, source, data digest
+
+계산기는 같은 버전 입력에 대해 같은 결과를 반환하고 `method_ref`와 입력 evidence를 남긴다. 규칙상 보상·성장량은 계산할 수 있으면 `calculated`다. 세그먼트 기준 중 `mock_historical_aggregate`는 가정 fixture로 표시하며 실유저 달성률이나 실측 평균으로 사용하지 않는다. 필요한 실측 자료가 없으면 실제 이용자 성공률은 `unknown`이다.
+
+## 5. MCP Tool 계약
+
+모든 Tool은 읽기 전용이고 `tool_id`, `tool_version`, `input_schema`, `output_schema`, 호출 허용 Agent/task, `timeout_seconds`, `retry_class`, 안정 오류 코드가 registry에 등록된다. Tool 결과는 사용자 지시가 아닌 untrusted data로 검증한다.
+
+### 5.1 `get_event_capabilities`
+
+입력: `game_id`, 필수 `game_data_snapshot_id`, 선택 `capability_catalog_version`. 출력: §3의 전체 범위/조합 및 버전. 누락 버전을 최신으로 묵시 치환하지 않는다. Scope Checker와 Validator가 호출할 수 있고 Planner는 결과 참조만 받는다.
+
+### 5.2 `get_event_planning_context`
+
+기존 `target_user`, `duration` 입력을 versioned contract로 확장한다. 입력은 `game_id`, `game_data_snapshot_id`, `target_segment_id`, `duration_days`다. 출력은 전체 raw catalog 복사본이 아니라 선택된 세그먼트의 근거 있는 growth profile, 기간에 적용되는 콘텐츠/action 선택지, item 요약, 해당 snapshot·digest, synthetic/observed data provenance를 포함한다. 필수 snapshot ID 불일치나 세그먼트 미존재는 명시 오류다.
+
+### 5.3 `get_game_rules`
+
+입력은 `game_data_snapshot_id`, `content_id`다. 출력은 콘텐츠 ID·종류·이름·unlock 조건·행동 signal·목표 판정 규칙·전투/반복 progression·보상 계산 참조·snapshot/evidence다. 기존 이름·입장 레벨 전용 응답으로 밸런스 검증을 완료할 수 없다.
+
+### 5.4 `get_item_info`
+
+입력은 `game_data_snapshot_id`, `item_id`다. 출력은 존재 여부·종류(currency/material/consumable/chest/skin 등)·max balance·event grant eligibility·quantity 제한·가격 및 전환 규칙(등록된 경우)·evidence다. 가격/가치 규칙이 없는 cosmetic을 재화로 임의 환산하지 않는다.
+
+### 5.5 `get_game_rules_fallback`
+
+Fallback은 같은 `game_data_snapshot_id`, `game_ruleset_version`, `event_schema_version`, capability version과 digest를 가진 검증 snapshot만 반환한다. primary와 동등성이 하나라도 확인되지 않으면 fallback을 쓰지 않고 `NEEDS_DATA`/dependency error로 종료한다. 같은 버전 문자열만 일치하는 것은 충분하지 않다.
+
+### 5.6 외부 사례 자료
+
+`get_clash_event_sample`은 공개 표본의 참고 자료로 분리한다. `source_game_id=clash_of_clans`와 표본 선택·수집 시각을 보존하며 Opong capability/evidence로 사용하지 않는다. 로컬 MVP에서는 Runtime 적합성 판정의 입력으로 비활성화한다.
+
+## 6. 오류·안전·권한
+
+| 상황 | 결과 |
+|---|---|
+| 요청 snapshot을 찾을 수 없음 | `ERR-DATA-CONTEXT-001`, `NEEDS_DATA`; 다른 버전으로 자동 전환 금지 |
+| 콘텐츠/아이템 ID가 snapshot에 없음 | 미존재와 조회 장애를 구분해 `NEEDS_DATA` 또는 규칙 finding 반환 |
+| catalog는 있으나 adapter mapping이 없음 | `NEEDS_DEVELOPMENT`, `runtime_eligible=false` |
+| action 의미가 Runtime signal과 다름 | 지원 판정 금지; 예: kill count를 floor clear로 변환하지 않음 |
+| fallback provenance/digest 불일치 | fallback 금지, `SAFE_STOP`/`NEEDS_DATA` |
+| MCP timeout/throttle | 해당 read tool만 정책 budget 내 retry; 버전이 다른 fallback 금지 |
+| MCP write 요청 | tool catalog에 write가 없으므로 거부. 업무 변경은 Controller→내부 서비스/API→DB transaction 경로만 사용 |
+
+## 7. 전환 및 동기화 기준
+
+1. Runtime과 MCP가 같은 snapshot을 읽는 adapter를 확정한다.
+2. 새 이벤트 생성은 canonical Opong snapshot과 capability version만 사용한다.
+3. Legacy `tinyheroes-1.0.0`은 저장된 과거 Task만 처리하는 명시적 변환 경로로 제한한다.
+4. Runtime 적용 adapter가 Plan의 action, venue, audience, reward grant, explicit mission-reward link를 손실 없이 표현할 때만 `SUPPORTED`로 올린다.
+5. Catalog 또는 adapter 변경 시 관련 version을 올리고, 기존 Plan/승인/실행은 이전 버전을 유지한다.
+
+## 8. 완료 기준
+
+- MCP의 모든 기획 데이터 응답이 Runtime과 동일한 snapshot·ruleset·schema 버전을 가리킨다.
+- 지원 capability 목록이 실제 Runtime adapter 제약과 일치하고 별도의 LLM 추측이 개입하지 않는다.
+- 콘텐츠·아이템·세그먼트·전투·성장·보상 계산에 필요한 근거가 같은 snapshot에서 조회된다.
+- synthetic cohort 값이 실측값처럼 취급되지 않는다.
+- legacy source, fallback, 외부 Clash 표본이 현재 Runtime capability와 섞이지 않는다.
+- `monster_kill`/floor clear와 day-based reward link 같은 의미 손실 사례는 지원으로 통과하지 않는다.
+- 읽기 전용 Tool allowlist와 MCP write 거부가 명확하다.
+
+## 9. 참조
+
+- [기획안·게임 기능 계약](01_기획안_게임기능_계약_설계.md)
+- [멀티 에이전트·Workflow](02_멀티에이전트_Workflow_설계.md)
+- [API·저장·Trace](06_API_저장_Trace_설계.md)
+- [게임 데이터 Schema](../게임설계/02_게임데이터_스키마.md)
+- [게임 Runtime/API](../게임설계/04_게임Runtime_API.md)
+- [이벤트 적용 계약](../게임설계/05_이벤트적용_계약.md)
+- [게임 검증·밸런스](../게임설계/07_게임검증_밸런스.md)
