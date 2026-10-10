@@ -1,5 +1,7 @@
 param(
-    [switch]$RestartPostgres
+    [switch]$RestartPostgres,
+    [string]$TestPath,
+    [string]$TestName
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,7 +63,14 @@ try {
         throw "Could not apply migrations and seed the isolated test database."
     }
 
-    & docker @dockerArgs python -m pytest -q --tb=short -rs
+    $pytestArgs = @("python", "-m", "pytest", "-q", "--tb=short", "-rs")
+    if ($TestPath) {
+        $pytestArgs += $TestPath
+    }
+    if ($TestName) {
+        $pytestArgs += @("-k", $TestName)
+    }
+    & docker @dockerArgs @pytestArgs
     if ($LASTEXITCODE -ne 0) {
         throw "The local test suite failed."
     }

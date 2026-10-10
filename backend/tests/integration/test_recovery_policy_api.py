@@ -1,4 +1,6 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
@@ -76,6 +78,49 @@ def test_workflow_keeps_pinned_policy_version_after_activation(client):
     finally:
         rollback = client.post(f"/api/v1/recovery-policies/{original_version}/rollback")
     assert rollback.status_code == 200, rollback.text
+
+
+def test_concurrent_policy_activations_leave_exactly_one_active_version(client):
+    from backend.app.services.recovery_policy import activate_version, list_policies
+
+    original = next(
+        row
+        for row in client.get("/api/v1/recovery-policies").json()["versions"]
+        if row["status"] == "ACTIVE"
+    )
+    versions = []
+    for attempts in (1, 2):
+        policy = original["policy"]
+        policy["routes"]["ERR-DEP-MCP-001"]["max_attempts"] = attempts
+        created = client.post(
+            "/api/v1/recovery-policies/drafts",
+            headers={"Idempotency-Key": str(uuid4())},
+            json=policy,
+        )
+        assert created.status_code == 201, created.text
+        version = created.json()["version"]
+        assert client.post(f"/api/v1/recovery-policies/{version}/validate").json()["valid"]
+        versions.append(version)
+
+    barrier = Barrier(len(versions))
+
+    def activate(version):
+        barrier.wait(timeout=5)
+        return activate_version(version)
+
+    try:
+        with ThreadPoolExecutor(max_workers=len(versions)) as pool:
+            results = list(pool.map(activate, versions))
+        assert {result["version"] for result in results} == set(versions)
+        active = [row for row in list_policies()["versions"] if row["status"] == "ACTIVE"]
+        assert [row["version"] for row in active] in ([versions[0]], [versions[1]])
+    finally:
+        current = list_policies()
+        original_row = next(
+            row for row in current["versions"] if row["version"] == original["version"]
+        )
+        if original_row["status"] == "RETIRED":
+            activate_version(original["version"], rollback=True)
 
 
 def _create_workflow(client):
