@@ -12,6 +12,8 @@ let policyLoadError = "";
 let logsState = null;
 let logsError = "";
 let loading = false;
+let activeToast = null;
+let activeToastTimer = null;
 
 const views = [
   ["create", "기획안 만들기", "✦"],
@@ -41,10 +43,25 @@ function shell() {
 }
 
 function toast(message, error = false) {
+  activeToast = { message, error };
+  clearTimeout(activeToastTimer);
+  showToast();
+  activeToastTimer = setTimeout(() => {
+    activeToast = null;
+    showToast();
+  }, 3200);
+}
+
+function showToast() {
   const node = $("#toast");
-  node.textContent = message;
-  node.className = `toast show ${error ? "error" : ""}`;
-  setTimeout(() => node.classList.remove("show"), 3200);
+  if (!node) return;
+  if (!activeToast) {
+    node.textContent = "";
+    node.className = "toast";
+    return;
+  }
+  node.textContent = activeToast.message;
+  node.className = `toast show ${activeToast.error ? "error" : ""}`;
 }
 
 function titleFor(view) {
@@ -256,8 +273,24 @@ async function selectLoggedWorkflow(workflowId) {
     const body = await response.json();
     if (!response.ok) throw new Error("선택한 Workflow를 읽지 못했습니다.");
     currentRun = body;
+    localStorage.setItem("eventquest.latestWorkflow", body.workflow_id);
   } catch (error) { toast(error.message, true); }
   render();
+}
+
+async function restoreLatestWorkflow() {
+  const workflowId = localStorage.getItem("eventquest.latestWorkflow");
+  if (!workflowId || currentRun) return;
+  try {
+    const response = await fetch(`/api/v1/workflows/${encodeURIComponent(workflowId)}`);
+    const body = await response.json();
+    if (!response.ok) throw new Error("저장된 Workflow를 복원하지 못했습니다.");
+    if (!currentRun && activeView === "create") {
+      currentRun = body;
+      activeView = "workflow";
+      render();
+    }
+  } catch (error) { toast(error.message, true); }
 }
 
 function render() {
@@ -281,6 +314,8 @@ function render() {
   $("#refresh-logs")?.addEventListener("click", () => { logsState = null; loadLogs(); });
   document.querySelectorAll("[data-workflow-id]").forEach((button) => button.addEventListener("click", () => selectLoggedWorkflow(button.dataset.workflowId)));
   document.querySelectorAll("[data-goto]").forEach((button) => button.addEventListener("click", () => { activeView = button.dataset.goto; render(); }));
+  showToast();
 }
 
 render();
+restoreLatestWorkflow();

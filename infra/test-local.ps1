@@ -66,6 +66,16 @@ try {
         throw "The local test suite failed."
     }
 
+    & docker @dockerArgs python -m backend.scripts.export_planning_contract_schemas --check
+    if ($LASTEXITCODE -ne 0) {
+        throw "Planning contract schema export check failed."
+    }
+
+    & docker @dockerArgs python -m compileall -q backend/app backend/tests backend/scripts
+    if ($LASTEXITCODE -ne 0) {
+        throw "Python compile check failed."
+    }
+
     if (-not (Test-Path -LiteralPath $ruffPython)) {
         throw "Install requirements-dev.txt in .venv before running Ruff checks."
     }
