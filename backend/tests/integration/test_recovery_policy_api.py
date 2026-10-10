@@ -13,6 +13,14 @@ def test_policy_lifecycle_persists_version_and_audit(client):
     assert initial.status_code == 200
     active = next(row for row in initial.json()["versions"] if row["status"] == "ACTIVE")
     draft = active["policy"]
+    assert draft["routes"]["ERR-CTRL-BUDGET-001"] == {
+        "action": "SAFE_STOP",
+        "max_attempts": 1,
+    }
+    assert draft["routes"]["ERR-CTRL-DEADLINE-001"] == {
+        "action": "SAFE_STOP",
+        "max_attempts": 1,
+    }
     draft["routes"]["ERR-DEP-MCP-001"]["max_attempts"] = 2
     key = str(uuid4())
 

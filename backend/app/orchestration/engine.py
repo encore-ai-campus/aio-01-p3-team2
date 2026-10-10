@@ -14,7 +14,7 @@ from ..fault_injection.fault_manager import FaultManager
 from ..fault_injection.fault_types import FaultType
 from ..faults.error_catalog import error_definition
 from ..guards.tool_guard import ToolGuardError
-from ..services.llm_service import LLMExecutionError, LLMTimeoutError
+from ..services.llm_service import LLMBudgetExceeded, LLMExecutionError, LLMTimeoutError
 from ..services.mcp_client import MCPTimeoutError, MCPToolError
 from .handoff import Handoff
 from .planning_context import validate_planning_context
@@ -568,6 +568,8 @@ class WorkflowEngine:
                 return result
             except LLMTimeoutError:
                 error_type = "llm_timeout"
+            except LLMBudgetExceeded:
+                error_type = "llm_budget_exceeded"
             except (TypeError, ValueError, PlannerInputError, ContextPolicyError):
                 error_type = "validation_error"
             except LLMExecutionError:
@@ -806,6 +808,8 @@ class WorkflowEngine:
                 ) from exc
             except LLMTimeoutError:
                 error_type = "llm_timeout"
+            except LLMBudgetExceeded:
+                error_type = "llm_budget_exceeded"
             except LLMExecutionError:
                 error_type = "agent_failure"
             except ValueError:
@@ -879,6 +883,8 @@ class WorkflowEngine:
                 return dict(validated)
             except LLMTimeoutError:
                 error_type = "llm_timeout"
+            except LLMBudgetExceeded:
+                error_type = "llm_budget_exceeded"
             except (CriticOutputError, CriticInputError, ContextPolicyError, TypeError, ValueError):
                 error_type = "validation_error"
             except LLMExecutionError:

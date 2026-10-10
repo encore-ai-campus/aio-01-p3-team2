@@ -2,10 +2,10 @@
 
 import asyncio
 import os
-from collections.abc import Mapping
+from collections.abc import Awaitable, Mapping
 from contextlib import nullcontext
 from copy import deepcopy
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +15,7 @@ from backend.app.agents.balance_rule import BalanceRuleAgent
 from backend.app.agents.critic import Critic
 from backend.app.agents.event_planner import EventPlanner
 from backend.app.agents.supervisor import Supervisor
+from backend.app.faults.error_catalog import error_definition
 from backend.app.guards.tool_guard import ToolGuard
 from backend.app.orchestration.engine import WorkflowEngine as BackendBEngine
 from backend.app.schemas.event import (
@@ -54,6 +55,8 @@ REWARDS = {
     2: ("ITEM_002", "성장 상자", 1),
     3: ("ITEM_003", "기념 배지", 1),
 }
+
+WORKFLOW_DEADLINE_SECONDS = 180
 
 
 class MockWorkflowEngine:
@@ -205,20 +208,57 @@ class BackendBWorkflowAdapter:
         return self._clash_workflow is not None
 
     def run(self, task_id: str, brief: EventBrief, fault_type: str | None = None) -> WorkflowResult:
+        result = self._run_bounded(
+            task_id,
+            self._engine.run(
+                task_id,
+                brief.model_dump(mode="json", exclude={"game_source"}),
+                fault_type,
+            ),
+        )
+        return result if isinstance(result, WorkflowResult) else self._convert(result, brief)
+
+    def _run_bounded(self, task_id: str, workflow: Awaitable[Any]) -> WorkflowResult:
         policy_context = (
             pin_active_policy() if os.getenv("DATABASE_URL", "").strip() else nullcontext()
         )
-        with policy_context, workflow_llm_call_budget(max_calls=8):
-            result = asyncio.run(
-                self._engine.run(
-                    task_id, brief.model_dump(mode="json", exclude={"game_source"}), fault_type
+
+        async def execute() -> Any:
+            return await asyncio.wait_for(workflow, timeout=WORKFLOW_DEADLINE_SECONDS)
+
+        try:
+            with policy_context, workflow_llm_call_budget(max_calls=8):
+                result = asyncio.run(execute())
+        except TimeoutError:
+            asyncio.run(
+                self._save_trace(
+                    {
+                        "task_id": task_id,
+                        "time": datetime.now(UTC).isoformat(),
+                        "actor": "supervisor",
+                        "action": "workflow.deadline_exceeded",
+                        "status": "FAILED",
+                        "phase": "routing",
+                        "error_type": "workflow_deadline_exceeded",
+                        "error_code": error_definition("workflow_deadline_exceeded").code,
+                        "reason": "Workflow 전체 실행 제한 시간 180초를 초과해 안전 종료했습니다.",
+                    }
                 )
             )
-        return self._convert(result, brief)
+            return WorkflowResult(
+                workflow_status=WorkflowStatus.FAILED,
+                critic_status=CriticStatus.FAIL,
+                owner_agent="supervisor",
+                error=WorkflowError(
+                    error_type="workflow_deadline_exceeded",
+                    message="Workflow 전체 실행 제한 시간을 초과해 안전 종료했습니다.",
+                ),
+            )
+        return result
 
     def revise(self, task_id: str, brief: EventBrief, approval_comment: str) -> WorkflowResult:
-        result = asyncio.run(self._engine.revise(task_id, approval_comment))
-        return self._convert(result, brief)
+        result = self._run_bounded(task_id, self._engine.revise(task_id, approval_comment))
+        return result if isinstance(result, WorkflowResult) else self._convert(result, brief)
 
     def run_clash(
         self,

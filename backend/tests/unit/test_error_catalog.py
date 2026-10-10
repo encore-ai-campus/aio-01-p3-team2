@@ -15,6 +15,18 @@ def test_unknown_error_maps_to_safe_stop_catalog_entry() -> None:
     assert definition.retry_class == "NEVER"
 
 
+def test_llm_budget_exhaustion_is_a_non_retryable_control_error() -> None:
+    definition = error_definition("llm_budget_exceeded")
+    assert definition.code == "ERR-CTRL-BUDGET-001"
+    assert definition.retry_class == "NEVER"
+
+
+def test_workflow_deadline_is_a_non_retryable_control_error() -> None:
+    definition = error_definition("workflow_deadline_exceeded")
+    assert definition.code == "ERR-CTRL-DEADLINE-001"
+    assert definition.retry_class == "NEVER"
+
+
 def test_catalog_codes_are_unique_and_follow_documented_shape() -> None:
     codes = [entry.code for entry in ERROR_CATALOG.values()]
     assert len(codes) == len(set(codes))

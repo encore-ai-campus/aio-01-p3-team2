@@ -32,6 +32,11 @@ def test_policy_cannot_raise_retry_hard_cap_or_add_unknown_error():
     assert any("등록되지 않은" in error for error in errors)
 
 
+def test_llm_budget_exhaustion_safe_stops_without_retry():
+    route = decide_recovery("llm_budget_exceeded")
+    assert route.action == "SAFE_STOP"
+
+
 def test_pinned_policy_controls_retry_and_records_version_in_decision():
     policy = _default_policy()
     token = recovery_policy._PINNED_POLICY.set({"version": 7, **policy})

@@ -105,6 +105,20 @@ ERROR_CATALOG: dict[str, ErrorDefinition] = {
     "recovery_limit_exceeded": ErrorDefinition(
         "ERR-CTRL-LIMIT-001", "CONTROL", "WORKFLOW", "NEVER", "복구 실행 한도를 초과했습니다."
     ),
+    "llm_budget_exceeded": ErrorDefinition(
+        "ERR-CTRL-BUDGET-001",
+        "CONTROL",
+        "LLM",
+        "NEVER",
+        "LLM 호출 예산을 모두 사용해 안전 종료했습니다.",
+    ),
+    "workflow_deadline_exceeded": ErrorDefinition(
+        "ERR-CTRL-DEADLINE-001",
+        "CONTROL",
+        "WORKFLOW",
+        "NEVER",
+        "Workflow 전체 실행 제한 시간을 초과해 안전 종료했습니다.",
+    ),
     "unknown_error": ErrorDefinition(
         "ERR-UNKNOWN-WORKFLOW-001",
         "INTERNAL",

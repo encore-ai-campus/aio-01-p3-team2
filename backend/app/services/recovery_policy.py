@@ -198,8 +198,14 @@ def list_policies() -> dict[str, Any]:
             ),
             {"id": POLICY_ID},
         ).fetchall()
+    versions = [_row(row) for row in rows]
+    default_routes = _default_policy()["routes"]
+    for version in versions:
+        routes = version["policy"].setdefault("routes", {})
+        for code, route in default_routes.items():
+            routes.setdefault(code, route)
     return {
-        "versions": [_row(row) for row in rows],
+        "versions": versions,
         "audit": [dict(row._mapping) for row in audit],
         "hard_max_attempts": HARD_MAX_ATTEMPTS,
     }
@@ -298,6 +304,9 @@ def preview_version(version: int) -> dict[str, Any]:
         if not rows:
             raise LookupError("정책 버전을 찾을 수 없습니다.")
         candidate = json.loads(rows.policy) if isinstance(rows.policy, str) else rows.policy
+        if rows.status == "RETIRED":
+            for code, route in _default_policy()["routes"].items():
+                candidate["routes"].setdefault(code, route)
         active_row = connection.execute(
             text(
                 "SELECT policy FROM recovery_policy_versions WHERE policy_id=:id AND status='ACTIVE'"
