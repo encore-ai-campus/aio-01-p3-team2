@@ -59,6 +59,35 @@ def create_app() -> FastAPI:
     application.include_router(planning_router, prefix="/api")
     application.include_router(policy_router, prefix="/api")
 
+    @application.middleware("http")
+    async def enforce_mutation_origin(request: Request, call_next):
+        """Reject cross-origin browser mutations before they reach application routes."""
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            origin = request.headers.get("origin")
+            # Originless clients remain usable because this MVP has no cookie/session auth.
+            if origin is not None:
+                configured = os.getenv("APP_ALLOWED_ORIGINS", "").strip()
+                allowed = (
+                    {value.strip() for value in configured.split(",") if value.strip()}
+                    if configured
+                    else {
+                        "http://127.0.0.1:5173",
+                        "http://localhost:5173",
+                        "http://127.0.0.1:5177",
+                        "http://localhost:5177",
+                    }
+                )
+                if origin not in allowed:
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "error_code": "ORIGIN_NOT_ALLOWED",
+                            "message": "허용되지 않은 웹 출처의 변경 요청입니다.",
+                            "detail": None,
+                        },
+                    )
+        return await call_next(request)
+
     @application.exception_handler(ServiceError)
     async def service_error_handler(_: Request, exc: ServiceError) -> JSONResponse:
         return JSONResponse(
