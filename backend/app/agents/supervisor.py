@@ -60,7 +60,13 @@ class Supervisor:
         """허용된 상태 전이만 받아 원래의 결정 근거를 Trace에 남긴다."""
         del decision_context
         actions = {"RUN_AGENT", "WAIT_APPROVAL", "RETRY", "TOOL_FALLBACK", "SAFE_STOP"}
-        agents = {"event_planner_agent", "balance_rule_agent", "critic_agent"}
+        agents = {
+            "event_planner_agent",
+            "balance_rule_agent",
+            "critic_agent",
+            "canonical_event_planner_agent",
+            "canonical_event_critic_agent",
+        }
         if action not in actions or not isinstance(reason, str) or not reason.strip():
             raise SupervisorDecisionError("Workflow 전이 제안이 올바르지 않습니다.")
         if action == "RUN_AGENT" and next_agent not in agents:

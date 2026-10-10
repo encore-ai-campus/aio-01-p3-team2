@@ -6,7 +6,7 @@
 
 ## 2. 현재 구현 기준
 
-현재는 기존 Task/승인/Workflow API와 게임 Runtime API가 분리되어 있고, 승인된 Task 결과를 게임 adapter가 다시 조회해 등록한다. 통합된 Event Plan 계약, 회복 정책 Registry, idempotency의 시스템 전체 일관성, 기획 Workflow와 게임 Runtime의 단일 Trace 조회는 목표 설계이며 구현 완료로 보지 않는다. 최신 동작 증거는 [현재 구현 상태](../현재_구현상태.md), 적용 경계는 [게임 이벤트 적용 계약](../게임설계/05_이벤트적용_계약.md)를 기준으로 한다.
+현재는 canonical 기획 API와 가상 게임 Runtime API가 별도 자원이지만 같은 PostgreSQL을 사용한다. Brief/Plan은 canonical workflow record로 저장하고, 결정은 immutable decision row로 저장한다. 승인·Runtime 등록은 별도 append-only lifecycle event로 같은 Workflow 조회에 합쳐 반환한다. 이 Trace는 UI 메모리에서 만들어내지 않는다. E2E 검증 및 아직 미완료인 전체 Trace 계약 범위는 [현재 구현 상태](../현재_구현상태.md), 적용 경계는 [게임 이벤트 적용 계약](../게임설계/05_이벤트적용_계약.md)를 기준으로 한다.
 
 ## 3. 원칙과 권위 데이터
 
@@ -75,6 +75,8 @@ Runtime 등록은 `runtime_eligible=true`, 승인된 동일 `plan_id/result_vers
 최소 이벤트 필드: `event_id`, `occurred_at`, `trace_id`, `workflow_id`, nullable `task_id`/`parent_task_id`, `event_type`, `phase`, `component`, `status`, `attempt`, `revision`, `plan_version`, `domain_schema_version`, `event_schema_version`, `game_data_snapshot_id`, `game_ruleset_version`, `capability_catalog_version`, `balance_policy_version`, `recovery_policy_version`, `error_code`, `reason_code`, `duration_ms`, `safe_attributes`. LLM invocation event에는 추가로 `provider`, `model_id`, `model_config_version`, `prompt_template_id/version`, `prompt_record_id`, `input_tokens`, `output_tokens`, `reported_cost`와 `pricing_version`을 기록한다. Provider가 token/cost 사용량을 반환하지 않는 경우 null과 사유를 기록하고 추정 사용량을 실제값으로 표시하지 않는다.
 
 Trace는 요청 접수→task/handoff→검증/평가→복구 정책 결정→사람 결정→Plan→Runtime 등록 순서를 연결한다. 화면에 보여주는 단계 수는 사전 고정값이 아니라 실제 발생 이벤트와 현재 workflow 상태에서 계산한다. 기록 실패 시 필수 감사 이벤트는 업무 성공으로 표시하지 않는다.
+
+현재 구현은 계획 생성 시의 immutable Trace와 승인·등록 이후의 `canonical_planning_events`를 Workflow 조회 시 시간순으로 합친다. 결정 이벤트 dedupe key는 workflow/plan version을, Runtime 등록 이벤트 dedupe key는 `runtime_event_id`를 기준으로 한다. Runtime 등록 후 API가 이벤트 Trace를 쓰지 못한 경우 요청은 실패로 반환되며, 같은 Runtime 등록을 다시 읽은 재요청에서 같은 event key로 기록을 보완한다. 전체 공통 Trace envelope의 모든 설계 필드와 불명확한 DB commit의 전 범위 outcome lookup은 아직 후속 수용 대상이다.
 
 ## 8. 보존·마스킹·환경 설정
 

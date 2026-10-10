@@ -18,6 +18,7 @@ from ..services.llm_service import LLMBudgetExceeded, LLMExecutionError, LLMTime
 from ..services.mcp_client import MCPTimeoutError, MCPToolError
 from .handoff import Handoff
 from .planning_context import validate_planning_context
+from .retry import wait_before_retry
 
 RevisionLoader = Callable[[str], Awaitable[Mapping[str, object]]]
 TraceSink = Callable[[dict[str, object]], Awaitable[None]]
@@ -137,6 +138,7 @@ class WorkflowEngine:
                         {"error_type": "db_connection_error", "reason": route.reason},
                     )
                 retry_count = route.retry_count
+                await wait_before_retry(retry_count)
         brief = self._validate_brief(stored.get("user_request"))
         previous = stored.get("current_result")
         if not isinstance(previous, Mapping):
@@ -513,6 +515,7 @@ class WorkflowEngine:
                     error_type, route.reason, "supervisor", retry_count
                 ) from cause
             retry_count = route.retry_count
+            await wait_before_retry(retry_count)
             healing.append(
                 {
                     "action": "RETRY",
@@ -582,6 +585,7 @@ class WorkflowEngine:
                     error_type, route.reason, "event_planner_agent", retry_count
                 ) from None
             retry_count = route.retry_count
+            await wait_before_retry(retry_count)
             healing.append(
                 {
                     "action": "RETRY",
@@ -697,6 +701,7 @@ class WorkflowEngine:
                             error_type, route.reason, "balance_rule_agent", retry_count
                         ) from exc
                     retry_count = route.retry_count
+                    await wait_before_retry(retry_count)
                     healing.append(
                         {
                             "action": "RETRY",
@@ -767,6 +772,7 @@ class WorkflowEngine:
                             error_type, route.reason, "balance_rule_agent", retry_count
                         ) from exc
                     retry_count = route.retry_count
+                    await wait_before_retry(retry_count)
                     healing.append(
                         {
                             "action": "RETRY",
@@ -825,6 +831,7 @@ class WorkflowEngine:
                     error_type, route.reason, "balance_rule_agent", agent_retry_count
                 ) from None
             agent_retry_count = route.retry_count
+            await wait_before_retry(agent_retry_count)
             healing.append(
                 {
                     "action": "RETRY",
@@ -897,6 +904,7 @@ class WorkflowEngine:
                     error_type, route.reason, "critic_agent", retry_count
                 ) from None
             retry_count = route.retry_count
+            await wait_before_retry(retry_count)
             healing.append(
                 {
                     "action": "RETRY",

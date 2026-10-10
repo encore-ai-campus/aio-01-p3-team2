@@ -1,11 +1,14 @@
 """Agent의 LLM 호출에 제한 시간과 공통 오류 처리를 적용한다."""
 
 import asyncio
+import hashlib
 import json
+import os
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 
 LLMTransport = Callable[[str, dict[str, object]], Awaitable[Mapping[str, object]]]
 
@@ -21,16 +24,123 @@ class LLMExecutionError(RuntimeError):
 class LLMBudgetExceeded(LLMExecutionError):
     """Workflow가 허용된 LLM 호출 수를 모두 사용한 상태다."""
 
+    def __init__(self, message: str, *, usage: dict[str, object] | None = None) -> None:
+        super().__init__(message)
+        self.usage = usage
+
+
+def _positive_int_env(name: str) -> int:
+    value = os.getenv(name, "").strip()
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise LLMBudgetExceeded(f"{name} 설정이 필요합니다.") from exc
+    if parsed < 1:
+        raise LLMBudgetExceeded(f"{name}은 양의 정수여야 합니다.")
+    return parsed
+
+
+def _positive_decimal_env(name: str) -> Decimal:
+    try:
+        parsed = Decimal(os.getenv(name, "").strip())
+    except (InvalidOperation, ValueError) as exc:
+        raise LLMBudgetExceeded(f"{name} 설정이 필요합니다.") from exc
+    if not parsed.is_finite() or parsed <= 0:
+        raise LLMBudgetExceeded(f"{name}은 양수여야 합니다.")
+    return parsed
+
+
+def validate_live_recording() -> None:
+    """Lazily verify the encrypted raw-record store before provider traffic."""
+    from backend.app.services.llm_record_service import validate_live_recording as validate
+
+    validate()
+
+
+def write_live_record(**record: object) -> dict[str, object]:
+    """Persist raw invocation material using the isolated encrypted store."""
+    from backend.app.services.llm_record_service import store_llm_record
+
+    return store_llm_record(**record)
+
 
 @dataclass
 class _LLMCallBudget:
     max_calls: int
+    max_input_tokens: int | None = None
+    max_output_tokens: int | None = None
+    max_cost: Decimal | None = None
+    input_price_per_million: Decimal | None = None
+    output_price_per_million: Decimal | None = None
     used_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost: Decimal = Decimal(0)
+    records: list[dict[str, object]] | None = None
 
     def consume(self) -> None:
         if self.used_calls >= self.max_calls:
             raise LLMBudgetExceeded("Workflow LLM 호출 한도에 도달했습니다.")
         self.used_calls += 1
+
+    def record_usage(
+        self, usage: Mapping[str, object], record: Mapping[str, object] | None = None
+    ) -> None:
+        try:
+            input_tokens = int(usage["input_tokens"])
+            output_tokens = int(usage["output_tokens"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise LLMBudgetExceeded("Provider token usage를 확인할 수 없습니다.") from exc
+        if input_tokens < 0 or output_tokens < 0:
+            raise LLMBudgetExceeded("Provider token usage가 올바르지 않습니다.")
+        if self.input_price_per_million is None or self.output_price_per_million is None:
+            raise LLMBudgetExceeded("LLM 가격표가 없어 비용 예산을 확인할 수 없습니다.")
+        self.input_tokens += input_tokens
+        self.output_tokens += output_tokens
+        configured_cost = (
+            Decimal(input_tokens) * self.input_price_per_million
+            + Decimal(output_tokens) * self.output_price_per_million
+        ) / Decimal(1_000_000)
+        reported_cost = usage.get("reported_cost")
+        if reported_cost is not None:
+            try:
+                invocation_cost = Decimal(str(reported_cost))
+            except InvalidOperation as exc:
+                raise LLMBudgetExceeded(
+                    "Provider reported cost is invalid.", usage=self.snapshot()
+                ) from exc
+            if not invocation_cost.is_finite() or invocation_cost < 0:
+                raise LLMBudgetExceeded("Provider reported cost is invalid.", usage=self.snapshot())
+            self.cost += invocation_cost
+        else:
+            self.cost += configured_cost
+        if record is not None:
+            if self.records is None:
+                self.records = []
+            self.records.append(dict(record))
+        if self.max_input_tokens is not None and self.input_tokens > self.max_input_tokens:
+            raise LLMBudgetExceeded(
+                "Workflow input token 예산을 초과했습니다.", usage=self.snapshot()
+            )
+        if self.max_output_tokens is not None and self.output_tokens > self.max_output_tokens:
+            raise LLMBudgetExceeded(
+                "Workflow output token 예산을 초과했습니다.", usage=self.snapshot()
+            )
+        if self.max_cost is not None and self.cost > self.max_cost:
+            raise LLMBudgetExceeded("Workflow 비용 예산을 초과했습니다.", usage=self.snapshot())
+
+    def snapshot(self) -> dict[str, object]:
+        return {
+            "calls": self.used_calls,
+            "input_tokens": self.input_tokens if self.max_cost is not None else None,
+            "output_tokens": self.output_tokens if self.max_cost is not None else None,
+            "cost": str(self.cost) if self.max_cost is not None else None,
+            "currency": "USD" if self.max_cost is not None else None,
+            "pricing_version": os.getenv("LLM_PRICING_VERSION")
+            if self.max_cost is not None
+            else None,
+            "records": list(self.records or []),
+        }
 
 
 _CALL_BUDGET: ContextVar[_LLMCallBudget | None] = ContextVar(
@@ -43,11 +153,34 @@ def workflow_llm_call_budget(max_calls: int = 8):
     """Apply a hard, per-Workflow cap before any provider request is sent."""
     if type(max_calls) is not int or max_calls < 1:
         raise ValueError("LLM 호출 한도는 양의 정수여야 합니다.")
-    token = _CALL_BUDGET.set(_LLMCallBudget(max_calls=max_calls))
+    live = (
+        os.getenv("CANONICAL_PLANNING_MODE", "deterministic").strip().casefold() == "live"
+        or os.getenv("WORKFLOW_ENGINE", "mock").strip().casefold() == "backend_b_live"
+    )
+    settings: dict[str, object] = {}
+    if live:
+        currency = os.getenv("LLM_COST_CURRENCY", "USD").strip().upper()
+        if currency != "USD" or not os.getenv("LLM_PRICING_VERSION", "").strip():
+            raise LLMBudgetExceeded("지원되는 통화(USD)와 LLM_PRICING_VERSION 설정이 필요합니다.")
+        settings = {
+            "max_input_tokens": _positive_int_env("LLM_MAX_INPUT_TOKENS"),
+            "max_output_tokens": _positive_int_env("LLM_MAX_OUTPUT_TOKENS"),
+            "max_cost": _positive_decimal_env("LLM_MAX_COST_USD"),
+            "input_price_per_million": _positive_decimal_env("LLM_INPUT_USD_PER_MILLION"),
+            "output_price_per_million": _positive_decimal_env("LLM_OUTPUT_USD_PER_MILLION"),
+        }
+        validate_live_recording()
+    token = _CALL_BUDGET.set(_LLMCallBudget(max_calls=max_calls, **settings))
     try:
         yield
     finally:
         _CALL_BUDGET.reset(token)
+
+
+def workflow_llm_usage_snapshot() -> dict[str, object] | None:
+    """Return the current execution's measured provider budget summary."""
+    budget = _CALL_BUDGET.get()
+    return budget.snapshot() if budget is not None else None
 
 
 class LLMService:
@@ -94,12 +227,33 @@ class LLMService:
             )
         except TimeoutError as exc:
             raise LLMTimeoutError("LLM 응답 시간이 초과되었습니다.") from exc
+        except LLMBudgetExceeded:
+            raise
         except Exception as exc:
             raise LLMExecutionError("LLM 호출에 실패했습니다.") from exc
 
         if not isinstance(response, Mapping):
             raise LLMExecutionError("LLM 응답 형식이 올바르지 않습니다.")
-        return dict(response)
+        result = dict(response)
+        usage = result.pop("__llm_usage__", None)
+        record_payload = result.pop("__llm_record__", None)
+        if self.source == "live":
+            if (
+                budget is None
+                or not isinstance(usage, Mapping)
+                or not isinstance(record_payload, Mapping)
+            ):
+                raise LLMBudgetExceeded("Provider token usage 또는 Workflow 예산이 없습니다.")
+            record = write_live_record(
+                agent_name=agent_name,
+                model_id=str(record_payload["model_id"]),
+                prompt_template_version=str(record_payload["prompt_template_version"]),
+                prompt=str(record_payload["prompt"]),
+                response=str(record_payload["response"]),
+                usage=dict(usage),
+            )
+            budget.record_usage(usage, record)
+        return result
 
 
 def create_openai_transport(model: str, agents_config: Mapping[str, object]) -> LLMTransport:
@@ -129,6 +283,7 @@ def create_openai_transport(model: str, agents_config: Mapping[str, object]) -> 
         try:
             response = await client.responses.create(
                 model=model,
+                max_output_tokens=_positive_int_env("LLM_MAX_OUTPUT_TOKENS"),
                 instructions=instructions,
                 input=json.dumps(context, ensure_ascii=False),
                 text={
@@ -150,12 +305,82 @@ def create_openai_transport(model: str, agents_config: Mapping[str, object]) -> 
         parsed = json.loads(response.output_text)
         if not isinstance(parsed, dict):
             raise TypeError("LLM 응답은 객체여야 합니다.")
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            raise LLMBudgetExceeded("Provider token usage가 응답에 없습니다.")
+        parsed["__llm_usage__"] = {
+            "input_tokens": getattr(usage, "input_tokens", None),
+            "output_tokens": getattr(usage, "output_tokens", None),
+            "reported_cost": getattr(usage, "cost", None),
+        }
+        parsed["__llm_record__"] = {
+            "model_id": model,
+            "prompt_template_version": hashlib.sha256(
+                json.dumps(
+                    {
+                        "instructions": instructions,
+                        "output_schema": _OUTPUT_SCHEMAS[agent_name],
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()[:16],
+            "prompt": json.dumps(
+                {"instructions": instructions, "input": context},
+                ensure_ascii=False,
+                sort_keys=True,
+            ),
+            "response": response.output_text,
+        }
         return parsed
 
     return transport
 
 
 _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
+    "canonical_event_planner_agent": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["summary", "action_rationales", "reward_rationales"],
+        "properties": {
+            "summary": {"type": "string", "minLength": 1, "maxLength": 1000},
+            "action_rationales": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["action_id", "rationale"],
+                    "properties": {
+                        "action_id": {"type": "string", "minLength": 1},
+                        "rationale": {"type": "string", "minLength": 1, "maxLength": 500},
+                    },
+                },
+            },
+            "reward_rationales": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["reward_id", "rationale"],
+                    "properties": {
+                        "reward_id": {"type": "string", "minLength": 1},
+                        "rationale": {"type": "string", "minLength": 1, "maxLength": 500},
+                    },
+                },
+            },
+        },
+    },
+    "canonical_event_critic_agent": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["status", "reason", "review_note"],
+        "properties": {
+            "status": {"type": "string", "enum": ["PASS", "REVIEW"]},
+            "reason": {"type": "string", "minLength": 1, "maxLength": 1000},
+            "review_note": {"type": "string", "minLength": 1, "maxLength": 1000},
+        },
+    },
     "balance_rule_agent": {
         "type": "object",
         "additionalProperties": False,

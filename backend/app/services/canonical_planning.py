@@ -16,7 +16,10 @@ from mcp_server.tools.get_event_capabilities import get_event_capabilities
 from sqlalchemy import JSON, DateTime, String, UniqueConstraint, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
+from backend.app.faults.error_catalog import error_definition
 from backend.app.guards.input_guard import validate_text
+from backend.app.orchestration.handoff import Handoff
+from backend.app.orchestration.retry import wait_before_retry
 from backend.app.schemas.planning import (
     CapabilityCatalog,
     CapabilityStatus,
@@ -39,6 +42,14 @@ from backend.app.schemas.planning import (
     ValidationSummary,
     VenuePlan,
 )
+from backend.app.services.canonical_agents import build_canonical_agents
+from backend.app.services.llm_record_service import workflow_llm_identity
+from backend.app.services.llm_service import (
+    LLMBudgetExceeded,
+    LLMExecutionError,
+    LLMTimeoutError,
+    workflow_llm_usage_snapshot,
+)
 from backend.app.services.recovery_policy import pinned_policy_version
 
 _LOCK = RLock()
@@ -46,6 +57,7 @@ _RECORDS: dict[str, dict[str, Any]] = {}
 _IDEMPOTENCY: dict[str, tuple[str, str]] = {}
 _DECISIONS: dict[tuple[str, int], dict[str, Any]] = {}
 _DECISION_IDEMPOTENCY: dict[str, dict[str, Any]] = {}
+_LIFECYCLE_EVENTS: dict[str, list[dict[str, Any]]] = {}
 _ENGINES: dict[str, Any] = {}
 
 
@@ -81,6 +93,19 @@ class _PlanningDecisionRow(_CanonicalBase):
     result_version: Mapped[int] = mapped_column(nullable=False)
     action: Mapped[str] = mapped_column(String(16), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class _PlanningLifecycleEventRow(_CanonicalBase):
+    __tablename__ = "canonical_planning_events"
+    __table_args__ = (UniqueConstraint("dedupe_key", name="uq_canonical_planning_event_dedupe"),)
+
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    workflow_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    dedupe_key: Mapped[str] = mapped_column(String(180), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 def _engine(database_url: str) -> Any:
@@ -145,6 +170,66 @@ def _persist(record: dict[str, Any], idempotency_key: str, request_hash: str) ->
                     created_at=datetime.now(UTC),
                 )
             )
+
+
+def _persist_safe_stop(
+    *,
+    brief: EventBrief,
+    workflow_id: str,
+    task_id: str,
+    idempotency_key: str,
+    request_hash: str,
+    execution_profile: str,
+    error: Exception,
+    error_type: str,
+    recovery_trace: list[dict[str, Any]],
+    snapshot_digest: str,
+) -> dict[str, Any]:
+    """Persist a failed agent execution as a queryable immutable Workflow result."""
+    definition = error_definition(error_type)
+    usage = getattr(error, "usage", None) or workflow_llm_usage_snapshot()
+    if usage:
+        trace_events = [
+            {"event": "brief.accepted", "status": "SUCCESS"},
+            *recovery_trace,
+            {"event": "llm.usage_recorded", "status": "SUCCESS", "usage": usage},
+            {
+                "event": "workflow.safe_stopped",
+                "status": "SAFE_STOP",
+                "error_code": definition.code,
+                "reason": definition.safe_message,
+                "recovery_policy_version": pinned_policy_version(),
+            },
+        ]
+    else:
+        trace_events = [
+            {"event": "brief.accepted", "status": "SUCCESS"},
+            *recovery_trace,
+            {
+                "event": "workflow.safe_stopped",
+                "status": "SAFE_STOP",
+                "error_code": definition.code,
+                "reason": definition.safe_message,
+                "recovery_policy_version": pinned_policy_version(),
+            },
+        ]
+    record: dict[str, Any] = {
+        "workflow_id": workflow_id,
+        "task_id": task_id,
+        "workflow_status": "SAFE_STOP",
+        "execution_profile": execution_profile,
+        "recovery_policy_version": pinned_policy_version(),
+        "error": {"code": definition.code, "message": definition.safe_message},
+        "llm_usage": usage,
+        "created_at": datetime.now(UTC).isoformat(),
+        "brief": brief.model_dump(mode="json"),
+        "trace": [
+            {"sequence": index, **event} for index, event in enumerate(trace_events, start=1)
+        ],
+        "snapshot_digest": snapshot_digest,
+    }
+    _persist(record, idempotency_key, request_hash)
+    return record
 
 
 def _load(workflow_id: str) -> dict[str, Any] | None:
@@ -246,6 +331,129 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
         ):
             raise RuntimeError("Runtime catalog and MCP capability snapshot do not match")
         brief = EventBrief(**payload.model_dump(mode="json"), brief_id=brief_id, brief_version=1)
+        planner, critic, supervisor, agent_profile = build_canonical_agents()
+        planner_context = supervisor.build_agent_context(
+            planner.AGENT_NAME,
+            {
+                "brief": payload.model_dump(mode="json"),
+                "capabilities": capabilities.model_dump(mode="json"),
+            },
+        )
+        planner_context_brief = EventBriefInput.model_validate(planner_context["brief"])
+        planner_context_capabilities = CapabilityCatalog.model_validate(
+            planner_context["capabilities"]
+        )
+        asyncio.run(
+            supervisor.review_transition(
+                "RUN_AGENT", planner.AGENT_NAME, "Canonical Planner 입력 계약을 검증했습니다."
+            )
+        )
+        recovery_trace: list[dict[str, Any]] = []
+
+        async def execute_agent(agent_name: str, operation: Any) -> Any:
+            retry_count = 0
+            while True:
+                try:
+                    result = await operation()
+                    if retry_count:
+                        recovery_trace.append(
+                            {
+                                "event": "agent.recovery_resolved",
+                                "status": "SUCCESS",
+                                "agent": agent_name,
+                                "retry_count": retry_count,
+                            }
+                        )
+                    return result
+                except LLMBudgetExceeded:
+                    recovery_trace.append(
+                        {
+                            "event": "agent.recovery_decided",
+                            "status": "SAFE_STOP",
+                            "agent": agent_name,
+                            "error_code": error_definition("llm_budget_exceeded").code,
+                            "retry_count": retry_count,
+                            "reason": error_definition("llm_budget_exceeded").safe_message,
+                            "policy_version": pinned_policy_version(),
+                        }
+                    )
+                    raise
+                except LLMTimeoutError as exc:
+                    error_type = "llm_timeout"
+                    failure = exc
+                except LLMExecutionError as exc:
+                    error_type = "llm_execution_error"
+                    failure = exc
+                route = await supervisor.review_failure(
+                    error_type,
+                    current_agent=agent_name,
+                    retry_count=retry_count,
+                )
+                definition = error_definition(error_type)
+                recovery_trace.append(
+                    {
+                        "event": "agent.recovery_decided",
+                        "status": route.action,
+                        "agent": agent_name,
+                        "error_code": definition.code,
+                        "retry_count": route.retry_count,
+                        "reason": route.reason,
+                        "policy_version": pinned_policy_version(),
+                    }
+                )
+                if route.action != "RETRY":
+                    raise failure
+                retry_count = route.retry_count
+                await wait_before_retry(retry_count)
+
+        def persist_agent_failure(error: Exception) -> dict[str, Any]:
+            error_type = (
+                "llm_budget_exceeded"
+                if isinstance(error, LLMBudgetExceeded)
+                else "llm_timeout"
+                if isinstance(error, LLMTimeoutError)
+                else "llm_execution_error"
+            )
+            return _persist_safe_stop(
+                brief=brief,
+                workflow_id=workflow_id,
+                task_id=task_id,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                execution_profile=f"{capability_source}+{agent_profile}",
+                error=error,
+                error_type=error_type,
+                recovery_trace=recovery_trace,
+                snapshot_digest=snapshot["snapshot_digest"],
+            )
+
+        planner_handoff = Handoff.request(
+            task_id=task_id,
+            from_agent="supervisor",
+            to_agent=planner.AGENT_NAME,
+            owner_agent="supervisor",
+            objective="Brief의 미션·보상 연결을 설명합니다.",
+            inputs=planner_context,
+            constraints=("게임 규칙 입력값을 변경하지 않는다", "read-only capability만 사용한다"),
+            expected_output="canonical-planner-output.v1",
+            attempt=1,
+            revision_count=0,
+            retry_count=0,
+            state_ref=workflow_id,
+        )
+        try:
+            with workflow_llm_identity(workflow_id, task_id):
+                planner_output = asyncio.run(
+                    execute_agent(
+                        planner.AGENT_NAME,
+                        lambda: planner.plan(planner_context_brief, planner_context_capabilities),
+                    )
+                )
+        except (LLMTimeoutError, LLMExecutionError) as exc:
+            return persist_agent_failure(exc)
+        planner_handoff = planner_handoff.accept(
+            required_inputs_present=True, output_validated=True
+        )
         finding_rows: list[ValidationFinding] = []
         requirements: list[DevelopmentRequirement] = []
         event_id = {
@@ -644,28 +852,142 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
             validation_summary=ValidationSummary(status=evaluation_status, findings=finding_rows),
             evidence_refs=[snapshot_ref],
         )
+        critic_context = supervisor.build_agent_context(
+            critic.AGENT_NAME,
+            {
+                "brief": brief.model_dump(mode="json"),
+                "plan": plan.model_dump(mode="json"),
+                "planner_output": planner_output,
+            },
+        )
+        asyncio.run(
+            supervisor.review_transition(
+                "RUN_AGENT", critic.AGENT_NAME, "규칙 검증을 마친 Plan을 의미 검수로 전달합니다."
+            )
+        )
+        critic_handoff = Handoff.request(
+            task_id=task_id,
+            from_agent="supervisor",
+            to_agent=critic.AGENT_NAME,
+            owner_agent="supervisor",
+            objective="사용자 목표와 생성된 Plan의 의미 일치를 검토합니다.",
+            inputs=critic_context,
+            constraints=(
+                "결정적 eligibility 판정을 덮어쓰지 않는다",
+                "검토 시 도구를 호출하지 않는다",
+            ),
+            expected_output="canonical-critic-output.v1",
+            attempt=1,
+            revision_count=0,
+            retry_count=0,
+            state_ref=workflow_id,
+        )
+        try:
+            with workflow_llm_identity(workflow_id, task_id):
+                critic_output = asyncio.run(
+                    execute_agent(
+                        critic.AGENT_NAME,
+                        lambda: critic.review(
+                            brief=critic_context["brief"],
+                            plan=critic_context["plan"],
+                            planner_output=critic_context["planner_output"],
+                        ),
+                    )
+                )
+        except (LLMTimeoutError, LLMExecutionError) as exc:
+            return persist_agent_failure(exc)
+        critic_handoff = critic_handoff.accept(required_inputs_present=True, output_validated=True)
+        if critic_output["status"] == "REVIEW":
+            critic_finding = ValidationFinding(
+                finding_id=f"F-{uuid4().hex[:12]}",
+                finding_type=FindingType.DOMAIN,
+                code="CRITIC_REQUIRES_HUMAN_REVIEW",
+                severity=FindingSeverity.BLOCKER,
+                location=FindingLocation(
+                    field_path="plan", component="canonical_critic_agent", phase="semantic_review"
+                ),
+                message_safe=str(critic_output["reason"]),
+                evidence_refs=[],
+                repairability=Repairability.HUMAN_REVIEW,
+                suggested_action="기획안과 의미 검수 근거를 확인한 뒤 입력을 수정해 다시 제출하세요.",
+                blocks_runtime=True,
+            )
+            revised_plan_data = plan.model_dump(mode="json")
+            revised_plan_data["plan_status"] = PlanStatus.BLOCKED.value
+            revised_plan_data["runtime_eligible"] = False
+            revised_plan_data["validation_summary"] = {
+                "status": EvaluationStatus.HUMAN_REVIEW.value,
+                "findings": [
+                    *revised_plan_data["validation_summary"]["findings"],
+                    critic_finding.model_dump(mode="json"),
+                ],
+            }
+            plan = EventPlan.model_validate(revised_plan_data)
+        trace_events = [
+            {"event": "brief.accepted", "status": "SUCCESS"},
+            *recovery_trace,
+            {
+                "event": "handoff.accepted",
+                "status": "SUCCESS",
+                "from_agent": "supervisor",
+                "to_agent": "canonical_event_planner_agent",
+                "handoff_status": planner_handoff.handoff_status.value,
+                "owner_agent": planner_handoff.owner_agent,
+                "input_contract": brief.contract_version,
+                "output_contract": "canonical-planner-output.v1",
+                "input_digest": _digest(planner_handoff.inputs),
+                "allowed_tools": [],
+            },
+            {"event": "planner.output_validated", "status": "SUCCESS"},
+            {
+                "event": "capability.scope_checked",
+                "status": evaluation_status.value,
+            },
+            {"event": "rule_balance.validation_completed", "status": evaluation_status.value},
+            {
+                "event": "handoff.accepted",
+                "status": "SUCCESS",
+                "from_agent": "supervisor",
+                "to_agent": "canonical_event_critic_agent",
+                "handoff_status": critic_handoff.handoff_status.value,
+                "owner_agent": critic_handoff.owner_agent,
+                "input_contract": "event-plan.v1",
+                "output_contract": "canonical-critic-output.v1",
+                "input_digest": _digest(critic_handoff.inputs),
+                "allowed_tools": [],
+            },
+            {"event": "critic.review_completed", "status": critic_output["status"]},
+            {"event": "final_consistency.checked", "status": plan.plan_status.value},
+        ]
+        if plan.runtime_eligible:
+            trace_events.append({"event": "approval.pending", "status": "WAITING_APPROVAL"})
+        llm_usage = workflow_llm_usage_snapshot()
+        if llm_usage and llm_usage.get("records"):
+            trace_events.append(
+                {"event": "llm.usage_recorded", "status": "SUCCESS", "usage": llm_usage}
+            )
         record = {
             "workflow_id": workflow_id,
             "task_id": task_id,
-            "workflow_status": "WAITING_APPROVAL" if plan.runtime_eligible else "COMPLETED",
-            "execution_profile": capability_source,
+            "workflow_status": (
+                "WAITING_REVIEW"
+                if critic_output["status"] == "REVIEW"
+                else "WAITING_APPROVAL"
+                if plan.runtime_eligible
+                else "COMPLETED"
+            ),
+            "execution_profile": f"{capability_source}+{agent_profile}",
             "recovery_policy_version": pinned_policy_version(),
+            "llm_usage": llm_usage,
+            "agent_analysis": {
+                "planner": planner_output,
+                "critic": critic_output,
+            },
             "created_at": datetime.now(UTC).isoformat(),
             "brief": brief.model_dump(mode="json"),
             "plan": plan.model_dump(mode="json"),
             "trace": [
-                {"sequence": 1, "event": "brief.accepted", "status": "SUCCESS"},
-                {
-                    "sequence": 2,
-                    "event": "capability.scope_checked",
-                    "status": evaluation_status.value,
-                },
-                {"sequence": 3, "event": "plan.validated", "status": plan_status.value},
-                *(
-                    [{"sequence": 4, "event": "approval.pending", "status": "WAITING_APPROVAL"}]
-                    if plan.runtime_eligible
-                    else []
-                ),
+                {"sequence": index, **event} for index, event in enumerate(trace_events, start=1)
             ],
             "snapshot_digest": snapshot["snapshot_digest"],
         }
@@ -692,12 +1014,181 @@ def get_workflow(workflow_id: str) -> dict[str, Any] | None:
     record = _load(workflow_id)
     if record is not None:
         task_id = record.get("task_id")
+        plan = record.get("plan")
         record["decision"] = (
-            get_plan_decision(str(task_id), int(record["plan"]["result_version"]))
-            if task_id
+            get_plan_decision(str(task_id), int(plan["result_version"]))
+            if task_id and isinstance(plan, dict) and plan.get("result_version") is not None
             else None
         )
+        lifecycle_events = _lifecycle_events(workflow_id)
+        if lifecycle_events:
+            record["trace"] = [*record.get("trace", []), *lifecycle_events]
+        decision = record["decision"]
+        runtime_event = next(
+            (
+                event["attributes"]
+                for event in reversed(lifecycle_events)
+                if event["event"] == "runtime.event_registered"
+            ),
+            None,
+        )
+        record["runtime_event"] = runtime_event
+        record["current_status"] = (
+            "APPLIED"
+            if runtime_event
+            else decision["approval_status"]
+            if decision
+            else record.get("workflow_status")
+        )
     return record
+
+
+def _lifecycle_events(workflow_id: str) -> list[dict[str, Any]]:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if not database_url:
+        events = [
+            {
+                "event_id": row["event_id"],
+                "workflow_id": workflow_id,
+                "trace_id": workflow_id,
+                "event": row["event"],
+                "status": row["status"],
+                "attributes": row["attributes"],
+                "occurred_at": row["occurred_at"],
+            }
+            for row in _LIFECYCLE_EVENTS.get(workflow_id, [])
+        ]
+    else:
+        engine = _engine(database_url)
+        with Session(engine) as session:
+            rows = list(
+                session.scalars(
+                    select(_PlanningLifecycleEventRow)
+                    .where(_PlanningLifecycleEventRow.workflow_id == workflow_id)
+                    .order_by(
+                        _PlanningLifecycleEventRow.occurred_at,
+                        _PlanningLifecycleEventRow.event_id,
+                    )
+                )
+            )
+        events = [
+            {
+                "event_id": row.event_id,
+                "workflow_id": row.workflow_id,
+                "trace_id": row.workflow_id,
+                "event": row.event_type,
+                "status": row.status,
+                "attributes": row.attributes,
+                "occurred_at": row.occurred_at.isoformat(),
+            }
+            for row in rows
+        ]
+    record = _load(workflow_id)
+    sequence = len(record.get("trace", [])) if record else 0
+    return [{"sequence": sequence + index, **event} for index, event in enumerate(events, start=1)]
+
+
+def append_workflow_lifecycle_event(
+    workflow_id: str,
+    event_type: str,
+    status: str,
+    attributes: dict[str, Any],
+    dedupe_key: str,
+) -> dict[str, Any]:
+    """Persist one idempotent lifecycle event after approval or Runtime application."""
+    if not workflow_id or not event_type or not status or not dedupe_key:
+        raise ValueError("Workflow lifecycle event identifiers are required")
+    with _LOCK:
+        database_url = os.getenv("DATABASE_URL", "").strip()
+        occurred_at = datetime.now(UTC)
+        if database_url:
+            engine = _engine(database_url)
+            with Session(engine) as session, session.begin():
+                prior = session.scalar(
+                    select(_PlanningLifecycleEventRow).where(
+                        _PlanningLifecycleEventRow.dedupe_key == dedupe_key
+                    )
+                )
+                if prior is not None:
+                    if (
+                        prior.workflow_id != workflow_id
+                        or prior.event_type != event_type
+                        or prior.status != status
+                        or prior.attributes != attributes
+                    ):
+                        raise ValueError("Workflow event dedupe key was reused with other data")
+                    return {
+                        "event_id": prior.event_id,
+                        "workflow_id": prior.workflow_id,
+                        "trace_id": prior.workflow_id,
+                        "event": prior.event_type,
+                        "status": prior.status,
+                        "attributes": prior.attributes,
+                        "occurred_at": prior.occurred_at.isoformat(),
+                    }
+                event_id = str(uuid4())
+                row = _PlanningLifecycleEventRow(
+                    event_id=event_id,
+                    workflow_id=workflow_id,
+                    dedupe_key=dedupe_key,
+                    event_type=event_type,
+                    status=status,
+                    attributes=attributes,
+                    occurred_at=occurred_at,
+                )
+                session.add(row)
+        else:
+            events = _LIFECYCLE_EVENTS.setdefault(workflow_id, [])
+            existing = next((event for event in events if event["dedupe_key"] == dedupe_key), None)
+            if existing is not None:
+                if any(
+                    existing[key] != value
+                    for key, value in {
+                        "workflow_id": workflow_id,
+                        "event": event_type,
+                        "status": status,
+                        "attributes": attributes,
+                    }.items()
+                ):
+                    raise ValueError("Workflow event dedupe key was reused with other data")
+                return dict(existing)
+            row_data = {
+                "event_id": str(uuid4()),
+                "workflow_id": workflow_id,
+                "event": event_type,
+                "status": status,
+                "attributes": attributes,
+                "dedupe_key": dedupe_key,
+                "occurred_at": occurred_at.isoformat(),
+            }
+            events.append(row_data)
+    return {
+        "event_id": event_id if database_url else row_data["event_id"],
+        "workflow_id": workflow_id,
+        "trace_id": workflow_id,
+        "event": event_type,
+        "status": status,
+        "attributes": attributes,
+        "occurred_at": occurred_at.isoformat(),
+    }
+
+
+def workflow_id_for_task(task_id: str) -> str | None:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url:
+        engine = _engine(database_url)
+        with Session(engine) as session:
+            records = list(session.scalars(select(_PlanningRunRow.payload).limit(1000)))
+    else:
+        records = list(_RECORDS.values())
+    return next(
+        (
+            str(record["workflow_id"])
+            for record in records
+            if record.get("task_id") == task_id and record.get("workflow_id")
+        ),
+        None,
+    )
 
 
 def approved_plan_for_task(task_id: str, result_version: int) -> dict[str, Any] | None:
@@ -802,11 +1293,26 @@ def decide_plan(
         "action": action,
     }
     request_hash = _digest(request)
+
+    def persist_decision_event(decision: dict[str, Any]) -> None:
+        append_workflow_lifecycle_event(
+            workflow_id,
+            "approval.decision_recorded",
+            str(decision["approval_status"]),
+            {
+                "plan_id": plan_id,
+                "result_version": result_version,
+                "approval_status": decision["approval_status"],
+            },
+            f"approval:{workflow_id}:{result_version}",
+        )
+
     with _LOCK:
         cached = _DECISION_IDEMPOTENCY.get(idempotency_key)
         if cached is not None:
             if cached["request_hash"] != request_hash:
                 raise ValueError("Decision idempotency key was reused for a different request")
+            persist_decision_event(cached)
             return cached
         database_url = os.getenv("DATABASE_URL", "").strip()
         if database_url:
@@ -818,7 +1324,7 @@ def decide_plan(
                         raise ValueError(
                             "Decision idempotency key was reused for a different request"
                         )
-                    return {
+                    decision = {
                         "task_id": prior.task_id,
                         "workflow_id": prior.workflow_id,
                         "plan_id": prior.plan_id,
@@ -829,6 +1335,8 @@ def decide_plan(
                         "request_hash": prior.request_hash,
                         "created_at": prior.created_at.isoformat(),
                     }
+                    persist_decision_event(decision)
+                    return decision
         existing = get_plan_decision(task_id, result_version)
         if existing is not None:
             if existing["idempotency_key"] == idempotency_key:
@@ -865,6 +1373,7 @@ def decide_plan(
         }
         _DECISIONS[(task_id, result_version)] = decision
         _DECISION_IDEMPOTENCY[idempotency_key] = decision
+        persist_decision_event(decision)
         return decision
 
 

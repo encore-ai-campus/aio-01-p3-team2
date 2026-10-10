@@ -1,5 +1,6 @@
 """실제 API 호출 없이 LLM·MCP SDK 전송 어댑터의 경계를 시험한다."""
 
+import os
 import sys
 import types
 import unittest
@@ -56,7 +57,10 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
             async def create(self, **kwargs):
                 """구조화된 Planner 응답을 반환한다."""
                 calls.append(kwargs)
-                return types.SimpleNamespace(output_text='{"target_user":"new_user"}')
+                return types.SimpleNamespace(
+                    output_text='{"target_user":"new_user"}',
+                    usage=types.SimpleNamespace(input_tokens=12, output_tokens=4, cost=None),
+                )
 
         class FakeOpenAI:
             """네트워크 없이 Responses API 모양을 제공한다."""
@@ -71,7 +75,10 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         fake_module = types.ModuleType("openai")
         fake_module.AsyncOpenAI = FakeOpenAI
         fake_module.APITimeoutError = TimeoutError
-        with patch.dict(sys.modules, {"openai": fake_module}):
+        with (
+            patch.dict(sys.modules, {"openai": fake_module}),
+            patch.dict(os.environ, {"LLM_MAX_OUTPUT_TOKENS": "512"}),
+        ):
             transport = create_openai_transport(
                 "test-model",
                 {"workers": {"event_planner_agent": {"instructions": "기획안을 작성한다."}}},

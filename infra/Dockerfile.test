@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    WORKFLOW_ENGINE=mock \
+    CANONICAL_PLANNING_MODE=deterministic \
+    LLM_MAX_OUTPUT_TOKENS=512
+
+WORKDIR /workspace
+
+COPY backend/requirements.txt /tmp/backend-requirements.txt
+COPY requirements-dev.txt /tmp/requirements-dev.txt
+RUN pip install --no-cache-dir -r /tmp/backend-requirements.txt -r /tmp/requirements-dev.txt
+
+CMD ["python", "-m", "pytest", "-q"]

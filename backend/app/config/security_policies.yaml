@@ -59,3 +59,12 @@ context_access:
     - error_type
     - error_reason
     - retry_count
+
+  canonical_event_planner_agent:
+    - brief
+    - capabilities
+
+  canonical_event_critic_agent:
+    - brief
+    - plan
+    - planner_output

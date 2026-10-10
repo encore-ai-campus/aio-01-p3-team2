@@ -15,6 +15,7 @@ def test_main_loads_env_without_replacing_process_values(tmp_path, monkeypatch):
         "OPENAI_API_KEY=key-from-file\n",
         encoding="utf-8",
     )
+    monkeypatch.setenv("WORKFLOW_ENGINE", "mock")
     monkeypatch.setenv("OPENAI_MODEL", "model-from-shell")
     monkeypatch.delenv("MCP_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)

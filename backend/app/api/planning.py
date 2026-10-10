@@ -7,6 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.app.faults.error_catalog import error_definition
 from backend.app.schemas.planning import EventBriefInput
 from backend.app.services import recovery_policy
 from backend.app.services.canonical_planning import (
@@ -15,6 +16,12 @@ from backend.app.services.canonical_planning import (
     get_plan,
     get_workflow,
     list_workflows,
+)
+from backend.app.services.llm_service import (
+    LLMBudgetExceeded,
+    LLMExecutionError,
+    LLMTimeoutError,
+    workflow_llm_call_budget,
 )
 
 router = APIRouter(prefix="/v1", tags=["event-planning-v1"])
@@ -40,15 +47,36 @@ def submit_event_brief(
     brief: EventBriefInput,
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=12, max_length=128),
 ) -> dict[str, object]:
-    """Run the local deterministic contract/capability validation workflow."""
+    """Run Planner/Critic agents with deterministic, authoritative rule validation."""
     try:
         policy_context = (
             recovery_policy.pin_active_policy()
             if os.getenv("DATABASE_URL", "").strip()
             else nullcontext()
         )
-        with policy_context:
+        with policy_context, workflow_llm_call_budget(max_calls=8):
             return create_event_workflow(brief, idempotency_key)
+    except LLMBudgetExceeded as exc:
+        detail: dict[str, object] = {
+            "code": error_definition("llm_budget_exceeded").code,
+            "message": str(exc),
+        }
+        if exc.usage is not None:
+            detail["usage"] = exc.usage
+        raise HTTPException(
+            status_code=503,
+            detail=detail,
+        ) from exc
+    except LLMTimeoutError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": error_definition("llm_timeout").code, "message": str(exc)},
+        ) from exc
+    except LLMExecutionError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": error_definition("llm_execution_error").code, "message": str(exc)},
+        ) from exc
     except (LookupError, ValueError) as exc:
         raise HTTPException(
             status_code=422, detail={"code": "BRIEF_NOT_SUPPORTED", "message": str(exc)}
@@ -72,6 +100,30 @@ def read_workflow(workflow_id: str) -> dict[str, object]:
 def read_workflow_list(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, object]]:
     """List recent persisted planning records for the operator log view."""
     return list_workflows(limit)
+
+
+@router.get("/llm-records/{record_id}")
+def read_restricted_llm_record(
+    record_id: str,
+) -> dict[str, object]:
+    """Return a 30-day prompt record to the configured local operator; every read is audited."""
+    from backend.app.services.llm_record_service import (
+        LLMRecordNotFound,
+        configured_operator_actor_id,
+        read_llm_record,
+    )
+
+    try:
+        return read_llm_record(record_id, configured_operator_actor_id())
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail={"code": "LLM_RECORD_FORBIDDEN"}) from exc
+    except LLMRecordNotFound as exc:
+        raise HTTPException(status_code=404, detail={"code": "LLM_RECORD_NOT_FOUND"}) from exc
+    except LLMExecutionError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": error_definition("llm_execution_error").code, "message": str(exc)},
+        ) from exc
 
 
 @router.get("/plans/{plan_id}")

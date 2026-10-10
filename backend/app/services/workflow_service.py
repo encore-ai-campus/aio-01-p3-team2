@@ -36,10 +36,15 @@ from backend.app.schemas.workflow_state import (
 )
 from backend.app.services.clash_event import ClashEventWorkflow, ClashRun
 from backend.app.services.db_service import repository
+from backend.app.services.llm_record_service import workflow_llm_identity
 from backend.app.services.llm_service import (
+    LLMBudgetExceeded,
+    LLMExecutionError,
     LLMService,
+    LLMTimeoutError,
     create_openai_transport,
     workflow_llm_call_budget,
+    workflow_llm_usage_snapshot,
 )
 from backend.app.services.mcp_client import MCPClient, create_streamable_http_transport
 from backend.app.services.planning_context_loader import PlanningContextLoader
@@ -226,9 +231,48 @@ class BackendBWorkflowAdapter:
         async def execute() -> Any:
             return await asyncio.wait_for(workflow, timeout=WORKFLOW_DEADLINE_SECONDS)
 
+        usage: dict[str, object] | None = None
         try:
-            with policy_context, workflow_llm_call_budget(max_calls=8):
-                result = asyncio.run(execute())
+            with (
+                policy_context,
+                workflow_llm_call_budget(max_calls=8),
+                workflow_llm_identity(task_id, task_id),
+            ):
+                try:
+                    result = asyncio.run(execute())
+                    usage = workflow_llm_usage_snapshot()
+                    asyncio.run(
+                        self._save_trace(
+                            {
+                                "task_id": task_id,
+                                "time": datetime.now(UTC).isoformat(),
+                                "actor": "supervisor",
+                                "action": "llm.usage_recorded",
+                                "status": "SUCCESS",
+                                "phase": "routing",
+                                "usage": usage,
+                                "reason": "Workflow LLM 호출 수와 provider 실측 사용량을 기록했습니다.",
+                            }
+                        )
+                    )
+                except LLMBudgetExceeded as exc:
+                    usage = exc.usage or workflow_llm_usage_snapshot()
+                    raise
+                except (LLMTimeoutError, LLMExecutionError):
+                    usage = workflow_llm_usage_snapshot()
+                    raise
+                except TimeoutError:
+                    usage = workflow_llm_usage_snapshot()
+                    raise
+        except LLMBudgetExceeded as exc:
+            self._persist_llm_failure(task_id, exc.usage or usage, "llm_budget_exceeded")
+            return self._failed_llm_result("llm_budget_exceeded")
+        except LLMTimeoutError:
+            self._persist_llm_failure(task_id, usage, "llm_timeout")
+            return self._failed_llm_result("llm_timeout")
+        except LLMExecutionError:
+            self._persist_llm_failure(task_id, usage, "llm_execution_error")
+            return self._failed_llm_result("llm_execution_error")
         except TimeoutError:
             asyncio.run(
                 self._save_trace(
@@ -255,6 +299,38 @@ class BackendBWorkflowAdapter:
                 ),
             )
         return result
+
+    def _persist_llm_failure(
+        self, task_id: str, usage: dict[str, object] | None, error_type: str
+    ) -> None:
+        definition = error_definition(error_type)
+        asyncio.run(
+            self._save_trace(
+                {
+                    "task_id": task_id,
+                    "time": datetime.now(UTC).isoformat(),
+                    "actor": "supervisor",
+                    "action": "workflow.safe_stopped",
+                    "status": "FAILED",
+                    "phase": "routing",
+                    "error_type": error_type,
+                    "error_code": definition.code,
+                    "usage": usage,
+                    "reason": definition.safe_message,
+                    "policy_decision": "SAFE_STOP",
+                }
+            )
+        )
+
+    @staticmethod
+    def _failed_llm_result(error_type: str) -> WorkflowResult:
+        definition = error_definition(error_type)
+        return WorkflowResult(
+            workflow_status=WorkflowStatus.FAILED,
+            critic_status=CriticStatus.FAIL,
+            owner_agent="supervisor",
+            error=WorkflowError(error_type=error_type, message=definition.safe_message),
+        )
 
     def revise(self, task_id: str, brief: EventBrief, approval_comment: str) -> WorkflowResult:
         result = self._run_bounded(task_id, self._engine.revise(task_id, approval_comment))
@@ -329,6 +405,7 @@ class BackendBWorkflowAdapter:
                 fallback_tool=self._optional_string(event.get("fallback_tool")),
                 data_source=self._optional_string(data_source),
                 game_data_version=self._optional_string(game_data_version),
+                usage=event.get("usage") if isinstance(event.get("usage"), dict) else None,
             ),
         )
 

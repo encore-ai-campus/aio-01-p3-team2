@@ -75,21 +75,23 @@ function createView() {
 function resultCard() {
   const plan = currentRun.plan;
   const decision = currentRun.decision ?? plan.decision;
+  const runtimeEvent = currentRun.runtimeEvent ?? currentRun.runtime_event;
   const tone = plan.runtime_eligible ? "success" : plan.plan_status === "NEEDS_DATA" ? "warning" : "development";
   const label = plan.runtime_eligible ? "Runtime 지원 가능" : plan.plan_status === "NEEDS_DATA" ? "데이터 확인 필요" : plan.plan_status === "BLOCKED" ? "정책 차단" : "개발 항목 포함";
-  const decisionActions = plan.runtime_eligible && !decision ? `<div class="decision-actions"><span>승인하면 이 버전이 가상 게임 Runtime에 등록 가능합니다.</span><button class="primary-button" data-approve-plan>승인 후 Runtime 등록 준비 →</button><button class="text-button" data-reject-plan>거절</button></div>` : decision?.approval_status === "APPROVED" && !currentRun.runtimeEvent ? `<div class="decision-actions"><span>승인 기록이 저장되었습니다. 요청한 게임 데이터 버전을 다시 검증해 등록합니다.</span><button class="primary-button" data-apply-plan>가상 게임에 이벤트 등록 →</button></div>` : decision?.approval_status === "APPROVED" && currentRun.runtimeEvent ? `<div class="notice-list success-note"><b>Runtime 이벤트 등록 완료</b><p>${escapeHtml(currentRun.runtimeEvent.runtime_event_id)} · ${escapeHtml(currentRun.runtimeEvent.status)}</p></div>` : decision?.approval_status === "REJECTED" ? `<span class="state-chip warning-chip">운영자가 거절한 버전</span>` : "";
-  return `<section class="panel result-panel ${tone}"><div class="result-head"><div><span class="eyebrow">PLAN ${plan.plan_id} · V${plan.result_version}</span><h3>${label}</h3><p>${tone === "success" ? "게임 규칙과 Runtime 지원 범위에서 검증되었습니다." : "지원 여부와 필요한 후속 작업을 확인하세요."}</p></div><span class="status-orb">${plan.runtime_eligible ? "✓" : "!"}</span></div><div class="result-grid"><div><small>상태</small><b>${plan.plan_status}</b></div><div><small>데이터 기준</small><b>${plan.game_context.game_data_snapshot_id}</b></div><div><small>미션 / 보상</small><b>${plan.missions.length} / ${plan.rewards.length}</b></div><div><small>영향 근거</small><b>${plan.impact_assessment[0]?.status ?? "unknown"}</b></div></div>${plan.development_requirements.length ? `<div class="notice-list"><b>추가 개발 필요</b>${plan.development_requirements.map((item) => `<p>${escapeHtml(item.requested_behavior)} · ${escapeHtml(item.impact)}</p>`).join("")}</div>` : ""}${plan.validation_summary.findings.length ? `<div class="notice-list"><b>검증 결과</b>${plan.validation_summary.findings.map((item) => `<p>${escapeHtml(item.code)} · ${escapeHtml(item.message_safe)}</p>`).join("")}</div>` : ""}${decisionActions}<details><summary>근거와 진행 Trace 보기</summary><pre>${escapeHtml(JSON.stringify({ evidence_refs: plan.evidence_refs, workflow: currentRun.trace, source: currentRun.execution_profile }, null, 2))}</pre></details></section>`;
+  const decisionActions = plan.runtime_eligible && !decision ? `<div class="decision-actions"><span>승인하면 이 버전이 가상 게임 Runtime에 등록 가능합니다.</span><button class="primary-button" data-approve-plan>승인 후 Runtime 등록 준비 →</button><button class="text-button" data-reject-plan>거절</button></div>` : decision?.approval_status === "APPROVED" && !runtimeEvent ? `<div class="decision-actions"><span>승인 기록이 저장되었습니다. 요청한 게임 데이터 버전을 다시 검증해 등록합니다.</span><button class="primary-button" data-apply-plan>가상 게임에 이벤트 등록 →</button></div>` : decision?.approval_status === "APPROVED" && runtimeEvent ? `<div class="notice-list success-note"><b>Runtime 이벤트 등록 완료</b><p>${escapeHtml(runtimeEvent.runtime_event_id)} · ${escapeHtml(runtimeEvent.status)}</p></div>` : decision?.approval_status === "REJECTED" ? `<span class="state-chip warning-chip">운영자가 거절한 버전</span>` : "";
+  return `<section class="panel result-panel ${tone}"><div class="result-head"><div><span class="eyebrow">PLAN ${plan.plan_id} · V${plan.result_version}</span><h3>${label}</h3><p>${tone === "success" ? "게임 규칙과 Runtime 지원 범위에서 검증되었습니다." : "지원 여부와 필요한 후속 작업을 확인하세요."}</p></div><span class="status-orb">${plan.runtime_eligible ? "✓" : "!"}</span></div><div class="result-grid"><div><small>상태</small><b>${plan.plan_status}</b></div><div><small>데이터 기준</small><b>${plan.game_context.game_data_snapshot_id}</b></div><div><small>미션 / 보상</small><b>${plan.missions.length} / ${plan.rewards.length}</b></div><div><small>영향 근거</small><b>${plan.impact_assessment[0]?.status ?? "unknown"}</b></div></div>${plan.development_requirements.length ? `<div class="notice-list"><b>추가 개발 필요</b>${plan.development_requirements.map((item) => `<p>${escapeHtml(item.requested_behavior)} · ${escapeHtml(item.impact)}</p>`).join("")}</div>` : ""}${plan.validation_summary.findings.length ? `<div class="notice-list"><b>검증 결과</b>${plan.validation_summary.findings.map((item) => `<p>${escapeHtml(item.code)} · ${escapeHtml(item.message_safe)}</p>`).join("")}</div>` : ""}${decisionActions}<details><summary>근거와 진행 Trace 보기</summary><pre>${escapeHtml(JSON.stringify({ evidence_refs: plan.evidence_refs, agent_analysis: currentRun.agent_analysis, workflow: currentRun.trace, source: currentRun.execution_profile }, null, 2))}</pre></details></section>`;
 }
 
 async function decideCurrentPlan(action) {
-  const plan = currentRun.plan;
   try {
+    const plan = currentRun.plan;
     const response = await fetch("/api/v1/decisions", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ workflow_id: currentRun.workflow_id, plan_id: plan.plan_id, result_version: plan.result_version, action }) });
     const body = await response.json();
     if (!response.ok) throw new Error(body.detail?.message ?? "결정을 저장하지 못했습니다.");
-    currentRun.decision = body;
-    currentRun.workflow_status = action === "APPROVE" ? "APPROVED" : "REJECTED";
-    currentRun.trace.push({ sequence: currentRun.trace.length + 1, event: "approval.decision_recorded", status: currentRun.workflow_status });
+    const workflowResponse = await fetch(`/api/v1/workflows/${encodeURIComponent(currentRun.workflow_id)}`);
+    const persisted = await workflowResponse.json();
+    if (!workflowResponse.ok) throw new Error("저장된 Workflow 기록을 다시 읽지 못했습니다.");
+    currentRun = persisted;
     toast(action === "APPROVE" ? "승인 기록을 저장했습니다." : "기획안을 거절했습니다.");
   } catch (error) { toast(error.message, true); }
   render();
@@ -100,9 +102,10 @@ async function applyCurrentPlan() {
     const response = await fetch("/api/game/events/apply", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ request_id: crypto.randomUUID(), task_id: currentRun.task_id, result_version: currentRun.plan.result_version }) });
     const body = await response.json();
     if (!response.ok) throw new Error(body.message ?? body.detail?.message ?? "Runtime 등록에 실패했습니다.");
-    currentRun.runtimeEvent = body;
-    currentRun.workflow_status = String(body.status ?? "APPLIED").toUpperCase();
-    currentRun.trace.push({ sequence: currentRun.trace.length + 1, event: "runtime.event_registered", status: currentRun.workflow_status });
+    const workflowResponse = await fetch(`/api/v1/workflows/${encodeURIComponent(currentRun.workflow_id)}`);
+    const persisted = await workflowResponse.json();
+    if (!workflowResponse.ok) throw new Error("등록 결과가 저장된 Workflow 기록에서 확인되지 않습니다.");
+    currentRun = persisted;
     toast("승인된 이벤트를 가상 게임 Runtime에 등록했습니다.");
   } catch (error) { toast(error.message, true); }
   render();
@@ -136,7 +139,7 @@ async function submitBrief(event) {
     currentRun = body;
     localStorage.setItem("eventquest.latestWorkflow", body.workflow_id);
     activeView = "workflow";
-    toast("기획안 검증이 완료되었습니다.");
+    toast(body.workflow_status === "SAFE_STOP" ? "안전 종료 기록을 저장했습니다." : "기획안 검증이 완료되었습니다.", body.workflow_status === "SAFE_STOP");
   } catch (error) {
     toast(error.message, true);
   } finally {
@@ -148,7 +151,8 @@ async function submitBrief(event) {
 function workflowView() {
   if (!currentRun) return `<div class="empty-state"><div class="empty-icon">⌁</div><h2>진행 기록이 없습니다.</h2><p>기획안 만들기에서 Brief를 제출하면 실제 workflow event와 검증 결과가 표시됩니다.</p><button class="secondary-button" data-goto="create">기획안 만들기 →</button></div>`;
   const timeline = currentRun.trace.map((step, index) => `<div class="timeline-row"><span class="timeline-index">0${index + 1}</span><span class="timeline-marker ${step.status === "PASS" || step.status === "VALIDATED" ? "done" : ""}"></span><div><b>${escapeHtml(step.event.replaceAll(".", " · "))}</b><small>${escapeHtml(step.status)}</small></div></div>`).join("");
-  return `<div class="page-intro"><div><span class="eyebrow">WORKFLOW ${currentRun.workflow_id}</span><h2>실제 검증 경로와 결과</h2><p>단계는 실행된 이벤트에서 표시됩니다. 미리 정해진 총 단계 수를 보여주지 않습니다.</p></div><span class="state-chip">${currentRun.workflow_status}</span></div><div class="workflow-grid"><section class="panel"><div class="panel-heading"><div><span class="step">TRACE</span><h3>진행 기록</h3></div><span class="link-badge">${currentRun.execution_profile}</span></div><div class="timeline">${timeline}</div><details><summary>실행 정보</summary><pre>${escapeHtml(JSON.stringify({ workflow_id: currentRun.workflow_id, recovery_policy_version: currentRun.recovery_policy_version, snapshot_digest: currentRun.snapshot_digest, created_at: currentRun.created_at }, null, 2))}</pre></details></section><section class="panel plan-mini">${resultCard()}</section></div>`;
+  const outcome = currentRun.plan ? resultCard() : `<div class="notice-list warning-note"><b>${escapeHtml(currentRun.error?.code ?? "SAFE_STOP")}</b><p>${escapeHtml(currentRun.error?.message ?? "안전 종료 기록을 저장했습니다.")}</p>${currentRun.llm_usage ? `<details><summary>사용량 계측 보기</summary><pre>${escapeHtml(JSON.stringify(currentRun.llm_usage, null, 2))}</pre></details>` : ""}</div>`;
+  return `<div class="page-intro"><div><span class="eyebrow">WORKFLOW ${currentRun.workflow_id}</span><h2>실제 검증 경로와 결과</h2><p>단계는 실행된 이벤트에서 표시됩니다. 미리 정해진 총 단계 수를 보여주지 않습니다.</p></div><span class="state-chip">${currentRun.current_status ?? currentRun.workflow_status}</span></div><div class="workflow-grid"><section class="panel"><div class="panel-heading"><div><span class="step">TRACE</span><h3>진행 기록</h3></div><span class="link-badge">${currentRun.execution_profile}</span></div><div class="timeline">${timeline}</div><details><summary>실행 정보</summary><pre>${escapeHtml(JSON.stringify({ workflow_id: currentRun.workflow_id, recovery_policy_version: currentRun.recovery_policy_version, snapshot_digest: currentRun.snapshot_digest, created_at: currentRun.created_at }, null, 2))}</pre></details></section><section class="panel plan-mini">${outcome}</section></div>`;
 }
 
 function policiesView() {
@@ -232,7 +236,7 @@ async function runFaultScenario() {
 
 function logsView() {
   const rows = logsState ?? [];
-  return `<div class="page-intro"><div><span class="eyebrow">OPERATIONS / AUDIT</span><h2>운영 기록</h2><p>DB에 저장된 최근 Workflow와 오류·승인 상태를 확인합니다.</p></div><button class="secondary-button" id="refresh-logs">새로고침</button></div>${logsState === null ? `<section class="panel"><p>저장 기록을 불러오는 중입니다…</p></section>` : logsError ? `<section class="panel"><p>${escapeHtml(logsError)}</p><button class="secondary-button" id="refresh-logs">다시 시도</button></section>` : rows.length ? `<section class="panel"><div class="log-table"><div class="log-row header"><span>Workflow</span><span>기획 목표</span><span>상태</span></div>${rows.map((row) => `<button class="log-row workflow-log-row" data-workflow-id="${escapeHtml(row.workflow_id)}"><span>${escapeHtml(row.workflow_id)}</span><span>${escapeHtml(row.brief.objective)}</span><span>${escapeHtml(row.decision?.approval_status ?? row.workflow_status)}</span></button>`).join("")}</div></section>${currentRun ? `<section class="panel"><div class="panel-heading"><div><span class="step">SELECTED TRACE</span><h3>선택한 실행 기록</h3></div><span class="link-badge">${currentRun.workflow_id}</span></div><div class="log-table"><div class="log-row header"><span>순서</span><span>이벤트</span><span>결과</span></div>${currentRun.trace.map((row) => `<div class="log-row"><span>${row.sequence}</span><span>${escapeHtml(row.event)}</span><span>${escapeHtml(row.status)}</span></div>`).join("")}</div><details><summary>세부 정보</summary><pre>${escapeHtml(JSON.stringify({snapshot_digest:currentRun.snapshot_digest,recovery_policy_version:currentRun.recovery_policy_version,trace:currentRun.trace},null,2))}</pre></details></section>` : ""}` : `<div class="empty-state"><div class="empty-icon">▤</div><h2>표시할 기록이 없습니다.</h2><p>기획 Workflow를 실행하면 저장 기록이 표시됩니다.</p></div>`}`;
+  return `<div class="page-intro"><div><span class="eyebrow">OPERATIONS / AUDIT</span><h2>운영 기록</h2><p>DB에 저장된 최근 Workflow와 오류·승인 상태를 확인합니다.</p></div><button class="secondary-button" id="refresh-logs">새로고침</button></div>${logsState === null ? `<section class="panel"><p>저장 기록을 불러오는 중입니다…</p></section>` : logsError ? `<section class="panel"><p>${escapeHtml(logsError)}</p><button class="secondary-button" id="refresh-logs">다시 시도</button></section>` : rows.length ? `<section class="panel"><div class="log-table"><div class="log-row header"><span>Workflow</span><span>기획 목표</span><span>상태</span></div>${rows.map((row) => `<button class="log-row workflow-log-row" data-workflow-id="${escapeHtml(row.workflow_id)}"><span>${escapeHtml(row.workflow_id)}</span><span>${escapeHtml(row.brief.objective)}</span><span>${escapeHtml(row.current_status ?? row.decision?.approval_status ?? row.workflow_status)}</span></button>`).join("")}</div></section>${currentRun ? `<section class="panel"><div class="panel-heading"><div><span class="step">SELECTED TRACE</span><h3>선택한 실행 기록</h3></div><span class="link-badge">${currentRun.workflow_id}</span></div><div class="log-table"><div class="log-row header"><span>순서</span><span>이벤트</span><span>결과</span></div>${currentRun.trace.map((row) => `<div class="log-row"><span>${row.sequence}</span><span>${escapeHtml(row.event)}</span><span>${escapeHtml(row.status)}</span></div>`).join("")}</div><details><summary>세부 정보</summary><pre>${escapeHtml(JSON.stringify({snapshot_digest:currentRun.snapshot_digest,recovery_policy_version:currentRun.recovery_policy_version,trace:currentRun.trace},null,2))}</pre></details></section>` : ""}` : `<div class="empty-state"><div class="empty-icon">▤</div><h2>표시할 기록이 없습니다.</h2><p>기획 Workflow를 실행하면 저장 기록이 표시됩니다.</p></div>`}`;
 }
 
 async function loadLogs() {

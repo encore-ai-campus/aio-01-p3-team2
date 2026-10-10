@@ -1,6 +1,9 @@
 """FastAPI application and the explicit local live-mode entry point."""
 
+import asyncio
+import logging
 import os
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 import uvicorn
@@ -8,6 +11,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 
 def configure_live_environment(env_path: Path | None = None) -> None:
@@ -32,7 +37,22 @@ def create_app() -> FastAPI:
     from backend.app.game.service import GameError
     from backend.app.services.task_service import ServiceError
 
-    application = FastAPI(title="Game Event AutoHealing Backend", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        cleanup_task = None
+        if os.getenv("DATABASE_URL", "").strip():
+            cleanup_task = asyncio.create_task(_llm_record_retention_loop())
+        try:
+            yield
+        finally:
+            if cleanup_task is not None:
+                cleanup_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await cleanup_task
+
+    application = FastAPI(
+        title="Game Event AutoHealing Backend", version="0.1.0", lifespan=lifespan
+    )
     application.include_router(event_router, prefix="/api")
     application.include_router(game_router, prefix="/api")
     application.include_router(health_router)
@@ -82,6 +102,20 @@ def create_app() -> FastAPI:
         )
 
     return application
+
+
+async def _llm_record_retention_loop() -> None:
+    """Purge expired encrypted prompts daily and on process start."""
+    from backend.app.services.llm_record_service import purge_expired_llm_records
+
+    while True:
+        try:
+            deleted = await asyncio.to_thread(purge_expired_llm_records)
+            if deleted:
+                logger.info("Expired LLM prompt records purged: %s", deleted)
+        except Exception:  # noqa: BLE001 - retention failure must not stop the API process.
+            logger.warning("LLM prompt retention cleanup failed; will retry in 24 hours")
+        await asyncio.sleep(24 * 60 * 60)
 
 
 if __name__ == "__main__":

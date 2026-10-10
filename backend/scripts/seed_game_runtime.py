@@ -30,6 +30,8 @@ MIGRATIONS = [
         "005_canonical_planning.sql",
         "006_recovery_policy.sql",
         "007_decision_workflow_id.sql",
+        "008_llm_prompt_records.sql",
+        "009_planning_lifecycle_events.sql",
     )
 ]
 

@@ -97,7 +97,31 @@ def equip_owned_skin(request: EquipSkinRequest) -> dict:
 
 @router.post("/events/apply", dependencies=[Depends(require_local_request)])
 def apply_approved_event(request: ApplyEventRequest) -> dict:
-    return get_game_service().apply_event(request)
+    result = get_game_service().apply_event(request)
+    from backend.app.services.canonical_planning import (
+        append_workflow_lifecycle_event,
+        get_workflow,
+        workflow_id_for_task,
+    )
+
+    workflow_id = workflow_id_for_task(request.task_id)
+    runtime_event_id = result.get("runtime_event_id")
+    if workflow_id and runtime_event_id:
+        workflow = get_workflow(workflow_id) or {}
+        plan = workflow.get("plan", {})
+        append_workflow_lifecycle_event(
+            workflow_id,
+            "runtime.event_registered",
+            "APPLIED",
+            {
+                "runtime_event_id": str(runtime_event_id),
+                "status": result.get("status", "applied"),
+                "plan_id": plan.get("plan_id"),
+                "result_version": request.result_version,
+            },
+            f"runtime:{runtime_event_id}",
+        )
+    return result
 
 
 @router.get("/sources/{task_id}", dependencies=[Depends(require_local_request)])

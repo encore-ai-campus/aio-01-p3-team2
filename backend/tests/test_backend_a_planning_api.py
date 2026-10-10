@@ -54,12 +54,17 @@ def test_api_planning_lookup_precedes_planner_and_validation(client, monkeypatch
     assert "ITEM_001" in notes["reward_design"]
     assert "Mock" in notes["critic_review"]
     routing = [entry for entry in traces if entry["phase"] == "routing"]
-    assert [(entry["action"], entry["next_agent"]) for entry in routing] == [
+    assert [
+        (entry["action"], entry["next_agent"])
+        for entry in routing
+        if entry["action"] != "llm.usage_recorded"
+    ] == [
         ("RUN_AGENT", "event_planner_agent"),
         ("RUN_AGENT", "balance_rule_agent"),
         ("RUN_AGENT", "critic_agent"),
         ("WAIT_APPROVAL", None),
     ]
+    assert sum(entry["action"] == "llm.usage_recorded" for entry in routing) == 1
     assert all("Mock 판단:" not in entry["reason"] for entry in routing)
     actions = [(entry["actor"], entry["action"]) for entry in traces]
     required = [

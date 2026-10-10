@@ -91,6 +91,7 @@ class TraceEntry(BaseModel):
     fallback_tool: str | None = None
     data_source: str | None = None
     game_data_version: str | None = None
+    usage: dict[str, Any] | None = None
 
     @field_validator("time")
     @classmethod

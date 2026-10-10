@@ -12,7 +12,9 @@ validate_test_database_environment(
 
 
 @pytest.fixture(autouse=True)
-def clean_repository() -> None:
+def clean_repository(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("WORKFLOW_ENGINE", "mock")
+    monkeypatch.setenv("CANONICAL_PLANNING_MODE", "deterministic")
     from backend.app.services.db_service import repository
 
     repository.reset()

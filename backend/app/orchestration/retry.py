@@ -1,7 +1,24 @@
 """기획 수정과 기술 재시도의 횟수 제한을 계산한다."""
 
+import asyncio
+import random
+from collections.abc import Awaitable, Callable
+
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_MAX_REVISIONS = 2
+
+
+async def wait_before_retry(
+    retry_count: int,
+    *,
+    sleep: Callable[[float], Awaitable[object]] = asyncio.sleep,
+    uniform: Callable[[float, float], float] = random.uniform,
+) -> None:
+    """Wait with capped exponential jitter after an approved transient retry."""
+    if type(retry_count) is not int or retry_count < 1:
+        raise ValueError("재시도 횟수는 양의 정수여야 합니다.")
+    delay = min(0.25 * (2 ** (retry_count - 1)), 4.0)
+    await sleep(uniform(delay / 2, delay))
 
 
 def next_retry_count(current_count: int, max_retries: int = DEFAULT_MAX_RETRIES) -> int | None:
