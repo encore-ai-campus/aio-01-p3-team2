@@ -107,6 +107,16 @@ def test_approval_and_runtime_apply_are_persisted_in_workflow_trace(
     )
     assert replay.status_code == 200
     assert replay.json()["runtime_event_id"] == runtime_event_id
+    conflict = client.post(
+        "/api/game/events/apply",
+        json={
+            "request_id": request_id,
+            "task_id": "TASK-AAAAAAAAAAAA",
+            "result_version": result["plan"]["result_version"],
+        },
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["error_code"] == "idempotency_key_conflict"
     engine = create_engine(database_url)
     try:
         with engine.connect() as connection:

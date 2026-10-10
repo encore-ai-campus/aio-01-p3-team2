@@ -662,9 +662,15 @@ class GameService:
         }
 
     def apply_event(self, request: ApplyEventRequest) -> dict[str, Any]:
+        previous = self._lookup_event_apply(request)
+        if previous is not None:
+            return previous
         try:
             source = load_approved_event(request.task_id, request.result_version)
         except EventSourceError as exc:
+            previous = self._lookup_event_apply(request)
+            if previous is not None:
+                return previous
             raise GameError(exc.code, exc.message, exc.status_code) from exc
         source_payload = source["source"]
         result = source_payload["result"]
@@ -803,6 +809,29 @@ class GameService:
             raise GameError(
                 "runtime_storage_unavailable", "이벤트 등록을 저장하지 못했습니다.", 503
             ) from exc
+
+    def _lookup_event_apply(self, request: ApplyEventRequest) -> dict[str, Any] | None:
+        """Resolve a prior apply request before reloading its possibly unavailable source."""
+        try:
+            with self.repository.session() as session:
+                previous = session.get(GameRequestRow, ("event_apply", str(request.request_id)))
+        except SQLAlchemyError as exc:
+            raise GameError(
+                "runtime_storage_unavailable", "등록 요청 결과를 확인하지 못했습니다.", 503
+            ) from exc
+        if previous is None:
+            return None
+        response = previous.response_payload
+        if (
+            response.get("source_task_id") != request.task_id
+            or response.get("result_version") != request.result_version
+        ):
+            raise GameError(
+                "idempotency_key_conflict",
+                "같은 요청 ID가 다른 내용에 사용됐습니다.",
+                409,
+            )
+        return response
 
     def preview_event(self, task_id: str) -> dict[str, Any]:
         try:
