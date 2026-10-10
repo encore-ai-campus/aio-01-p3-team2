@@ -1,5 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
+const apiPort = process.env.EVENTQUEST_E2E_API_PORT ?? "8004";
+const uiPort = process.env.EVENTQUEST_E2E_UI_PORT ?? "5177";
+const baseURL = process.env.EVENTQUEST_E2E_BASE_URL ?? `http://127.0.0.1:${uiPort}`;
+
 export default defineConfig({
   testDir: "./e2e",
   outputDir: "./test-results",
@@ -8,7 +12,7 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: process.env.EVENTQUEST_E2E_BASE_URL ?? "http://127.0.0.1:5177",
+    baseURL,
     browserName: "chromium",
     headless: true,
     viewport: { width: 1440, height: 1000 },
@@ -16,13 +20,13 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "pnpm dev --host 127.0.0.1 --port 5177 --strictPort",
+    command: `pnpm dev --host 127.0.0.1 --port ${uiPort} --strictPort`,
     cwd: process.cwd(),
-    url: "http://127.0.0.1:5177",
+    url: baseURL,
     reuseExistingServer: false,
     env: {
       EVENTQUEST_API_TARGET:
-        process.env.EVENTQUEST_API_TARGET ?? "http://127.0.0.1:8004",
+        process.env.EVENTQUEST_API_TARGET ?? `http://127.0.0.1:${apiPort}`,
     },
   },
 });

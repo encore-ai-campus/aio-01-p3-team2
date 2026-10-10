@@ -1,5 +1,7 @@
 param(
-    [switch]$RestartPostgres
+    [switch]$RestartPostgres,
+    [int]$ApiPort = 8004,
+    [int]$UiPort = 5177
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,7 +21,16 @@ if ($LASTEXITCODE -ne 0) {
     throw "Frontend production build failed."
 }
 
-& pwsh -NoProfile -File (Join-Path $scriptRoot "e2e-local.ps1")
+$e2eArgs = @(
+    "-NoProfile",
+    "-File",
+    (Join-Path $scriptRoot "e2e-local.ps1"),
+    "-ApiPort",
+    "$ApiPort",
+    "-UiPort",
+    "$UiPort"
+)
+& pwsh @e2eArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Browser E2E or backend restart restoration failed."
 }

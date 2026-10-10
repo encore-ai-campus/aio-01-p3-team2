@@ -1,3 +1,8 @@
+param(
+    [int]$ApiPort = 8004,
+    [int]$UiPort = 5177
+)
+
 $ErrorActionPreference = "Stop"
 $postgresName = "ikonly-test-postgres-1"
 $databaseName = "eventquest_test"
@@ -6,8 +11,8 @@ $runnerImage = "eventquest-test-runner:local"
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $envFile = New-TemporaryFile
 $apiName = "ikonly-e2e-api-$PID"
-$apiPort = 8004
-$uiPort = 5177
+$apiPort = $ApiPort
+$uiPort = $UiPort
 $apiStarted = $false
 
 try {
@@ -46,6 +51,7 @@ try {
         "ENABLE_FAULT_INJECTION=true"
         "APPROVED_ACTOR_IDS=liveops01"
         "OPERATOR_ACTOR_ID=liveops01"
+        "APP_ALLOWED_ORIGINS=http://127.0.0.1:${uiPort}"
         # Docker bridge requests reach the test API from a non-loopback container address.
         # The API is published to the host on 127.0.0.1 only and uses only the disposable test DB.
         "GAME_RUNTIME_ALLOW_REMOTE=true"
@@ -98,6 +104,8 @@ try {
     }
 
     $env:EVENTQUEST_API_TARGET = "http://127.0.0.1:${apiPort}"
+    $env:EVENTQUEST_E2E_API_PORT = "$apiPort"
+    $env:EVENTQUEST_E2E_UI_PORT = "$uiPort"
     pnpm --dir frontend-web test:e2e
     if ($LASTEXITCODE -ne 0) {
         throw "Browser E2E failed."
@@ -152,5 +160,7 @@ finally {
     Remove-Item -LiteralPath $envFile.FullName -Force -ErrorAction SilentlyContinue
     Remove-Variable password, encodedPassword, databaseUrl -ErrorAction SilentlyContinue
     Remove-Item Env:EVENTQUEST_API_TARGET -ErrorAction SilentlyContinue
+    Remove-Item Env:EVENTQUEST_E2E_API_PORT -ErrorAction SilentlyContinue
+    Remove-Item Env:EVENTQUEST_E2E_UI_PORT -ErrorAction SilentlyContinue
     Remove-Item Env:EVENTQUEST_E2E_RESTORE_STATE -ErrorAction SilentlyContinue
 }

@@ -8,9 +8,17 @@ test("supported plan approval and runtime registration survive reload", async ({
   await page.goto("/");
   await page.locator('textarea[name="objective"]').fill(objective);
   await page.locator('input[name="content_id"]').fill("");
+  const briefResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/api/v1/event-briefs") && response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: /기획안 검증 시작/ }).click();
+  const briefResult = await briefResponse;
+  expect(briefResult.status()).toBe(201);
+  const workflow = await briefResult.json();
 
   await expect(page.getByText("실제 검증 경로와 결과")).toBeVisible();
+  await expect(page.locator(".timeline-row")).toHaveCount(workflow.trace.length);
+  await expect(page.locator(".page-intro")).toContainText("미리 정해진 총 단계 수를 보여주지 않습니다.");
   await expect(page.locator(".result-grid b").first()).toHaveText("VALIDATED");
   await page.getByRole("button", { name: /승인 후 Runtime 등록 준비/ }).click();
   await expect(page.locator(".page-intro .state-chip")).toHaveText("APPROVED");
