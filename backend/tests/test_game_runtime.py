@@ -145,7 +145,10 @@ def test_approved_event_runs_special_dungeon_and_grants_reward_once(
 
     first = game_service.action(_action(GameCommandType.STAGE_CHALLENGE, "stage_01"))
     assert first["attempt"]["result"] == "succeeded"
-    assert first["user"]["level"] == 2
+    assert first["user"]["level"] == 1
+    second = game_service.action(_action(GameCommandType.STAGE_CHALLENGE, "stage_02"))
+    assert second["attempt"]["result"] == "succeeded"
+    assert second["user"]["level"] == 2
 
     floor_one = game_service.action(
         _action(GameCommandType.SPECIAL_DUNGEON_CHALLENGE, "rift_floor_01", event_id)
@@ -155,15 +158,17 @@ def test_approved_event_runs_special_dungeon_and_grants_reward_once(
     missions = game_service.progress(event_id)["missions"]
     assert [mission["status"] for mission in missions] == ["active", "upcoming"]
 
-    stage_two = game_service.action(_action(GameCommandType.STAGE_CHALLENGE, "stage_02"))
+    stage_two = game_service.action(_action(GameCommandType.STAGE_CHALLENGE, "stage_03"))
     assert stage_two["user"]["level"] == 3
     floor_two = game_service.action(
         _action(GameCommandType.SPECIAL_DUNGEON_CHALLENGE, "rift_floor_02", event_id)
     )
     assert floor_two["mission_changes"][0]["current_value"] == 16
 
-    stage_three = game_service.action(_action(GameCommandType.STAGE_CHALLENGE, "stage_02"))
+    stage_three = game_service.action(_action(GameCommandType.STAGE_CHALLENGE, "stage_04"))
     assert stage_three["user"]["level"] == 4
+    stage_four = game_service.action(_action(GameCommandType.STAGE_CHALLENGE, "stage_05"))
+    assert stage_four["user"]["level"] == 5
     boss = game_service.action(
         _action(GameCommandType.SPECIAL_DUNGEON_CHALLENGE, "rift_boss_03", event_id)
     )
@@ -184,6 +189,57 @@ def test_approved_event_runs_special_dungeon_and_grants_reward_once(
     progress = game_service.progress(event_id)
     assert len(progress["rewards"]) == 1
     assert progress["missions"][1]["status"] == "upcoming"
+
+
+def test_approved_canonical_plan_registers_as_runtime_event(
+    game_service: GameService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("MCP_URL", raising=False)
+    from backend.app.game.event_source import load_approved_event
+    from backend.app.schemas.planning import EventBriefInput
+    from backend.app.services.canonical_planning import create_event_workflow, decide_plan
+
+    brief = EventBriefInput.model_validate(
+        {
+            "objective": "신규 유저 첫 스테이지 참여를 돕는다",
+            "target_segments": ["new_user"],
+            "event_type": "growth_progression",
+            "operation_mode": "finite",
+            "schedule": {"timezone": "Asia/Seoul", "duration_days": 3},
+            "actions": [
+                {
+                    "action_id": "first-stage",
+                    "action_type": "stage_clear",
+                    "content_scope": {"content_ids": ["stage_01"]},
+                    "goal": {
+                        "metric": "count",
+                        "aggregation": "count",
+                        "operator": "gte",
+                        "target": 2,
+                    },
+                }
+            ],
+            "rewards": [{"reward_id": "welcome-gold", "item_id": "GOLD", "quantity": 10}],
+            "mission_reward_links": [{"action_id": "first-stage", "reward_id": "welcome-gold"}],
+            "impact_targets": [
+                {"metric": "participation", "unit": "users", "measurement_time": "event_end"}
+            ],
+            "source_game_version": "opong-data-1.3.0",
+        }
+    )
+    run = create_event_workflow(brief, "runtime-canonical-idempotency-01")
+    plan = run["plan"]
+    assert plan["runtime_eligible"] is True
+    decide_plan(run["workflow_id"], plan["plan_id"], 1, "APPROVE", "runtime-decision-key-0001")
+    monkeypatch.setattr(game_service_module, "load_approved_event", load_approved_event)
+
+    applied = game_service.apply_event(
+        ApplyEventRequest(request_id=uuid4(), task_id=run["task_id"], result_version=1)
+    )
+
+    assert applied["event_status"] == "active"
+    assert applied["event_name"] == "신규 유저 첫 스테이지 참여를 돕는다"
+    assert applied["source_task_id"] == run["task_id"]
 
 
 def test_event_application_requires_a_mapped_planner_data_version(

@@ -106,7 +106,6 @@ def test_clash_workflow_uses_one_mcp_sample_and_returns_approvable_demo_plan():
         "event_planner_agent",
         "balance_rule_agent",
         "critic_agent",
-        "supervisor",
     ]
     assert [trace["actor"] for trace in traces] == [
         "mcp",
@@ -221,7 +220,6 @@ def test_clash_balance_agent_rejection_is_replanned_before_critic():
         "event_planner_agent",
         "balance_rule_agent",
         "critic_agent",
-        "supervisor",
     ]
     assert run.result.autohealing_events[0].error_type == "event_brief_mismatch"
     assert run.result.autohealing_events[0].revalidation_status == "PASS"

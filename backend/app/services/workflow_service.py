@@ -3,6 +3,7 @@
 import asyncio
 import os
 from collections.abc import Mapping
+from contextlib import nullcontext
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -34,9 +35,14 @@ from backend.app.schemas.workflow_state import (
 )
 from backend.app.services.clash_event import ClashEventWorkflow, ClashRun
 from backend.app.services.db_service import repository
-from backend.app.services.llm_service import LLMService, create_openai_transport
+from backend.app.services.llm_service import (
+    LLMService,
+    create_openai_transport,
+    workflow_llm_call_budget,
+)
 from backend.app.services.mcp_client import MCPClient, create_streamable_http_transport
 from backend.app.services.planning_context_loader import PlanningContextLoader
+from backend.app.services.recovery_policy import pin_active_policy
 
 CONTENT = {
     1: ("HUNT_001", "일반 사냥", "monster_kill"),
@@ -163,7 +169,7 @@ class BackendBWorkflowAdapter:
         mcp = MCPClient(mcp_transport, ToolGuard(agents_config), 5)
         self.planning_context_loader = PlanningContextLoader(mcp_transport).load
         self._engine = BackendBEngine(
-            Supervisor(security_policy, llm),
+            Supervisor(security_policy),
             EventPlanner(llm),
             BalanceRuleAgent(mcp, llm_service=llm),
             Critic(llm),
@@ -172,9 +178,7 @@ class BackendBWorkflowAdapter:
             planning_context_loader=self.planning_context_loader,
         )
         self._clash_workflow = (
-            ClashEventWorkflow(
-                mcp_transport, llm, Supervisor(security_policy, llm), self._save_trace
-            )
+            ClashEventWorkflow(mcp_transport, llm, Supervisor(security_policy), self._save_trace)
             if mode in {"mcp", "live"}
             else None
         )
@@ -201,11 +205,15 @@ class BackendBWorkflowAdapter:
         return self._clash_workflow is not None
 
     def run(self, task_id: str, brief: EventBrief, fault_type: str | None = None) -> WorkflowResult:
-        result = asyncio.run(
-            self._engine.run(
-                task_id, brief.model_dump(mode="json", exclude={"game_source"}), fault_type
-            )
+        policy_context = (
+            pin_active_policy() if os.getenv("DATABASE_URL", "").strip() else nullcontext()
         )
+        with policy_context, workflow_llm_call_budget(max_calls=8):
+            result = asyncio.run(
+                self._engine.run(
+                    task_id, brief.model_dump(mode="json", exclude={"game_source"}), fault_type
+                )
+            )
         return self._convert(result, brief)
 
     def revise(self, task_id: str, brief: EventBrief, approval_comment: str) -> WorkflowResult:
@@ -270,6 +278,7 @@ class BackendBWorkflowAdapter:
                 next_agent=self._optional_string(event.get("next_agent")),
                 tool_name=self._optional_string(event.get("tool_name")),
                 error_type=self._optional_string(event.get("error_type")),
+                error_code=self._optional_string(event.get("error_code")),
                 reason_code=self._optional_string(event.get("reason_code")),
                 reason=self._optional_string(event.get("reason")),
                 policy_decision=self._optional_string(event.get("policy_decision")),
@@ -286,8 +295,6 @@ class BackendBWorkflowAdapter:
     async def _llm_transport(
         self, agent_name: str, context: dict[str, object]
     ) -> Mapping[str, object]:
-        if agent_name == "supervisor":
-            return {"approved": True, "reason": "Mock 경로 판단입니다."}
         if agent_name == "balance_rule_agent":
             validation = context.get("deterministic_validation")
             is_valid = isinstance(validation, Mapping) and validation.get("is_valid") is True

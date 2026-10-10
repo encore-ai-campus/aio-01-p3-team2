@@ -27,6 +27,8 @@ def create_app() -> FastAPI:
     from backend.app.api.event import router as event_router
     from backend.app.api.game import router as game_router
     from backend.app.api.health import router as health_router
+    from backend.app.api.planning import policy_router
+    from backend.app.api.planning import router as planning_router
     from backend.app.game.service import GameError
     from backend.app.services.task_service import ServiceError
 
@@ -34,6 +36,8 @@ def create_app() -> FastAPI:
     application.include_router(event_router, prefix="/api")
     application.include_router(game_router, prefix="/api")
     application.include_router(health_router)
+    application.include_router(planning_router, prefix="/api")
+    application.include_router(policy_router, prefix="/api")
 
     @application.exception_handler(ServiceError)
     async def service_error_handler(_: Request, exc: ServiceError) -> JSONResponse:

@@ -669,8 +669,14 @@ class GameService:
         source_payload = source["source"]
         result = source_payload["result"]
         source_game_data_version = source_payload["validation"].get("game_data_version")
-        if source_game_data_version not in self.catalog.get(
-            "planner_source_game_data_versions", []
+        source_snapshot_digest = source_payload["validation"].get("snapshot_digest")
+        canonical_snapshot_source = source_game_data_version == self.catalog.get(
+            "game_data_snapshot_id"
+        ) and isinstance(source_snapshot_digest, str)
+        if (
+            source_game_data_version
+            not in self.catalog.get("planner_source_game_data_versions", [])
+            and not canonical_snapshot_source
         ):
             raise GameError(
                 "catalog_version_unavailable",
@@ -687,6 +693,17 @@ class GameService:
         try:
             with self.repository.session() as session, session.begin():
                 user = self._required_user(session, lock=True)
+                if source_snapshot_digest is not None:
+                    snapshot_row = session.get(CatalogSnapshotRow, source_game_data_version)
+                    if (
+                        snapshot_row is None
+                        or snapshot_row.payload_digest != source_snapshot_digest
+                    ):
+                        raise GameError(
+                            "catalog_version_unavailable",
+                            "승인된 기획안의 게임 데이터 digest와 Runtime snapshot이 다릅니다.",
+                            409,
+                        )
                 previous = session.get(GameRequestRow, ("event_apply", str(request.request_id)))
                 if previous:
                     if previous.payload_hash != payload_hash:
@@ -826,6 +843,11 @@ class GameService:
                     "dungeon_clear": {"DUNGEON_001", "dungeon_01"},
                     "stage_clear": {"HUNT_001", *stage_content_ids},
                     "level_reach": {"HUNT_001", *stage_content_ids},
+                    "special_dungeon_floor_clear": {
+                        floor["id"]
+                        for template in self.catalog["special_dungeon_templates"]
+                        for floor in template["floors"]
+                    },
                 }.get(mapped["source_mission_type"], set())
                 if original_content not in allowed:
                     raise GameError(
@@ -900,6 +922,7 @@ class GameService:
                 "result_version": version,
                 "game_source": result.get("game_source", "opong"),
                 "game_data_version": source_game_data_version,
+                "game_data_digest": result.get("source_game_data_digest"),
             },
         }
         if not 1 <= payload["duration"] <= 7:

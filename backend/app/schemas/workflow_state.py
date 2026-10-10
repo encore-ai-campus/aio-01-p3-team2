@@ -80,6 +80,7 @@ class TraceEntry(BaseModel):
     next_agent: str | None = None
     tool_name: str | None = None
     error_type: str | None = None
+    error_code: str | None = None
     reason_code: str | None = None
     reason: str | None = None
     policy_decision: str | None = None

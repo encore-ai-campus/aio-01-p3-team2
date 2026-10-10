@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "CapabilityRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_catalog_version": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Capability Catalog Version",
+          "type": "string"
+        },
+        "capability_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "input_constraints": {
+          "additionalProperties": true,
+          "title": "Input Constraints",
+          "type": "object"
+        },
+        "kind": {
+          "$ref": "#/$defs/CapabilityType"
+        },
+        "reason_code": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason Code"
+        },
+        "runtime_adapter_ref": {
+          "anyOf": [
+            {
+              "maxLength": 240,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runtime Adapter Ref"
+        },
+        "status": {
+          "$ref": "#/$defs/CapabilityStatus"
+        }
+      },
+      "required": [
+        "capability_id",
+        "capability_catalog_version",
+        "kind",
+        "status"
+      ],
+      "title": "CapabilityRecord",
+      "type": "object"
+    },
+    "CapabilityStatus": {
+      "enum": [
+        "SUPPORTED",
+        "NEEDS_DEVELOPMENT",
+        "NEEDS_DATA",
+        "UNSUPPORTED_BY_POLICY"
+      ],
+      "title": "CapabilityStatus",
+      "type": "string"
+    },
+    "CapabilityType": {
+      "enum": [
+        "event_type",
+        "mission_action",
+        "venue",
+        "reward",
+        "schedule",
+        "audience"
+      ],
+      "title": "CapabilityType",
+      "type": "string"
+    },
+    "GameContext": {
+      "additionalProperties": false,
+      "properties": {
+        "balance_policy_version": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Balance Policy Version",
+          "type": "string"
+        },
+        "capability_catalog_version": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Capability Catalog Version",
+          "type": "string"
+        },
+        "domain_schema_version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Domain Schema Version",
+          "type": "string"
+        },
+        "event_schema_version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Event Schema Version",
+          "type": "string"
+        },
+        "game_data_snapshot_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Game Data Snapshot Id",
+          "type": "string"
+        },
+        "game_ruleset_version": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Game Ruleset Version",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "domain_schema_version",
+        "event_schema_version",
+        "game_data_snapshot_id",
+        "game_ruleset_version",
+        "capability_catalog_version",
+        "balance_policy_version"
+      ],
+      "title": "GameContext",
+      "type": "object"
+    },
+    "OperationMode": {
+      "enum": [
+        "finite",
+        "ongoing"
+      ],
+      "title": "OperationMode",
+      "type": "string"
+    }
+  },
+  "$id": "https://eventquest.local/schemas/capability-catalog.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "audience_cardinality": {
+      "minimum": 1,
+      "title": "Audience Cardinality",
+      "type": "integer"
+    },
+    "audiences": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Audiences",
+      "type": "array"
+    },
+    "capability_catalog_version": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Capability Catalog Version",
+      "type": "string"
+    },
+    "contract_version": {
+      "default": "capability-catalog.v1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "duration_days": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Duration Days",
+      "type": "object"
+    },
+    "event_types": {
+      "items": {
+        "$ref": "#/$defs/CapabilityRecord"
+      },
+      "minItems": 1,
+      "title": "Event Types",
+      "type": "array"
+    },
+    "game_context": {
+      "$ref": "#/$defs/GameContext"
+    },
+    "mission_actions": {
+      "items": {
+        "$ref": "#/$defs/CapabilityRecord"
+      },
+      "minItems": 1,
+      "title": "Mission Actions",
+      "type": "array"
+    },
+    "operation_modes": {
+      "items": {
+        "$ref": "#/$defs/OperationMode"
+      },
+      "minItems": 1,
+      "title": "Operation Modes",
+      "type": "array"
+    },
+    "rewards": {
+      "items": {
+        "$ref": "#/$defs/CapabilityRecord"
+      },
+      "title": "Rewards",
+      "type": "array"
+    },
+    "venues": {
+      "items": {
+        "$ref": "#/$defs/CapabilityRecord"
+      },
+      "title": "Venues",
+      "type": "array"
+    }
+  },
+  "required": [
+    "capability_catalog_version",
+    "game_context",
+    "operation_modes",
+    "duration_days",
+    "audience_cardinality",
+    "audiences",
+    "event_types",
+    "mission_actions"
+  ],
+  "title": "CapabilityCatalog",
+  "type": "object"
+}

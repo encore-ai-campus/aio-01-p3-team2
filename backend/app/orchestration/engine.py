@@ -12,6 +12,7 @@ from ..agents.event_planner import EventPlanner, PlannerInputError
 from ..agents.supervisor import ContextPolicyError, Supervisor, SupervisorDecisionError
 from ..fault_injection.fault_manager import FaultManager
 from ..fault_injection.fault_types import FaultType
+from ..faults.error_catalog import error_definition
 from ..guards.tool_guard import ToolGuardError
 from ..services.llm_service import LLMExecutionError, LLMTimeoutError
 from ..services.mcp_client import MCPTimeoutError, MCPToolError
@@ -545,10 +546,10 @@ class WorkflowEngine:
         retry_count = 0
         while True:
             try:
-                if faults.should_inject(FaultType.AGENT_FAILURE_ONCE) or faults.should_inject(
-                    FaultType.RETRY_LIMIT_EXCEEDED
-                ):
+                if faults.should_inject(FaultType.AGENT_FAILURE_ONCE):
                     raise LLMExecutionError("주입된 Agent 실행 오류")
+                if faults.should_inject(FaultType.RETRY_LIMIT_EXCEEDED):
+                    raise LLMTimeoutError("주입된 재시도 한도 테스트 timeout")
                 context = self._supervisor.build_agent_context("event_planner_agent", state)
                 plan = await self._planner.plan(context)
                 if faults.should_inject(FaultType.VALIDATION_ERROR_ONCE):
@@ -1009,6 +1010,7 @@ class WorkflowEngine:
             "action": action or event_type,
             "status": status or ("ERROR" if reason_code else "SUCCESS"),
             "error_type": reason_code,
+            "error_code": error_definition(reason_code).code if reason_code else None,
             "reason": reason if reason is not None else reason_code,
             "retry_count": retry_count,
             "revision_count": revision_count,

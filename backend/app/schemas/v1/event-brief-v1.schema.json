@@ -1,0 +1,449 @@
+{
+  "$defs": {
+    "ActionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Action Type",
+          "type": "string"
+        },
+        "content_scope": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Scope"
+        },
+        "filters": {
+          "additionalProperties": true,
+          "title": "Filters",
+          "type": "object"
+        },
+        "goal": {
+          "$ref": "#/$defs/GoalContract"
+        }
+      },
+      "required": [
+        "action_id",
+        "action_type",
+        "goal"
+      ],
+      "title": "ActionSpec",
+      "type": "object"
+    },
+    "EventSchedule": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_days": {
+          "anyOf": [
+            {
+              "maximum": 365,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Days"
+        },
+        "end_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End At"
+        },
+        "start_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start At"
+        },
+        "timezone": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "timezone"
+      ],
+      "title": "EventSchedule",
+      "type": "object"
+    },
+    "EventType": {
+      "enum": [
+        "growth_progression",
+        "dungeon_challenge",
+        "special_dungeon"
+      ],
+      "title": "EventType",
+      "type": "string"
+    },
+    "GoalContract": {
+      "additionalProperties": false,
+      "properties": {
+        "aggregation": {
+          "pattern": "^(count|max)$",
+          "title": "Aggregation",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "operator": {
+          "pattern": "^gte$",
+          "title": "Operator",
+          "type": "string"
+        },
+        "target": {
+          "minimum": 1,
+          "title": "Target",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "metric",
+        "aggregation",
+        "operator",
+        "target"
+      ],
+      "title": "GoalContract",
+      "type": "object"
+    },
+    "GrantPolicy": {
+      "enum": [
+        "once_per_user",
+        "once_per_cycle"
+      ],
+      "title": "GrantPolicy",
+      "type": "string"
+    },
+    "ImpactTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "measurement_time": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Measurement Time",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "target_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Value"
+        },
+        "unit": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric",
+        "unit",
+        "measurement_time"
+      ],
+      "title": "ImpactTarget",
+      "type": "object"
+    },
+    "MissionRewardLink": {
+      "additionalProperties": false,
+      "properties": {
+        "action_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Action Id"
+        },
+        "mission_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mission Id"
+        },
+        "reward_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Reward Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reward_id"
+      ],
+      "title": "MissionRewardLink",
+      "type": "object"
+    },
+    "OperationMode": {
+      "enum": [
+        "finite",
+        "ongoing"
+      ],
+      "title": "OperationMode",
+      "type": "string"
+    },
+    "RewardSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "grant_policy": {
+          "$ref": "#/$defs/GrantPolicy",
+          "default": "once_per_user"
+        },
+        "item_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "max_grants_per_user": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Grants Per User"
+        },
+        "quantity": {
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "reward_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Reward Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reward_id",
+        "item_id",
+        "quantity"
+      ],
+      "title": "RewardSpec",
+      "type": "object"
+    },
+    "VenueReference": {
+      "additionalProperties": false,
+      "properties": {
+        "capability_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "content_id": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Id"
+        },
+        "template_id": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Template Id"
+        }
+      },
+      "required": [
+        "capability_id"
+      ],
+      "title": "VenueReference",
+      "type": "object"
+    }
+  },
+  "$id": "https://eventquest.local/schemas/event-brief.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "User-authored request without server-issued identity/version fields.",
+  "properties": {
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/ActionSpec"
+      },
+      "minItems": 1,
+      "title": "Actions",
+      "type": "array"
+    },
+    "constraints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Constraints",
+      "type": "array"
+    },
+    "contract_version": {
+      "default": "event-brief.v1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "event_type": {
+      "$ref": "#/$defs/EventType"
+    },
+    "impact_targets": {
+      "items": {
+        "$ref": "#/$defs/ImpactTarget"
+      },
+      "minItems": 1,
+      "title": "Impact Targets",
+      "type": "array"
+    },
+    "mission_reward_links": {
+      "items": {
+        "$ref": "#/$defs/MissionRewardLink"
+      },
+      "title": "Mission Reward Links",
+      "type": "array"
+    },
+    "objective": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "operation_mode": {
+      "$ref": "#/$defs/OperationMode"
+    },
+    "preferences": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Preferences",
+      "type": "array"
+    },
+    "rewards": {
+      "items": {
+        "$ref": "#/$defs/RewardSpec"
+      },
+      "title": "Rewards",
+      "type": "array"
+    },
+    "schedule": {
+      "$ref": "#/$defs/EventSchedule"
+    },
+    "source_game_version": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Source Game Version",
+      "type": "string"
+    },
+    "target_segments": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Target Segments",
+      "type": "array"
+    },
+    "venue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VenueReference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "objective",
+    "target_segments",
+    "event_type",
+    "operation_mode",
+    "schedule",
+    "actions",
+    "rewards",
+    "impact_targets",
+    "source_game_version"
+  ],
+  "title": "EventBriefInput",
+  "type": "object"
+}

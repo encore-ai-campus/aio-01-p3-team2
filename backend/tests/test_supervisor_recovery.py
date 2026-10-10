@@ -37,8 +37,9 @@ class SupervisorRecoveryTests(unittest.IsolatedAsyncioTestCase):
         technical_route = await supervisor.review_failure(
             "agent_failure", current_agent="balance_rule_agent"
         )
-        self.assertEqual(technical_route.action, "SAFE_STOP")
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(technical_route.action, "RETRY")
+        self.assertEqual(technical_route.retry_count, 1)
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

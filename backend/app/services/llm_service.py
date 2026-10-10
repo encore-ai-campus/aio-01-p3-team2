@@ -3,6 +3,9 @@
 import asyncio
 import json
 from collections.abc import Awaitable, Callable, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 
 LLMTransport = Callable[[str, dict[str, object]], Awaitable[Mapping[str, object]]]
 
@@ -13,6 +16,38 @@ class LLMTimeoutError(TimeoutError):
 
 class LLMExecutionError(RuntimeError):
     """LLM 호출이나 응답 형식 확인에 실패한 상태다."""
+
+
+class LLMBudgetExceeded(LLMExecutionError):
+    """Workflow가 허용된 LLM 호출 수를 모두 사용한 상태다."""
+
+
+@dataclass
+class _LLMCallBudget:
+    max_calls: int
+    used_calls: int = 0
+
+    def consume(self) -> None:
+        if self.used_calls >= self.max_calls:
+            raise LLMBudgetExceeded("Workflow LLM 호출 한도에 도달했습니다.")
+        self.used_calls += 1
+
+
+_CALL_BUDGET: ContextVar[_LLMCallBudget | None] = ContextVar(
+    "workflow_llm_call_budget", default=None
+)
+
+
+@contextmanager
+def workflow_llm_call_budget(max_calls: int = 8):
+    """Apply a hard, per-Workflow cap before any provider request is sent."""
+    if type(max_calls) is not int or max_calls < 1:
+        raise ValueError("LLM 호출 한도는 양의 정수여야 합니다.")
+    token = _CALL_BUDGET.set(_LLMCallBudget(max_calls=max_calls))
+    try:
+        yield
+    finally:
+        _CALL_BUDGET.reset(token)
 
 
 class LLMService:
@@ -47,6 +82,10 @@ class LLMService:
             raise ValueError("Agent 이름이 비어 있습니다.")
         if not isinstance(context, Mapping):
             raise TypeError("Agent Context는 Mapping이어야 합니다.")
+
+        budget = _CALL_BUDGET.get()
+        if budget is not None:
+            budget.consume()
 
         try:
             response = await asyncio.wait_for(
@@ -117,15 +156,6 @@ def create_openai_transport(model: str, agents_config: Mapping[str, object]) -> 
 
 
 _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
-    "supervisor": {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["approved", "reason"],
-        "properties": {
-            "approved": {"type": "boolean"},
-            "reason": {"type": "string"},
-        },
-    },
     "balance_rule_agent": {
         "type": "object",
         "additionalProperties": False,

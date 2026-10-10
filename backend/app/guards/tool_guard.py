@@ -15,7 +15,8 @@ class ToolGuard:
     파싱된 ``agents.yaml`` 데이터만 받아 호출 직전에 정책을 검사한다.
     """
 
-    _ARGUMENT_KEYS: ClassVar[dict[str, str]] = {
+    _STRING_KEYS: ClassVar[dict[str, str]] = {
+        "get_event_capabilities": "game_id",
         "get_event_planning_context": "target_user",
         "get_game_rules": "content_id",
         "get_game_rules_fallback": "content_id",
@@ -55,27 +56,48 @@ class ToolGuard:
         if tool_name not in allowed_tools:
             raise ToolGuardError("Agent에게 허용되지 않은 Tool입니다.")
 
-        expected_key = self._ARGUMENT_KEYS.get(tool_name)
+        expected_key = self._STRING_KEYS.get(tool_name)
         if expected_key is None:
             raise ToolGuardError("등록되지 않은 Tool입니다.")
 
         if tool_name == "get_game_rules_fallback" and not primary_failed:
             raise ToolGuardError("Primary Tool 실패 없이 Fallback을 호출할 수 없습니다.")
 
-        expected_keys = (
-            {"target_user", "duration"}
-            if tool_name == "get_event_planning_context"
-            else {expected_key}
-        )
-        if not isinstance(arguments, Mapping) or set(arguments) != expected_keys:
+        allowed_keys = {
+            "get_event_capabilities": (
+                {"game_id", "game_data_snapshot_id"},
+                {"game_id", "game_data_snapshot_id", "capability_catalog_version"},
+            ),
+            "get_event_planning_context": (
+                {"target_user", "duration"},
+                {"game_id", "game_data_snapshot_id", "target_segment_id", "duration_days"},
+            ),
+            "get_game_rules": ({"content_id"}, {"content_id", "game_data_snapshot_id"}),
+            "get_game_rules_fallback": (
+                {"content_id"},
+                {"content_id", "game_data_snapshot_id", "expected_snapshot_digest"},
+            ),
+            "get_item_info": ({"item_id"}, {"item_id", "game_data_snapshot_id"}),
+        }[tool_name]
+        if not isinstance(arguments, Mapping) or set(arguments) not in allowed_keys:
             raise ToolGuardError("Tool 인자 이름이 올바르지 않습니다.")
 
-        value = arguments[expected_key]
-        if not isinstance(value, str) or not value.strip():
+        if any(
+            not isinstance(arguments.get(key), str) or not arguments[key].strip()
+            for key in set(arguments) - {"duration", "duration_days"}
+        ):
             raise ToolGuardError("Tool 인자는 비어 있지 않은 문자열이어야 합니다.")
         if tool_name == "get_event_planning_context":
-            if value not in {"new_user", "returning_user", "all_user"}:
+            if "target_user" in arguments and arguments["target_user"] not in {
+                "new_user",
+                "returning_user",
+                "all_user",
+            }:
                 raise ToolGuardError("이벤트 대상이 올바르지 않습니다.")
-            duration = arguments["duration"]
+            if "target_segment_id" in arguments and arguments["game_id"] != "opong_heroes":
+                raise ToolGuardError("지원하지 않는 게임 ID입니다.")
+            duration = arguments.get("duration", arguments.get("duration_days"))
             if type(duration) is not int or not 1 <= duration <= 7:
                 raise ToolGuardError("이벤트 기간은 1~7일이어야 합니다.")
+        if tool_name == "get_event_capabilities" and arguments["game_id"] != "opong_heroes":
+            raise ToolGuardError("지원하지 않는 게임 ID입니다.")

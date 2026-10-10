@@ -92,7 +92,7 @@ SCENARIOS = (
         "retry_limit_safe_stop",
         "retry_limit_exceeded",
         "FAILED",
-        "agent_failure",
+        "llm_timeout",
         None,
         (
             TraceStep("event_planner_agent", "AGENT_RETRY", "ERROR", "recovery"),

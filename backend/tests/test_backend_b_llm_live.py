@@ -1,4 +1,4 @@
-"""실제 OpenAI 응답으로 Backend B의 네 Agent 경로를 검증한다.
+"""실제 OpenAI 응답으로 Backend B의 LLM Agent 경로를 검증한다.
 
 LLM_TEST_MODEL을 명시하고 OPENAI_API_KEY가 환경변수 또는 backend/.env에
 있는 경우에만 실행한다. 호출마다 API 요금이 발생하므로 기본 백엔드
@@ -194,12 +194,12 @@ class LiveLLMTests(unittest.IsolatedAsyncioTestCase):
                 ("WAIT_APPROVAL", None),
             ],
         )
-        self.assertTrue(all("LLM 판단:" in event["reason"] for event in routing))
+        self.assertTrue(all("LLM 판단:" not in event["reason"] for event in routing))
         planning_context = validate_planning_context(await self._load("new_user", 5), "new_user", 5)
         self._assert_plan_uses_listed_ids(result.current_result, planning_context)
 
-    async def test_clash_sample_workflow_uses_four_live_agents(self) -> None:
-        """고정된 Clash 공개 표본에서 네 Agent의 실제 판단과 검증 결과를 확인한다."""
+    async def test_clash_sample_workflow_uses_three_live_agents(self) -> None:
+        """Clash 공개 표본에서 세 LLM Agent와 결정적 Supervisor를 확인한다."""
         snapshot = {
             "source": "clash_of_clans",
             "game_data_version": "clash-sample-live-test",
@@ -257,6 +257,6 @@ class LiveLLMTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.result.autohealing_events, [])
         self.assertEqual(
             [event["actor"] for event in traces],
-            ["mcp", "event_planner_agent", "balance_rule_agent", "critic_agent", "supervisor"],
+            ["mcp", "event_planner_agent", "balance_rule_agent", "critic_agent"],
         )
-        self.assertIn("LLM 판단:", traces[-1]["reason"])
+        self.assertNotIn("LLM 판단:", traces[-1]["reason"])

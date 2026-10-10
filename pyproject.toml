@@ -10,3 +10,7 @@ extend-select = ["I"]
 quote-style = "double"
 indent-style = "space"
 line-ending = "lf"
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests", "mcp_server/tests", "demo-game/tests"]
+addopts = "--import-mode=importlib"

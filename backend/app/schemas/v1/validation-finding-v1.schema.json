@@ -1,0 +1,153 @@
+{
+  "$defs": {
+    "FindingLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "field_path": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Field Path",
+          "type": "string"
+        },
+        "phase": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Phase",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_path",
+        "component",
+        "phase"
+      ],
+      "title": "FindingLocation",
+      "type": "object"
+    },
+    "FindingSeverity": {
+      "enum": [
+        "INFO",
+        "WARNING",
+        "ERROR",
+        "BLOCKER"
+      ],
+      "title": "FindingSeverity",
+      "type": "string"
+    },
+    "FindingType": {
+      "enum": [
+        "INPUT",
+        "CONTRACT",
+        "DOMAIN",
+        "SCOPE",
+        "SECURITY",
+        "DATA",
+        "IMPACT"
+      ],
+      "title": "FindingType",
+      "type": "string"
+    },
+    "Repairability": {
+      "enum": [
+        "AUTO_REVISION",
+        "USER_INPUT",
+        "NEEDS_DEVELOPMENT",
+        "NEEDS_DATA",
+        "HUMAN_REVIEW",
+        "NOT_REPAIRABLE"
+      ],
+      "title": "Repairability",
+      "type": "string"
+    }
+  },
+  "$id": "https://eventquest.local/schemas/validation-finding.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "blocks_runtime": {
+      "title": "Blocks Runtime",
+      "type": "boolean"
+    },
+    "code": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Code",
+      "type": "string"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "finding_id": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "finding_type": {
+      "$ref": "#/$defs/FindingType"
+    },
+    "location": {
+      "$ref": "#/$defs/FindingLocation"
+    },
+    "message_safe": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "title": "Message Safe",
+      "type": "string"
+    },
+    "related_capability_id": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Related Capability Id"
+    },
+    "repairability": {
+      "$ref": "#/$defs/Repairability"
+    },
+    "severity": {
+      "$ref": "#/$defs/FindingSeverity"
+    },
+    "suggested_action": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Suggested Action"
+    }
+  },
+  "required": [
+    "finding_id",
+    "finding_type",
+    "code",
+    "severity",
+    "location",
+    "message_safe",
+    "repairability",
+    "blocks_runtime"
+  ],
+  "title": "ValidationFinding",
+  "type": "object"
+}

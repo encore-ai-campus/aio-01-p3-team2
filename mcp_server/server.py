@@ -9,6 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from mcp_server.tools.get_clash_event_sample import get_clash_event_sample
+from mcp_server.tools.get_event_capabilities import get_event_capabilities
 from mcp_server.tools.get_event_planning_context import get_event_planning_context
 from mcp_server.tools.get_game_rules import get_game_rules
 from mcp_server.tools.get_game_rules_fallback import get_game_rules_fallback
@@ -27,6 +28,7 @@ mcp = FastMCP(
 )
 
 for tool in (
+    get_event_capabilities,
     get_event_planning_context,
     get_game_rules,
     get_game_rules_fallback,

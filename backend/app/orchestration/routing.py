@@ -1,8 +1,10 @@
 """표준 오류 유형에 따라 Workflow의 복구 경로를 결정한다."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
+from ..faults.error_catalog import error_definition
+from ..services.recovery_policy import has_pinned_policy, pinned_policy_version, pinned_route
 from .retry import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_MAX_REVISIONS,
@@ -34,6 +36,62 @@ class RecoveryRoute:
 
 
 def decide_recovery(
+    error_type: str,
+    *,
+    current_agent: str | None = None,
+    failed_tool: str | None = None,
+    retry_count: int = 0,
+    revision_count: int = 0,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+    max_revisions: int = DEFAULT_MAX_REVISIONS,
+) -> RecoveryRoute:
+    """Apply the pinned operator policy without allowing it to widen safe routes."""
+    base = _decide_recovery_base(
+        error_type,
+        current_agent=current_agent,
+        failed_tool=failed_tool,
+        retry_count=retry_count,
+        revision_count=revision_count,
+        max_retries=max_retries,
+        max_revisions=max_revisions,
+    )
+    policy_route = pinned_route(error_definition(error_type).code)
+    if policy_route is None:
+        return (
+            _safe_stop(
+                "활성 복구 정책에 오류 대응이 없어 안전 종료했습니다.", retry_count, revision_count
+            )
+            if has_pinned_policy()
+            else base
+        )
+    version = pinned_policy_version()
+    action = policy_route.get("action")
+    max_attempts = policy_route.get("max_attempts", 1)
+    if action in {"SAFE_STOP", "FAIL_FAST"}:
+        return _safe_stop(
+            "활성 복구 정책이 자동 복구를 허용하지 않습니다.", retry_count, revision_count
+        )
+    if base.action == "SAFE_STOP":
+        return base
+    expected = {
+        "RETRY_OPERATION": {"RETRY", "TOOL_FALLBACK"},
+        "RETRY_AGENT": {"RETRY"},
+        "REVISE_PLAN": {"RUN_AGENT"},
+    }.get(action, set())
+    if base.action not in expected:
+        return _safe_stop(
+            "활성 복구 정책과 오류 분류가 일치하지 않아 안전 종료했습니다.",
+            retry_count,
+            revision_count,
+        )
+    if action == "REVISE_PLAN" and base.revision_count >= max_attempts:
+        return _safe_stop("정책의 기획 수정 한도를 초과했습니다.", retry_count, revision_count)
+    if action in {"RETRY_OPERATION", "RETRY_AGENT"} and retry_count + 1 >= max_attempts:
+        return _safe_stop("정책의 기술 재시도 한도를 초과했습니다.", retry_count, revision_count)
+    return replace(base, reason=f"{base.reason} (복구 정책 v{version})")
+
+
+def _decide_recovery_base(
     error_type: str,
     *,
     current_agent: str | None = None,

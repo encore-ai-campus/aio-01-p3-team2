@@ -60,7 +60,7 @@ def test_api_planning_lookup_precedes_planner_and_validation(client, monkeypatch
         ("RUN_AGENT", "critic_agent"),
         ("WAIT_APPROVAL", None),
     ]
-    assert all("Mock 판단:" in entry["reason"] for entry in routing)
+    assert all("Mock 판단:" not in entry["reason"] for entry in routing)
     actions = [(entry["actor"], entry["action"]) for entry in traces]
     required = [
         ("mcp", "get_event_planning_context"),

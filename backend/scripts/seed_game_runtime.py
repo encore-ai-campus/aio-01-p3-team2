@@ -27,6 +27,9 @@ MIGRATIONS = [
         "002_game_runtime.sql",
         "003_game_combat_growth.sql",
         "004_game_endless_inventory_shop.sql",
+        "005_canonical_planning.sql",
+        "006_recovery_policy.sql",
+        "007_decision_workflow_id.sql",
     )
 ]
 

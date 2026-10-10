@@ -1,0 +1,898 @@
+{
+  "$defs": {
+    "BriefReference": {
+      "additionalProperties": false,
+      "properties": {
+        "brief_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Brief Id",
+          "type": "string"
+        },
+        "brief_version": {
+          "minimum": 1,
+          "title": "Brief Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "brief_id",
+        "brief_version"
+      ],
+      "title": "BriefReference",
+      "type": "object"
+    },
+    "CapabilityStatus": {
+      "enum": [
+        "SUPPORTED",
+        "NEEDS_DEVELOPMENT",
+        "NEEDS_DATA",
+        "UNSUPPORTED_BY_POLICY"
+      ],
+      "title": "CapabilityStatus",
+      "type": "string"
+    },
+    "DevelopmentRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_criteria": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Acceptance Criteria",
+          "type": "array"
+        },
+        "capability_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "impact": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Impact",
+          "type": "string"
+        },
+        "requested_behavior": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Requested Behavior",
+          "type": "string"
+        },
+        "required_work": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Required Work",
+          "type": "array"
+        },
+        "requirement_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Requirement Id",
+          "type": "string"
+        },
+        "support_status": {
+          "$ref": "#/$defs/CapabilityStatus",
+          "default": "NEEDS_DEVELOPMENT"
+        },
+        "unknowns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unknowns",
+          "type": "array"
+        }
+      },
+      "required": [
+        "requirement_id",
+        "capability_id",
+        "requested_behavior",
+        "required_work",
+        "impact",
+        "acceptance_criteria"
+      ],
+      "title": "DevelopmentRequirement",
+      "type": "object"
+    },
+    "EvaluationStatus": {
+      "enum": [
+        "PASS",
+        "REVISE",
+        "NEEDS_DEVELOPMENT",
+        "NEEDS_DATA",
+        "HUMAN_REVIEW",
+        "BLOCK"
+      ],
+      "title": "EvaluationStatus",
+      "type": "string"
+    },
+    "EventSchedule": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_days": {
+          "anyOf": [
+            {
+              "maximum": 365,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Days"
+        },
+        "end_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "End At"
+        },
+        "start_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start At"
+        },
+        "timezone": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "timezone"
+      ],
+      "title": "EventSchedule",
+      "type": "object"
+    },
+    "EventType": {
+      "enum": [
+        "growth_progression",
+        "dungeon_challenge",
+        "special_dungeon"
+      ],
+      "title": "EventType",
+      "type": "string"
+    },
+    "FindingLocation": {
+      "additionalProperties": false,
+      "properties": {
+        "component": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Component",
+          "type": "string"
+        },
+        "field_path": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Field Path",
+          "type": "string"
+        },
+        "phase": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Phase",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_path",
+        "component",
+        "phase"
+      ],
+      "title": "FindingLocation",
+      "type": "object"
+    },
+    "FindingSeverity": {
+      "enum": [
+        "INFO",
+        "WARNING",
+        "ERROR",
+        "BLOCKER"
+      ],
+      "title": "FindingSeverity",
+      "type": "string"
+    },
+    "FindingType": {
+      "enum": [
+        "INPUT",
+        "CONTRACT",
+        "DOMAIN",
+        "SCOPE",
+        "SECURITY",
+        "DATA",
+        "IMPACT"
+      ],
+      "title": "FindingType",
+      "type": "string"
+    },
+    "GameContext": {
+      "additionalProperties": false,
+      "properties": {
+        "balance_policy_version": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Balance Policy Version",
+          "type": "string"
+        },
+        "capability_catalog_version": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Capability Catalog Version",
+          "type": "string"
+        },
+        "domain_schema_version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Domain Schema Version",
+          "type": "string"
+        },
+        "event_schema_version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Event Schema Version",
+          "type": "string"
+        },
+        "game_data_snapshot_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Game Data Snapshot Id",
+          "type": "string"
+        },
+        "game_ruleset_version": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Game Ruleset Version",
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "domain_schema_version",
+        "event_schema_version",
+        "game_data_snapshot_id",
+        "game_ruleset_version",
+        "capability_catalog_version",
+        "balance_policy_version"
+      ],
+      "title": "GameContext",
+      "type": "object"
+    },
+    "GoalContract": {
+      "additionalProperties": false,
+      "properties": {
+        "aggregation": {
+          "pattern": "^(count|max)$",
+          "title": "Aggregation",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "operator": {
+          "pattern": "^gte$",
+          "title": "Operator",
+          "type": "string"
+        },
+        "target": {
+          "minimum": 1,
+          "title": "Target",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "metric",
+        "aggregation",
+        "operator",
+        "target"
+      ],
+      "title": "GoalContract",
+      "type": "object"
+    },
+    "GrantPolicy": {
+      "enum": [
+        "once_per_user",
+        "once_per_cycle"
+      ],
+      "title": "GrantPolicy",
+      "type": "string"
+    },
+    "ImpactAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "method_ref": {
+          "anyOf": [
+            {
+              "maxLength": 240,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method Ref"
+        },
+        "metric": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ImpactStatus"
+        },
+        "unit": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "metric",
+        "status",
+        "unit"
+      ],
+      "title": "ImpactAssessment",
+      "type": "object"
+    },
+    "ImpactStatus": {
+      "enum": [
+        "measured",
+        "calculated",
+        "estimated",
+        "unknown"
+      ],
+      "title": "ImpactStatus",
+      "type": "string"
+    },
+    "MissionPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "action_type": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Action Type",
+          "type": "string"
+        },
+        "content_scope": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Scope"
+        },
+        "filters": {
+          "additionalProperties": true,
+          "title": "Filters",
+          "type": "object"
+        },
+        "goal": {
+          "$ref": "#/$defs/GoalContract"
+        },
+        "mission_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Mission Id",
+          "type": "string"
+        },
+        "reset_period": {
+          "pattern": "^(once|daily|weekly)$",
+          "title": "Reset Period",
+          "type": "string"
+        },
+        "source_action_id": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Action Id"
+        },
+        "support_status": {
+          "$ref": "#/$defs/CapabilityStatus"
+        }
+      },
+      "required": [
+        "mission_id",
+        "action_type",
+        "goal",
+        "reset_period",
+        "support_status"
+      ],
+      "title": "MissionPlan",
+      "type": "object"
+    },
+    "OperationMode": {
+      "enum": [
+        "finite",
+        "ongoing"
+      ],
+      "title": "OperationMode",
+      "type": "string"
+    },
+    "PlanMissionRewardLink": {
+      "additionalProperties": false,
+      "properties": {
+        "mission_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Mission Id",
+          "type": "string"
+        },
+        "reward_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Reward Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mission_id",
+        "reward_id"
+      ],
+      "title": "PlanMissionRewardLink",
+      "type": "object"
+    },
+    "PlanStatus": {
+      "enum": [
+        "DRAFT",
+        "VALIDATED",
+        "VALIDATED_WITH_DEVELOPMENT_ITEMS",
+        "NEEDS_DATA",
+        "BLOCKED"
+      ],
+      "title": "PlanStatus",
+      "type": "string"
+    },
+    "Repairability": {
+      "enum": [
+        "AUTO_REVISION",
+        "USER_INPUT",
+        "NEEDS_DEVELOPMENT",
+        "NEEDS_DATA",
+        "HUMAN_REVIEW",
+        "NOT_REPAIRABLE"
+      ],
+      "title": "Repairability",
+      "type": "string"
+    },
+    "RewardPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "grant_policy": {
+          "$ref": "#/$defs/GrantPolicy"
+        },
+        "item_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Item Id",
+          "type": "string"
+        },
+        "max_grants_per_user": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Grants Per User"
+        },
+        "mission_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Mission Id",
+          "type": "string"
+        },
+        "quantity": {
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "reward_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Reward Id",
+          "type": "string"
+        },
+        "support_status": {
+          "$ref": "#/$defs/CapabilityStatus"
+        }
+      },
+      "required": [
+        "reward_id",
+        "mission_id",
+        "item_id",
+        "quantity",
+        "grant_policy",
+        "support_status"
+      ],
+      "title": "RewardPlan",
+      "type": "object"
+    },
+    "SourceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Task Id",
+          "type": "string"
+        },
+        "workflow_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Workflow Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "workflow_id",
+        "task_id"
+      ],
+      "title": "SourceReference",
+      "type": "object"
+    },
+    "ValidationFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "blocks_runtime": {
+          "title": "Blocks Runtime",
+          "type": "boolean"
+        },
+        "code": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "evidence_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Refs",
+          "type": "array"
+        },
+        "finding_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "finding_type": {
+          "$ref": "#/$defs/FindingType"
+        },
+        "location": {
+          "$ref": "#/$defs/FindingLocation"
+        },
+        "message_safe": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Message Safe",
+          "type": "string"
+        },
+        "related_capability_id": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Related Capability Id"
+        },
+        "repairability": {
+          "$ref": "#/$defs/Repairability"
+        },
+        "severity": {
+          "$ref": "#/$defs/FindingSeverity"
+        },
+        "suggested_action": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Suggested Action"
+        }
+      },
+      "required": [
+        "finding_id",
+        "finding_type",
+        "code",
+        "severity",
+        "location",
+        "message_safe",
+        "repairability",
+        "blocks_runtime"
+      ],
+      "title": "ValidationFinding",
+      "type": "object"
+    },
+    "ValidationSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/ValidationFinding"
+          },
+          "title": "Findings",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/EvaluationStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "ValidationSummary",
+      "type": "object"
+    },
+    "VenuePlan": {
+      "additionalProperties": false,
+      "properties": {
+        "difficulty_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Difficulty Id",
+          "type": "string"
+        },
+        "layout_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Layout Id",
+          "type": "string"
+        },
+        "support_status": {
+          "$ref": "#/$defs/CapabilityStatus"
+        },
+        "template_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Template Id",
+          "type": "string"
+        },
+        "theme_id": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Theme Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "template_id",
+        "layout_id",
+        "theme_id",
+        "difficulty_id",
+        "support_status"
+      ],
+      "title": "VenuePlan",
+      "type": "object"
+    }
+  },
+  "$id": "https://eventquest.local/schemas/event-plan.v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "audience": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Audience",
+      "type": "object"
+    },
+    "brief_ref": {
+      "$ref": "#/$defs/BriefReference"
+    },
+    "contract_version": {
+      "default": "event-plan.v1",
+      "title": "Contract Version",
+      "type": "string"
+    },
+    "development_requirements": {
+      "items": {
+        "$ref": "#/$defs/DevelopmentRequirement"
+      },
+      "title": "Development Requirements",
+      "type": "array"
+    },
+    "event_type": {
+      "$ref": "#/$defs/EventType"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "game_context": {
+      "$ref": "#/$defs/GameContext"
+    },
+    "impact_assessment": {
+      "items": {
+        "$ref": "#/$defs/ImpactAssessment"
+      },
+      "minItems": 1,
+      "title": "Impact Assessment",
+      "type": "array"
+    },
+    "mission_reward_links": {
+      "items": {
+        "$ref": "#/$defs/PlanMissionRewardLink"
+      },
+      "title": "Mission Reward Links",
+      "type": "array"
+    },
+    "missions": {
+      "items": {
+        "$ref": "#/$defs/MissionPlan"
+      },
+      "minItems": 1,
+      "title": "Missions",
+      "type": "array"
+    },
+    "objective": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Objective",
+      "type": "string"
+    },
+    "operation_mode": {
+      "$ref": "#/$defs/OperationMode"
+    },
+    "plan_id": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "plan_status": {
+      "$ref": "#/$defs/PlanStatus"
+    },
+    "result_version": {
+      "minimum": 1,
+      "title": "Result Version",
+      "type": "integer"
+    },
+    "rewards": {
+      "items": {
+        "$ref": "#/$defs/RewardPlan"
+      },
+      "title": "Rewards",
+      "type": "array"
+    },
+    "runtime_eligible": {
+      "title": "Runtime Eligible",
+      "type": "boolean"
+    },
+    "schedule": {
+      "$ref": "#/$defs/EventSchedule"
+    },
+    "source_ref": {
+      "$ref": "#/$defs/SourceReference"
+    },
+    "validation_summary": {
+      "$ref": "#/$defs/ValidationSummary"
+    },
+    "venue": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VenuePlan"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "plan_id",
+    "result_version",
+    "brief_ref",
+    "source_ref",
+    "game_context",
+    "plan_status",
+    "runtime_eligible",
+    "objective",
+    "event_type",
+    "operation_mode",
+    "audience",
+    "schedule",
+    "missions",
+    "impact_assessment",
+    "validation_summary"
+  ],
+  "title": "EventPlan",
+  "type": "object"
+}

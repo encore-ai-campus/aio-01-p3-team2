@@ -761,7 +761,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         result = await self._engine().run("task-9", self.brief, "retry_limit_exceeded")
         self.assertEqual(result.workflow_status, "FAILED")
         self.assertIsNone(result.current_result)
-        self.assertEqual(result.error["error_type"], "agent_failure")
+        self.assertEqual(result.error["error_type"], "llm_timeout")
         self.assertEqual(result.retry_count, 3)
 
     async def test_trace_write_retries_without_duplicate_event(self) -> None:

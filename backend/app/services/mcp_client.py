@@ -80,14 +80,56 @@ class MCPClient:
             raise MCPToolError(tool_name)
         return dict(result)
 
-    async def get_game_rules(self, agent_name: str, content_id: str) -> dict[str, object]:
-        """콘텐츠 ID로 Primary 게임 규칙을 조회한다."""
-        return await self.call_tool(agent_name, "get_game_rules", {"content_id": content_id})
+    async def get_event_capabilities(
+        self, agent_name: str, game_id: str, game_data_snapshot_id: str
+    ) -> dict[str, object]:
+        """Runtime의 정확한 snapshot에 등록된 이벤트 지원 범위를 조회한다."""
+        return await self.call_tool(
+            agent_name,
+            "get_event_capabilities",
+            {"game_id": game_id, "game_data_snapshot_id": game_data_snapshot_id},
+        )
+
+    async def get_game_rules(
+        self,
+        agent_name: str,
+        content_id: str,
+        game_data_snapshot_id: str | None = None,
+    ) -> dict[str, object]:
+        """콘텐츠 ID와 선택한 snapshot으로 Primary 게임 규칙을 조회한다."""
+        arguments: dict[str, object] = {"content_id": content_id}
+        if game_data_snapshot_id is not None:
+            arguments["game_data_snapshot_id"] = game_data_snapshot_id
+        return await self.call_tool(agent_name, "get_game_rules", arguments)
 
     async def get_event_planning_context(
-        self, agent_name: str, target_user: str, duration: int
+        self,
+        agent_name: str,
+        target_user: str | None = None,
+        duration: int | None = None,
+        *,
+        game_id: str | None = None,
+        game_data_snapshot_id: str | None = None,
+        target_segment_id: str | None = None,
+        duration_days: int | None = None,
     ) -> dict[str, object]:
-        """Backend가 Planner 실행 전에 기획용 게임 데이터를 조회한다."""
+        """Planner 실행 전에 legacy 또는 versioned 기획용 데이터를 조회한다."""
+        if any(
+            value is not None
+            for value in (game_id, game_data_snapshot_id, target_segment_id, duration_days)
+        ):
+            return await self.call_tool(
+                agent_name,
+                "get_event_planning_context",
+                {
+                    "game_id": game_id,
+                    "game_data_snapshot_id": game_data_snapshot_id,
+                    "target_segment_id": target_segment_id,
+                    "duration_days": duration_days,
+                },
+            )
+        if target_user is None or duration is None:
+            raise ValueError("legacy target_user/duration or versioned context is required")
         return await self.call_tool(
             agent_name,
             "get_event_planning_context",
@@ -95,19 +137,37 @@ class MCPClient:
         )
 
     async def get_game_rules_fallback(
-        self, agent_name: str, content_id: str, *, primary_failed: bool
+        self,
+        agent_name: str,
+        content_id: str,
+        *,
+        primary_failed: bool,
+        game_data_snapshot_id: str | None = None,
+        expected_snapshot_digest: str | None = None,
     ) -> dict[str, object]:
         """Primary Tool 실패 후에만 검증된 규칙 Snapshot을 조회한다."""
+        arguments: dict[str, object] = {"content_id": content_id}
+        if game_data_snapshot_id is not None:
+            arguments["game_data_snapshot_id"] = game_data_snapshot_id
+            arguments["expected_snapshot_digest"] = expected_snapshot_digest
         return await self.call_tool(
             agent_name,
             "get_game_rules_fallback",
-            {"content_id": content_id},
+            arguments,
             primary_failed=primary_failed,
         )
 
-    async def get_item_info(self, agent_name: str, item_id: str) -> dict[str, object]:
-        """아이템 ID로 보상 아이템 정보를 조회한다."""
-        return await self.call_tool(agent_name, "get_item_info", {"item_id": item_id})
+    async def get_item_info(
+        self,
+        agent_name: str,
+        item_id: str,
+        game_data_snapshot_id: str | None = None,
+    ) -> dict[str, object]:
+        """아이템 ID와 선택한 snapshot으로 보상 규칙을 조회한다."""
+        arguments: dict[str, object] = {"item_id": item_id}
+        if game_data_snapshot_id is not None:
+            arguments["game_data_snapshot_id"] = game_data_snapshot_id
+        return await self.call_tool(agent_name, "get_item_info", arguments)
 
 
 def create_streamable_http_transport(url: str) -> ToolTransport:

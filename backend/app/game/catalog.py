@@ -149,6 +149,11 @@ def mission_mapping(mission: dict[str, Any]) -> dict[str, Any]:
             "progress_type": "floor_cleared",
             "metric": "count",
         },
+        "special_dungeon_floor_clear": {
+            "action_type": "special_dungeon_progressed",
+            "progress_type": "floor_cleared",
+            "metric": "count",
+        },
         "dungeon_clear": {
             "action_type": "dungeon_cleared",
             "progress_type": None,

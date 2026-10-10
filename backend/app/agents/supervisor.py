@@ -2,11 +2,9 @@
 
 from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import replace
 from typing import ClassVar
 
 from ..orchestration.routing import RecoveryRoute, decide_recovery
-from ..services.llm_service import LLMExecutionError, LLMService, LLMTimeoutError
 
 
 class ContextPolicyError(ValueError):
@@ -18,12 +16,7 @@ class SupervisorDecisionError(ValueError):
 
 
 class Supervisor:
-    """정책에 맞는 Agent Context를 만들고 오류의 복구 경로를 선택한다.
-
-    LLM이 정상 전환과 기술 오류 복구 경로를 심사한다. 허용된 복구 경로와
-    한도는 결정적 정책이 정한다. 기획 수정은 검증을 다시 거치는 제한된
-    경로이므로 정책이 직접 확정한다.
-    """
+    """정책과 Workflow 상태에 따라 결정적으로 실행 경로를 선택한다."""
 
     _BRIEF_KEYS: ClassVar[tuple[str, ...]] = (
         "event_name",
@@ -48,14 +41,14 @@ class Supervisor:
     )
 
     def __init__(
-        self, security_policy: Mapping[str, object], llm_service: LLMService | None = None
+        self, security_policy: Mapping[str, object], llm_service: object | None = None
     ) -> None:
-        """파싱된 보안 정책에서 Agent별 Context 허용 목록을 확인한다."""
+        """정책 파일의 호환 인자를 무시하고 Agent Context allowlist를 확인한다."""
+        del llm_service  # Supervisor is deliberately excluded from all LLM calls.
         context_access = security_policy.get("context_access")
         if not isinstance(context_access, Mapping):
             raise ContextPolicyError("보안 정책에 context_access가 필요합니다.")
         self._context_access = context_access
-        self._llm_service = llm_service
 
     async def review_transition(
         self,
@@ -64,22 +57,17 @@ class Supervisor:
         reason: str,
         decision_context: Mapping[str, object] | None = None,
     ) -> str:
-        """LLM이 제안된 정상 단계 전환을 심사하고 Trace용 이유를 반환한다."""
-        if self._llm_service is None:
-            return reason
-        judgment = await self._judge(
-            {
-                "kind": "normal_transition",
-                "action": action,
-                "next_agent": next_agent,
-                "proposed_reason": reason,
-                "decision_context": dict(decision_context or {}),
-            }
-        )
-        if not judgment["approved"]:
-            raise SupervisorDecisionError(judgment["reason"])
-        source = "LLM" if self._llm_service.source == "live" else "Mock"
-        return f"{source} 판단: {judgment['reason']}"
+        """허용된 상태 전이만 받아 원래의 결정 근거를 Trace에 남긴다."""
+        del decision_context
+        actions = {"RUN_AGENT", "WAIT_APPROVAL", "RETRY", "TOOL_FALLBACK", "SAFE_STOP"}
+        agents = {"event_planner_agent", "balance_rule_agent", "critic_agent"}
+        if action not in actions or not isinstance(reason, str) or not reason.strip():
+            raise SupervisorDecisionError("Workflow 전이 제안이 올바르지 않습니다.")
+        if action == "RUN_AGENT" and next_agent not in agents:
+            raise SupervisorDecisionError("허용되지 않은 다음 Agent입니다.")
+        if action != "RUN_AGENT" and next_agent is not None:
+            raise SupervisorDecisionError("현재 전이는 다음 Agent를 지정할 수 없습니다.")
+        return reason.strip()
 
     async def review_failure(
         self,
@@ -90,67 +78,14 @@ class Supervisor:
         retry_count: int = 0,
         revision_count: int = 0,
     ) -> RecoveryRoute:
-        """기획 수정은 정책으로 확정하고 다른 복구안은 LLM이 심사한다."""
-        route = self.decide_failure(
+        """오류 taxonomy와 hard cap에 따라 복구 경로를 결정한다."""
+        return self.decide_failure(
             error_type,
             current_agent=current_agent,
             failed_tool=failed_tool,
             retry_count=retry_count,
             revision_count=revision_count,
         )
-        # A planning revision is bounded by policy and must pass full validation again.
-        # The validator reports the failure; only the planner can change the plan.
-        if route.action == "RUN_AGENT" and route.next_agent == "event_planner_agent":
-            return route
-        if self._llm_service is None:
-            return route
-        try:
-            judgment = await self._judge(
-                {
-                    "kind": "recovery",
-                    "error_type": error_type,
-                    "current_agent": current_agent,
-                    "failed_tool": failed_tool,
-                    "retry_count": retry_count,
-                    "revision_count": revision_count,
-                    "proposed_action": route.action,
-                    "proposed_next_agent": route.next_agent,
-                    "proposed_reason": route.reason,
-                }
-            )
-        except (LLMExecutionError, LLMTimeoutError, SupervisorDecisionError):
-            return replace(
-                route,
-                action="SAFE_STOP",
-                next_agent=None,
-                target_tool=None,
-                retry_count=retry_count,
-                revision_count=revision_count,
-                reason="Supervisor 판단에 실패해 안전 종료합니다.",
-            )
-        if not judgment["approved"]:
-            source = "LLM" if self._llm_service.source == "live" else "Mock"
-            return replace(
-                route,
-                action="SAFE_STOP",
-                next_agent=None,
-                target_tool=None,
-                retry_count=retry_count,
-                revision_count=revision_count,
-                reason=f"{source} 판단: {judgment['reason']}",
-            )
-        source = "LLM" if self._llm_service.source == "live" else "Mock"
-        return replace(route, reason=f"{route.reason} ({source} 판단: {judgment['reason']})")
-
-    async def _judge(self, context: Mapping[str, object]) -> dict[str, object]:
-        """Supervisor의 제한된 판단 응답을 확인한다."""
-        assert self._llm_service is not None
-        result = await self._llm_service.generate("supervisor", context)
-        approved = result.get("approved")
-        reason = result.get("reason")
-        if type(approved) is not bool or not isinstance(reason, str) or not reason.strip():
-            raise SupervisorDecisionError("Supervisor LLM 응답 형식이 올바르지 않습니다.")
-        return {"approved": approved, "reason": reason.strip()}
 
     def build_agent_context(
         self, agent_name: str, state: Mapping[str, object]
