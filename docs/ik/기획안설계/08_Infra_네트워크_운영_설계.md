@@ -1,10 +1,12 @@
 # Infra·네트워크·운영 설계
 
-> 2026-10-12 배포 계획 보충: 로컬 구현 경계는 유지하며 AWS 시연용 container/ingress/DB 격리·CI/CD·migration/rollback을 [배포 계획 23](23_AWS_배포_CICD_계획.md)로 구체화했다. cloud proxy 인증, 시험 DB 정체 검증, 이미지 package와 Linux CI 보완은 아직 구현 전이다. 아래 로컬 실행 계약을 AWS에서 그대로 충족했다고 해석하지 않는다.
+> 2026-10-12 배포 계획 보충: 로컬 구현 경계는 유지하며 AWS 시연용 container/ingress/DB 격리·CI/CD·migration/rollback을 [배포 계획 23](23_AWS_배포_CICD_계획.md)로 구체화했다. 최신 권장안은 EC2 6대·private RDS·Parameter Store, 웹만 공개하고 내부 서버 outbound는 NAT 1개로 처리하는 구조다. §4에 시간당 비용, §12에 생성·최종 종료·데이터 보존 후 정리 계약을 둔다. cloud proxy 인증, 시험 DB 정체 검증, 이미지 package와 Linux CI 보완 및 AWS 생성/삭제는 아직 구현 전이다. 아래 로컬 실행 계약을 AWS에서 그대로 충족했다고 해석하지 않는다.
 
 > 2026-10-11 실행 경계 보완: loopback bind와 전체 업무 API의 로컬 클라이언트 검사를 함께 적용한다. 로컬 실행 worker는 DB operation owner/lease/deadline으로 중단을 추적하고 재기동 시 만료 실행을 정리한다. 자동 재개·외부 queue·Redis는 이번 필수 범위가 아니다. 상세는 [Workflow 수정 계획 §3.3~3.6](14_Workflow_검사결과_설계보완_수정계획.md)를 따른다.
 
 ## 1. 목적과 경계
+
+AWS 작업 파일·A0~A8 순서·cloud 접근/DB baseline 보완·검증 게이트는 [AWS 구현 계획 24](24_AWS_배포_CICD_구현계획.md)에서 확인한다. 이 문서는 공통 운영 원칙, 23은 AWS 배포 계약, 24는 그 구현 계획을 담당한다.
 
 로컬 중심 시스템이 API, PostgreSQL, 선택적 Redis, LLM/MCP dependency와 안전하게 통신하고, 장애를 격리·관찰·복구하는 기준을 정한다. 구체 AWS/Docker/GitHub Actions 구성과 운영 환경 값은 별도 구현 계획 및 배포 설계에서 실제 저장소·계정 구성을 확인한 뒤 확정한다.
 
@@ -43,7 +45,7 @@ DB write 결과 불명은 idempotency 결과 조회로 해소한다. 데이터 �
 
 ## 5. 환경·secret·배포 원칙
 
-로컬·CI·운영의 설정을 분리하고 `.env` 등 개인 환경 파일과 secret을 저장소에 커밋하지 않는다. 예시 설정에는 값의 이름과 형식만 둔다. 운영에서는 secret manager 또는 보호된 CI secret을 사용하고 로그에 값을 출력하지 않는다.
+로컬·CI·운영의 설정을 분리하고 `.env` 등 개인 환경 파일과 secret을 저장소에 커밋하지 않는다. 예시 설정에는 값의 이름과 형식만 둔다. AWS 배포에는 사용자 결정에 따라 Parameter Store Standard SecureString을 사용하고 Secrets Manager는 도입하지 않는다. EC2 IAM role로 필요한 값만 조회하며 GitHub에는 parameter 이름만 둔다. OpenAI 키 외에도 DB 비밀번호가 포함된 연결 URL, 기존 live 원문 암호화 키와 cloud 인증 비밀값은 보호한다. 인증정보 없는 URL은 일반 설정이다. RDS 비공개 연결은 인증정보 보호를 대체하지 않는다. 구체 계약과 미구현 범위는 [배포 계획 23 §6.1](23_AWS_배포_CICD_계획.md#61-확정한-설정비밀값-관리-방향-2026-10-12)을 따른다.
 
 Docker는 서비스 재현성을 높이는 수단으로 사용하되 개발/운영 구성 차이를 문서화한다. 우선 로컬 환경에서 lint·format·schema 검사·테스트·build를 반복 실행할 수 있게 안정화한다. CI/CD는 이 로컬 검증이 안정된 뒤 별도 단계로 도입하며, 필수 품질 gate 통과 후에만 artifact를 승격한다. 배포는 환경별 승인/권한을 따르고 migration 호환성, health check, rollback 기준을 둔다. 실제 파이프라인 도입 범위와 AWS 자원은 계정·현재 workflow 확인 후 결정한다.
 
