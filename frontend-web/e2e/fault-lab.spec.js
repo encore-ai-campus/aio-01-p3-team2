@@ -1,5 +1,62 @@
 import { expect, test } from "@playwright/test";
 
+test("actual live experiment reports match saved workflow evidence without replay",async({page,request})=>{
+  const ids=(process.env.LIVE_EXPERIMENT_RUN_IDS ?? "").split(",").filter(Boolean);
+  test.skip(!ids.length,"Set LIVE_EXPERIMENT_RUN_IDS to genuine completed live experiment IDs.");
+  let posts=0;
+  const errors=[];
+  page.on("request",r=>{if(r.method()==="POST")posts++;});
+  page.on("pageerror",e=>errors.push(e.message));
+  await page.goto("/");
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  for(const id of ids){
+    const response=await request.get(`/api/test/fault-runs/${id}`);
+    expect(response.ok()).toBeTruthy();
+    const record=await response.json();
+    expect(record.lifecycle).toBe("COMPLETED");
+    const result=record.results[0];
+    expect(result.provider_mode).toBe("live");
+    expect(result.verdict).toBe("PASS");
+    const measured=result.provider_attempts.filter(a=>a.status==="MEASURED").length;
+    expect(result.checks.find(c=>c.name==="encrypted_provider_records").passed).toBe(true);
+    await page.locator("#lab-record-id").fill(id);
+    await page.getByRole("button",{name:"기록 ID로 조회",exact:true}).click();
+    await expect(page.locator("#lab-report")).toContainText(id);
+    await expect(page.getByLabel("시험 결과 설명")).toContainText(`사용량 확인 ${measured}회`);
+    await expect(page.locator("#lab-report")).toContainText(`${result.checks.length}개 일치`);
+    await page.getByRole("button",{name:"실행 경로 보기",exact:true}).click();
+    await expect(page.locator(".fault-node.observed").first()).toBeVisible();
+    if(process.env.LIVE_EXPERIMENT_EVIDENCE_DIR && (process.env.LIVE_EXPERIMENT_CAPTURE_IDS ?? id).split(",").includes(id)){
+      await page.screenshot({path:`${process.env.LIVE_EXPERIMENT_EVIDENCE_DIR}/live-${id}-desktop.png`,fullPage:true});
+    }
+  }
+  await page.reload();
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  await expect(page.locator("#lab-report")).toContainText(ids.at(-1));
+  expect(posts).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test("actual live recovery evidence remains readable on mobile without replay",async({page})=>{
+  const id=process.env.LIVE_EXPERIMENT_MOBILE_RUN_ID;
+  test.skip(!id,"Set LIVE_EXPERIMENT_MOBILE_RUN_ID to a genuine live recovery result.");
+  let posts=0;
+  page.on("request",r=>{if(r.method()==="POST")posts++;});
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/");
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  await page.locator("#lab-record-id").fill(id);
+  await page.getByRole("button",{name:"기록 ID로 조회",exact:true}).click();
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("오류 대응 후 승인 대기까지 진행");
+  await page.getByRole("button",{name:"실행 경로 보기",exact:true}).click();
+  await expect(page.locator(".fault-node.fault-detected")).toHaveCount(1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  if(process.env.LIVE_EXPERIMENT_EVIDENCE_DIR){
+    await page.screenshot({path:`${process.env.LIVE_EXPERIMENT_EVIDENCE_DIR}/live-${id}-mobile.png`,fullPage:true});
+  }
+  expect(posts).toBe(0);
+});
+
 test("CLI record ID retrieves stored evidence without posting or rerunning",async({page})=>{
   const id="e63014b4-0c81-42f8-8c67-297aa37a584c";
   let posts=0;
