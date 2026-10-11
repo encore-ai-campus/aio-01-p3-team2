@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "roles": ["plan-web", "game-web", "main-api", "fault-api", "main-mcp", "fault-mcp"],
+  "rules": [
+    {"id": "docs", "patterns": ["docs/**", "*.md", "**/*.md"], "targets": [], "ci": false},
+    {"id": "runtime-runner", "patterns": ["backend/tests/support/**"], "targets": ["main-api", "fault-api"], "ci": true},
+    {"id": "tests", "patterns": ["backend/tests/**", "mcp_server/tests/**", "demo-game/tests/**", "frontend-web/e2e/**", "frontend-web/game-e2e/**", "frontend-web/tests/**", "frontend-web/playwright*.js", "backend/testing/**", "conftest.py"], "targets": [], "ci": true},
+    {"id": "shared-contract", "patterns": ["backend/app/game/**", "backend/app/schemas/**", "backend/data/**", "mcp_server/data/**"], "targets": ["plan-web", "game-web", "main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true},
+    {"id": "sql", "patterns": ["backend/sql/**", "mcp_server/sql/**"], "targets": ["plan-web", "game-web", "main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true, "migration": true},
+    {"id": "planning-ui", "patterns": ["frontend-web/**"], "targets": ["plan-web"], "ci": true},
+    {"id": "game-ui", "patterns": ["demo-game/**"], "targets": ["game-web"], "ci": true},
+    {"id": "mcp-entry", "patterns": ["mcp_server/server.py"], "targets": ["main-mcp", "fault-mcp"], "ci": true},
+    {"id": "mcp-tools", "patterns": ["mcp_server/**"], "targets": ["main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true},
+    {"id": "backend", "patterns": ["backend/app/**", "backend/__init__.py"], "targets": ["main-api", "fault-api"], "ci": true},
+    {"id": "application-image", "patterns": ["backend/requirements.txt", "infra/aws/Dockerfile.application*", "infra/aws/requirements.application.lock"], "targets": ["main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true},
+    {"id": "web-image", "patterns": ["infra/aws/Dockerfile.web*", "infra/aws/Caddyfile*"], "targets": ["plan-web", "game-web"], "ci": true},
+    {"id": "ci", "patterns": ["infra/ci/**", "infra/test-suites.json", "infra/test-local.ps1", "infra/verify-local.ps1", "infra/e2e-local.ps1", "requirements-dev.txt", "pyproject.toml"], "targets": [], "ci": true},
+    {"id": "infrastructure", "patterns": ["infra/aws/**", ".github/**", "infra/frontend-yejin.yml", "infra/compose*.yml"], "targets": [], "ci": true, "manual": true},
+    {"id": "legacy-frontend", "patterns": ["frontend/**"], "targets": [], "ci": true}
+  ]
+}

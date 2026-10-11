@@ -758,6 +758,33 @@
         "test_proxy_forwards_api_get_post_and_backend_errors",
         "test_server_serves_game_entrypoint_and_rejects_non_api_post"
       ]
+    },
+    {
+      "file": "backend/tests/unit/test_deployment_impact.py",
+      "suite": "core",
+      "reason": "Deployment impact and non-secret manifest boundary contracts",
+      "test_functions": [
+        "test_classified_roles",
+        "test_non_runtime_and_unknown_paths",
+        "test_private_or_non_repository_paths_are_rejected",
+        "test_invalid_rules_are_rejected",
+        "test_last_successful_baseline_and_renames",
+        "test_environment_and_cleanup_contract_scope",
+        "test_release_contains_retained_roles_and_schema_export"
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_cloud_access.py",
+      "suite": "core",
+      "reason": "Cloud ingress proxy peer, identity, origin and path isolation; local guard regression",
+      "test_functions": [
+        "test_cloud_peer_identity_and_path_scope",
+        "test_fault_api_only_accepts_planning_test_routes",
+        "test_invalid_cloud_configuration_fails_closed",
+        "test_invalid_proxy_peer_and_shared_secret_are_rejected",
+        "test_middleware_rejects_direct_and_forwarded_header_spoofing",
+        "test_local_default_does_not_accept_remote_proxy_proofs"
+      ]
     }
   ],
   "javascript": [

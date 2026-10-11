@@ -30,6 +30,9 @@ def configure_live_environment(env_path: Path | None = None) -> None:
 
 def create_app() -> FastAPI:
     """Build the API after the selected process environment is ready."""
+    from backend.app.guards.cloud_access import CloudAccess
+
+    cloud_access = CloudAccess.from_environment()
     from backend.app.api.event import router as event_router
     from backend.app.api.game import router as game_router
     from backend.app.api.health import router as health_router
@@ -101,7 +104,22 @@ def create_app() -> FastAPI:
                 local = host == "testclient" or ipaddress.ip_address(host).is_loopback
             except ValueError:
                 local = False
-            if not local:
+            if cloud_access is not None:
+                permitted = cloud_access.permits(
+                    host=host,
+                    identity=request.headers.get("x-eventquest-proxy", ""),
+                    secret=request.headers.get("x-eventquest-proxy-key", ""),
+                    path=request.url.path,
+                )
+                if not permitted:
+                    return JSONResponse(
+                        status_code=403,
+                        content={
+                            "error_code": "CLOUD_ACCESS_REQUIRED",
+                            "message": "인증된 서버 경로로 접속해주세요.",
+                        },
+                    )
+            elif not local:
                 return JSONResponse(
                     status_code=403,
                     content={
@@ -124,6 +142,8 @@ def create_app() -> FastAPI:
                         "http://localhost:5177",
                     }
                 )
+                if cloud_access is not None:
+                    allowed = cloud_access.origins
                 if origin not in allowed:
                     return JSONResponse(
                         status_code=403,

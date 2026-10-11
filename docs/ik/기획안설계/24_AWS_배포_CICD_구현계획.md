@@ -1,6 +1,6 @@
 # AWS 배포·CI/CD 구현 계획
 
-작성: 2026-10-12, Asia/Seoul. 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 이번 배포 문서 변경. 상태: **계획 작성 완료, 배포 코드·workflow·AWS 자원은 미구현**.
+작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **영향 판별·manifest·CI 기반·cloud proxy ingress 구현, 전체 배포는 미구현**. 실제 진행 범위와 결과는 §10을 따른다.
 
 구조·비용·종료 원칙은 [배포 설계 23](23_AWS_배포_CICD_계획.md), 테스트 선택은 [CI 분류 22](22_CI_테스트분류_정리.md), 구현 사실은 [현재 구현 상태](../현재_구현상태.md)를 따른다. 가이드의 필수 산출물은 [보존 가이드](../pre/멀티_에이전트_협업_및_서비스_운영_가이드.md)로 확인한다. 구현 담당은 팀장이다.
 
@@ -86,10 +86,11 @@ flowchart TD
 | 기존 모드 | 일반 `CANONICAL_PLANNING_MODE=live`, 필요한 호환 경로 `WORKFLOW_ENGINE=agent_live`. 시험은 deterministic이며 OpenAI 키 미주입 |
 | 기존 시험 | `FAULT_LAB_MODE=isolated`, `DATABASE_URL=POSTGRES_TEST_URL`은 시험 RDS DB/role을 명시. cloud guard가 확인하고 일반 CI의 local destructive guard는 유지 |
 | 기존 MCP | `MCP_DATABASE_URL`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8010`. DB catalog 사용과 Host/Origin allowlist 명시 |
-| 새 cloud 설정(예정) | `DEPLOYMENT_MODE=cloud`, `DEPLOYMENT_ENVIRONMENT_ID`, `SERVICE_ROLE`, `TRUSTED_PROXY_PEERS`, `PROXY_AUTH_SECRET`, `RDS_EXPECTED_ENDPOINT`, `EXPECTED_DATABASE_ROLE`, `DATABASE_AUTO_CREATE=false` |
+| 구현한 cloud ingress 설정 | `DEPLOYMENT_MODE=cloud`, `SERVICE_ROLE`, `CLOUD_PROXY_IDENTITIES` (사이트별 `peers` IP 목록·`secret`), `APP_ALLOWED_ORIGINS`의 HTTPS 출처 |
+| 나머지 cloud 설정(예정) | `DEPLOYMENT_ENVIRONMENT_ID`, `RDS_EXPECTED_ENDPOINT`, `EXPECTED_DATABASE_ROLE`, `DATABASE_AUTO_CREATE=false`. 개별 proxy proof는 host에서 `CLOUD_PROXY_IDENTITIES`로 묶어 주입 |
 | 새 저장 위치(예정) | `FAULT_LAB_JOURNAL_DIR`, deployment manifest·certificate 저장 위치. host volume 경로는 고정 whitelist |
 
-새 이름은 A0/A1에서 구현할 예정이며 현재 코드가 읽는 것으로 표현하지 않는다. cloud entry는 `.env` 파일 없이 주입 환경을 먼저 검증하고 앱을 import한다. 현재 `python -m backend.app.main`의 로컬 `.env` 요구 경로를 그대로 cloud entry로 쓰지 않는다. cloud에서 DB/live 설정 누락을 메모리 저장소·mock으로 조용히 전환하지 않는다.
+구현한 ingress 설정과 나머지 예정 설정을 구분한다. cloud entry는 `.env` 파일 없이 주입 환경을 먼저 검증하고 앱을 import하도록 구현할 예정이다. 현재 `python -m backend.app.main`의 로컬 `.env` 요구 경로를 그대로 cloud entry로 쓰지 않는다. cloud에서 DB/live 설정 누락을 메모리 저장소·mock으로 조용히 전환하지 않도록 후속 시작 검증이 필요하다.
 
 ### 4.3 parameter·IAM 매핑
 
@@ -229,3 +230,34 @@ AWS 수용 시 `docs/ik/검증산출물/<실제 실행일>_AWS_배포장애복�
 - [ ] A5~A8 구현·AWS 실행·복원·정리·보고서
 
 지금 작성한 계획은 AWS 생성/삭제 승인이나 실제 성공 기록을 대신하지 않는다. 단계별 실행 범위를 확인하고 실패한 gate를 해결한 뒤 다음 단계로 진행한다.
+
+## 10. 구현 진행·로컬 검증 (2026-10-12)
+
+### 구현한 범위
+
+- `infra/aws/change_rules.json`, `deployment_impact.py`: 역할별 영향·필요 image/site·migration·수동 검토 후보. full SHA와 ancestry 확인, rename/delete 양쪽 반영, push/deployed baseline 구분. 판별 결과는 항상 `deployment_authorized=false`이며 배포 권한/검증을 대신하지 않는다.
+- `infra/aws/contracts.py`, `schemas/` 3개: environment/release/cleanup 모델과 JSON Schema export. 역할 6개·API/MCP 일반/시험 image 일치·보존/삭제 대상 중복·다른 환경 자원·시간대·parameter 이름 범위를 모델로 검증한다. 필드 간 불변조건은 Pydantic 모델 검증도 필요하다.
+- `infra/aws/config/demo.example.json`: 계정/도메인/종료 시점 미정 표시, 비밀값 없는 사양 예시. 실제 환경 manifest로 바로 적용하는 파일이 아니다.
+- `.github/workflows/ikonly-ci.yml`: `ikonly` push/수동 CI, 영향 artifact·Ruff/schema/core·선택 웹 build 및 planning proxy 검사. AWS credential/배포 job이 없다. 마지막 summary는 **CI foundation이며 production 승격 불가**라고 표시한다.
+- `backend/app/guards/cloud_access.py`, `main.py`: cloud 모드의 private peer+사이트별 proof 검증, 일반/시험 API 분기, 게임 proxy의 정책/시험 경로 차단, 정확한 HTTPS Origin. `x-forwarded-for`를 검증 peer로 사용하지 않는다. default local 검사 유지.
+- core 검사 2개 파일/42개 실행 사례와 inventory 등록. 현재 Python 분류는 63개 파일(core 47, postgres 11, external 3, compatibility 2)이며 JS 파일 7개는 유지한다.
+
+### 검증 결과
+
+| 검사 | 실제 결과·범위 |
+|---|---|
+| 새 영향/manifest·cloud ingress 검사 | 42개 사례, 최종 core 전체에 포함해 PASS |
+| core 전체 | **448 PASS / 1 SKIP, 25.22초**. skip은 기존 PostgreSQL parameter이며 이번 작업에서 postgres profile은 재실행하지 않음 |
+| Ruff lint / format | 전체 PASS, Python 275개 format 확인 |
+| 업무 schema / 배포 schema | check 모두 PASS |
+| 두 프론트 frozen install·production build | 로컬 PASS. 게임의 기존 chunk 크기 경고 유지 |
+| Node proxy | 1 PASS, 시험 upstream 실패 시 일반 API로 fallback 금지 |
+| workflow YAML·권한/branch 구조 | 로컬 parsing·구조 검사 PASS. GitHub Actions 실행 결과 아님 |
+
+초기 신규 rename 검사는 임시 fixture의 목적 디렉터리가 없어 실패했으며 mkdir를 추가한 후 통과했다. 제품 로직 실패를 검사를 삭제해 우회한 것은 아니다. core·새 검사에는 실제 LLM 호출이 없다. 기존 사용자 서버·DB·원격 branch는 재시작/변경하지 않았다. 로컬 pnpm은 11.25.0이며 workflow의 pnpm 10/Linux 경로는 실제 Actions에서 아직 검증하지 않았다.
+
+### 남은 작업
+
+현재 A0의 manifest/영향 계약, A1의 proxy ingress, A4의 기본 CI만 구현했다. **시험 RDS guard·DB TLS·runtime DDL 이전·migration/maintenance·production image/PG/E2E gate·IaC·CD/rollback·정리 script는 미구현**이다. 실제 배포 전 마지막 성공 release baseline 재판별/target lock도 아직 deploy 경로에 연결하지 않았다. 자동 CD는 아직 활성화할 수 없다.
+
+알림 수신 정보는 확인했으며 AWS 실행 시 사용자 인증 세션에서 계정/권한을 확인할 예정이다. 이 문서와 로컬 성공 결과를 AWS 배포·복원·정리 성공으로 해석하지 않는다.

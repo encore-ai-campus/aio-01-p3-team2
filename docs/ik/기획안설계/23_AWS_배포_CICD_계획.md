@@ -194,6 +194,8 @@ Standard parameter 저장과 기본 처리량 API에는 추가 요금이 없지�
 
 ## 7. CI/CD 흐름과 GitHub 계약
 
+사용자 결정에 따라 초기 수동 배포·rollback 검증 후 `ikonly` push의 변경 영향 자동 업데이트로 전환한다. [구현 계획 24 §6.1](24_AWS_배포_CICD_구현계획.md#61-push-기반-변경-영향-배포-2026-10-12)을 따른다. 현재 `ikonly-ci.yml`은 영향 판별/core/선택 웹 build의 **read-only 기반**만 구현됐으며 전체 release gate·AWS CD는 미구현이다.
+
 ```mermaid
 flowchart LR
   Push[ikonly push / 수동 CI] --> Build[lint·schema·core / 이미지 build]
@@ -259,7 +261,7 @@ CI job과 일반 배포에는 실호출 LLM key가 필요 없다. [22의 분류]
 
 ## 10. 구현 단계·파일·완료 기준
 
-아래 파일은 **새로 만들 예정**이며 현재 존재/완료를 뜻하지 않는다. 문서는 계속 `docs/ik` 안에서 관리한다.
+아래는 목표 파일과 완료 기준이다. 일부 CI/계약/ingress 구현이 시작됐으며 실제 완료 범위는 [구현 계획 24 §10](24_AWS_배포_CICD_구현계획.md#10-구현-진행로컬-검증-2026-10-12)을 따른다. 문서는 계속 `docs/ik` 안에서 관리한다.
 
 | 단계 | 작업 파일·대상 | 완료 조건 |
 |---|---|---|

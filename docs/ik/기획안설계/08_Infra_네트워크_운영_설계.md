@@ -45,6 +45,8 @@ DB write 결과 불명은 idempotency 결과 조회로 해소한다. 데이터 �
 
 ## 5. 환경·secret·배포 원칙
 
+2026-10-12 cloud ingress 보완: `DEPLOYMENT_MODE=cloud`에서 `SERVICE_ROLE`, `CLOUD_PROXY_IDENTITIES`, HTTPS `APP_ALLOWED_ORIGINS`를 검증한다. private peer와 사이트별 proof를 확인하며 게임 proxy는 게임 API만, 시험 API는 계획 proxy의 `/api/test/*`만 허용한다. `local` 기본 접근 경계는 유지한다. RDS guard/TLS·cloud entry·production Caddy/SSM 연결은 아직 구현 전이므로 이 guard 추가만으로 AWS 배포 준비 완료를 뜻하지 않는다. 진행은 [구현 계획 24 §10](24_AWS_배포_CICD_구현계획.md#10-구현-진행로컬-검증-2026-10-12)을 따른다.
+
 로컬·CI·운영의 설정을 분리하고 `.env` 등 개인 환경 파일과 secret을 저장소에 커밋하지 않는다. 예시 설정에는 값의 이름과 형식만 둔다. AWS 배포에는 사용자 결정에 따라 Parameter Store Standard SecureString을 사용하고 Secrets Manager는 도입하지 않는다. EC2 IAM role로 필요한 값만 조회하며 GitHub에는 parameter 이름만 둔다. OpenAI 키 외에도 DB 비밀번호가 포함된 연결 URL, 기존 live 원문 암호화 키와 cloud 인증 비밀값은 보호한다. 인증정보 없는 URL은 일반 설정이다. RDS 비공개 연결은 인증정보 보호를 대체하지 않는다. 구체 계약과 미구현 범위는 [배포 계획 23 §6.1](23_AWS_배포_CICD_계획.md#61-확정한-설정비밀값-관리-방향-2026-10-12)을 따른다.
 
 Docker는 서비스 재현성을 높이는 수단으로 사용하되 개발/운영 구성 차이를 문서화한다. 우선 로컬 환경에서 lint·format·schema 검사·테스트·build를 반복 실행할 수 있게 안정화한다. CI/CD는 이 로컬 검증이 안정된 뒤 별도 단계로 도입하며, 필수 품질 gate 통과 후에만 artifact를 승격한다. 배포는 환경별 승인/권한을 따르고 migration 호환성, health check, rollback 기준을 둔다. 실제 파이프라인 도입 범위와 AWS 자원은 계정·현재 workflow 확인 후 결정한다.

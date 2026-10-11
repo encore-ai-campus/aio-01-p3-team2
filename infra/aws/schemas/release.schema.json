@@ -1,0 +1,127 @@
+{
+  "$defs": {
+    "ServiceRelease": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "image": {
+          "enum": [
+            "web",
+            "application"
+          ],
+          "title": "Image",
+          "type": "string"
+        },
+        "source_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Source Sha",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "image",
+        "digest",
+        "source_sha"
+      ],
+      "title": "ServiceRelease",
+      "type": "object"
+    }
+  },
+  "$id": "urn:eventquest:deployment:release:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "catalog_checksum": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Catalog Checksum",
+      "type": "string"
+    },
+    "ci_attempt": {
+      "minimum": 1,
+      "title": "Ci Attempt",
+      "type": "integer"
+    },
+    "ci_run_id": {
+      "pattern": "^[0-9]+$",
+      "title": "Ci Run Id",
+      "type": "string"
+    },
+    "environment_id": {
+      "const": "ikonly-demo",
+      "title": "Environment Id",
+      "type": "string"
+    },
+    "migration_checksum": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Migration Checksum",
+      "type": "string"
+    },
+    "previous_release_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Previous Release Id"
+    },
+    "schema_checksum": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Schema Checksum",
+      "type": "string"
+    },
+    "services": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ServiceRelease"
+      },
+      "propertyNames": {
+        "enum": [
+          "plan-web",
+          "game-web",
+          "main-api",
+          "fault-api",
+          "main-mcp",
+          "fault-mcp"
+        ]
+      },
+      "title": "Services",
+      "type": "object"
+    },
+    "source_sha": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Source Sha",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "environment_id",
+    "source_sha",
+    "ci_run_id",
+    "ci_attempt",
+    "services",
+    "previous_release_id",
+    "schema_checksum",
+    "migration_checksum",
+    "catalog_checksum"
+  ],
+  "title": "ReleaseManifest",
+  "type": "object"
+}

@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "Resource": {
+      "additionalProperties": false,
+      "properties": {
+        "environment_id": {
+          "minLength": 1,
+          "title": "Environment Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "owner_stack": {
+          "minLength": 1,
+          "title": "Owner Stack",
+          "type": "string"
+        },
+        "retain": {
+          "title": "Retain",
+          "type": "boolean"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "owner_stack",
+        "environment_id",
+        "retain"
+      ],
+      "title": "Resource",
+      "type": "object"
+    }
+  },
+  "$id": "urn:eventquest:deployment:cleanup:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "account_id": {
+      "pattern": "^[0-9]{12}$",
+      "title": "Account Id",
+      "type": "string"
+    },
+    "delete": {
+      "items": {
+        "$ref": "#/$defs/Resource"
+      },
+      "title": "Delete",
+      "type": "array"
+    },
+    "environment_id": {
+      "const": "ikonly-demo",
+      "title": "Environment Id",
+      "type": "string"
+    },
+    "environment_manifest_checksum": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Environment Manifest Checksum",
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "cleanup-keep-data",
+        "purge-data"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "region": {
+      "const": "ap-northeast-2",
+      "title": "Region",
+      "type": "string"
+    },
+    "retain": {
+      "items": {
+        "$ref": "#/$defs/Resource"
+      },
+      "title": "Retain",
+      "type": "array"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "account_id",
+    "region",
+    "environment_id",
+    "mode",
+    "delete",
+    "retain",
+    "environment_manifest_checksum"
+  ],
+  "title": "CleanupPlan",
+  "type": "object"
+}

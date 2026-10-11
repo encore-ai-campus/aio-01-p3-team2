@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "region": "ap-northeast-2",
+  "environment_id": "ikonly-demo",
+  "account_id": null,
+  "plan_domain": null,
+  "game_domain": null,
+  "operator_cidr": null,
+  "notification_email": "operator@example.com",
+  "stop_after": null,
+  "auto_deploy_enabled": false,
+  "instances": {
+    "plan-web": "t3.small",
+    "game-web": "t3.small",
+    "main-api": "t3.medium",
+    "fault-api": "t3.medium",
+    "main-mcp": "t3.small",
+    "fault-mcp": "t3.small"
+  },
+  "rds": {"engine": "postgres", "instance_class": "db.t4g.small", "public": false},
+  "parameter_prefix": "/multi-agent-autohealing/ikonly-demo/"
+}

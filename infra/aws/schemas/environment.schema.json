@@ -1,0 +1,121 @@
+{
+  "$defs": {
+    "Resource": {
+      "additionalProperties": false,
+      "properties": {
+        "environment_id": {
+          "minLength": 1,
+          "title": "Environment Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "owner_stack": {
+          "minLength": 1,
+          "title": "Owner Stack",
+          "type": "string"
+        },
+        "retain": {
+          "title": "Retain",
+          "type": "boolean"
+        },
+        "version": {
+          "const": 1,
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "owner_stack",
+        "environment_id",
+        "retain"
+      ],
+      "title": "Resource",
+      "type": "object"
+    }
+  },
+  "$id": "urn:eventquest:deployment:environment:v1",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "account_id": {
+      "pattern": "^[0-9]{12}$",
+      "title": "Account Id",
+      "type": "string"
+    },
+    "environment_id": {
+      "const": "ikonly-demo",
+      "title": "Environment Id",
+      "type": "string"
+    },
+    "parameter_names": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Parameter Names",
+      "type": "object"
+    },
+    "region": {
+      "const": "ap-northeast-2",
+      "title": "Region",
+      "type": "string"
+    },
+    "resources": {
+      "items": {
+        "$ref": "#/$defs/Resource"
+      },
+      "title": "Resources",
+      "type": "array"
+    },
+    "roles": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "plan-web",
+          "game-web",
+          "main-api",
+          "fault-api",
+          "main-mcp",
+          "fault-mcp"
+        ]
+      },
+      "title": "Roles",
+      "type": "object"
+    },
+    "stop_after": {
+      "format": "date-time",
+      "title": "Stop After",
+      "type": "string"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "account_id",
+    "region",
+    "environment_id",
+    "roles",
+    "resources",
+    "parameter_names",
+    "stop_after"
+  ],
+  "title": "EnvironmentManifest",
+  "type": "object"
+}
