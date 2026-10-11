@@ -289,6 +289,13 @@ def oracle(
         checks.append({"name": "fixed_reward_links", "expected": [(0, 0)], "actual": links})
     topology = next(t for t in catalog()["topologies"] if t["route"] == scenario["route"])
     mapped_events = {event for node in topology["nodes"] for event in node["observed_events"]}
+    # Known metadata has no graph node. Error-bearing rows are never downgraded.
+    metadata_events = {"llm.usage_recorded", "candidate_saved"}
+    observations = [
+        {"code": "TRACE_METADATA", "event": row.get("event") or row.get("action")}
+        for row in trace
+        if (row.get("event") or row.get("action")) in metadata_events and not row.get("error_code")
+    ]
     unmapped = [
         {
             "code": "UNMAPPED_EVENT",
@@ -297,6 +304,9 @@ def oracle(
         }
         for row in trace
         if (row.get("event") or row.get("action")) not in mapped_events
+        and (
+            (row.get("event") or row.get("action")) not in metadata_events or row.get("error_code")
+        )
     ]
     critical_unmapped = [row for row in unmapped if row["critical"]]
     checks.append({"name": "critical_trace_mapping", "expected": [], "actual": critical_unmapped})
@@ -321,6 +331,7 @@ def oracle(
         "detection_journal": detection,
         "trace": trace,
         "warnings": unmapped,
+        "observations": observations,
         "attempts": actual_calls,
         "boundary_calls": len(target_calls),
         "retries": unique.count("RETRY") if technical_boundary else 0,

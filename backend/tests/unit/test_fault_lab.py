@@ -180,6 +180,39 @@ def test_unmapped_critical_detector_trace_is_inconclusive():
     assert report["warnings"][0]["critical"] is True
 
 
+@pytest.mark.parametrize(
+    "event,error_code,metadata_count,warning_count",
+    [
+        ("llm.usage_recorded", None, 1, 0),
+        ("candidate_saved", None, 1, 0),
+        ("llm.usage_recorded", "ERR-DEP-LLM-001", 0, 1),
+        ("unregistered.metadata", None, 0, 1),
+    ],
+)
+def test_known_metadata_does_not_hide_unknown_or_error_events(
+    event, error_code, metadata_count, warning_count
+):
+    scenario = next(s for s in catalog()["scenarios"] if s["fault_id"] == "llm_timeout")
+    row = {"event": event}
+    if error_code:
+        row["error_code"] = error_code
+    report = oracle(
+        FaultRunRequest(scenario_id="llm_timeout").model_dump(),
+        scenario,
+        {**recovery_policy._default_policy(), "version": 1},
+        [],
+        {"workflow_status": "SAFE_STOP", "trace": [row]},
+        {},
+        {},
+    )
+    assert len(report["observations"]) == metadata_count
+    assert len(report["warnings"]) == warning_count
+    if metadata_count:
+        assert report["observations"][0] == {"code": "TRACE_METADATA", "event": event}
+    if error_code:
+        assert report["warnings"][0]["critical"] is True
+
+
 def test_fixed_graph_has_explicit_terminals_and_stable_coordinates():
     topology = catalog()["topologies"][0]
     nodes = {node["node_id"]: node for node in topology["nodes"]}

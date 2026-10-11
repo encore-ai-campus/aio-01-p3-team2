@@ -135,7 +135,14 @@ def perturb(target: str, value=None):
         "mcp_response_invalid",
         "recovery_limit_exceeded",
     }:
-        return {"invalid_fault_lab_contract": True}
+        # Provider evidence belongs to the transport, not the mutated business response.
+        # Preserve it so a live format fault is classified as a contract failure.
+        metadata = {
+            key: value[key]
+            for key in ("__llm_usage__", "__llm_record__")
+            if isinstance(value, dict) and key in value
+        }
+        return {"invalid_fault_lab_contract": True, **metadata}
     if fault == "planner_explanation_mismatch":
         result = deepcopy(value)
         result.update(
