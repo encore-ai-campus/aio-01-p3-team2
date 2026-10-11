@@ -1,5 +1,7 @@
 # Infra·네트워크·운영 설계
 
+> 2026-10-12 배포 계획 보충: 로컬 구현 경계는 유지하며 AWS 시연용 container/ingress/DB 격리·CI/CD·migration/rollback을 [배포 계획 23](23_AWS_배포_CICD_계획.md)로 구체화했다. cloud proxy 인증, 시험 DB 정체 검증, 이미지 package와 Linux CI 보완은 아직 구현 전이다. 아래 로컬 실행 계약을 AWS에서 그대로 충족했다고 해석하지 않는다.
+
 > 2026-10-11 실행 경계 보완: loopback bind와 전체 업무 API의 로컬 클라이언트 검사를 함께 적용한다. 로컬 실행 worker는 DB operation owner/lease/deadline으로 중단을 추적하고 재기동 시 만료 실행을 정리한다. 자동 재개·외부 queue·Redis는 이번 필수 범위가 아니다. 상세는 [Workflow 수정 계획 §3.3~3.6](14_Workflow_검사결과_설계보완_수정계획.md)를 따른다.
 
 ## 1. 목적과 경계
