@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
 async function openCreate(page) {
@@ -42,11 +41,11 @@ test("brief form explains the required goal before sending a request", async ({ 
   await expect(objective).toHaveAttribute("aria-invalid", "true");
   await expect(page.getByRole("alert")).toHaveText("이벤트 목표를 입력하세요.");
   expect(briefRequests).toBe(0);
-  await page.screenshot({ path: "../docs/ik/ux-evidence/ux-01-input-required-1910x912.png", fullPage: true });
+  await page.screenshot({ path: test.info().outputPath("ux-01-input-required-1910x912.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   await expect(page.getByRole("alert")).toBeVisible();
-  await page.screenshot({ path: "../docs/ik/ux-evidence/ux-01-input-required-390x844.png", fullPage: true });
+  await page.screenshot({ path: test.info().outputPath("ux-01-input-required-390x844.png"), fullPage: true });
 });
 
 test("event dungeon form maps selected spaces to one linked first-clear reward each", async ({ page }) => {
@@ -160,6 +159,8 @@ test("real MCP HTTP 503 through the UI persists a canonical safe stop and Trace"
 });
 
 test("navigation stays named and fits a narrow viewport", async ({ page }) => {
+  // Navigation does not depend on the separately operated fault backend.
+  await page.route("**/api/test/fault-status", route => route.fulfill({status:503, body:"offline"}));
   await page.setViewportSize({ width: 390, height: 844 });
   await openCreate(page);
 
@@ -167,7 +168,7 @@ test("navigation stays named and fits a narrow viewport", async ({ page }) => {
     ["기획안 만들기", "이벤트 공간별 보상을 설계합니다."],
     ["진행 기록", /진행 기록이 없습니다\.|실제 검증 경로와 결과/],
     ["복구 정책", "복구 규칙을 통제합니다."],
-    ["복구 시연", "복구 흐름을 안전하게 시연합니다."],
+    ["복구 시연", "오류를 선택하고 실제 복구를 확인합니다."],
     ["운영 로그", "운영 기록"],
   ]) {
     const navigationButton = page.getByRole("button", { name: label, exact: true });
@@ -397,7 +398,7 @@ test("policy history stays compact and policy editors match the dark UI", async 
   await page.getByRole("searchbox", { name: "오류 정책 찾기" }).fill("");
   await expect(policyRows).toHaveCount(totalPolicyRows);
   await page.setViewportSize({ width: 1910, height: 912 });
-  await page.screenshot({ path: "../docs/ik/ux-evidence/ux-05-policy-console-1910x912.png", fullPage: true });
+  await page.screenshot({ path: test.info().outputPath("ux-05-policy-console-1910x912.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   const mobilePolicyTypography = await page.locator(".policy-error-label").first().evaluate((element) => ({
@@ -406,7 +407,7 @@ test("policy history stays compact and policy editors match the dark UI", async 
     action: Number.parseFloat(getComputedStyle(element.parentElement.querySelector("[data-policy-action]")).fontSize),
   }));
   expect(mobilePolicyTypography).toEqual({ description: 12, code: 10, action: 12 });
-  await page.screenshot({ path: "../docs/ik/ux-evidence/ux-05-policy-console-390x844.png", fullPage: true });
+  await page.screenshot({ path: test.info().outputPath("ux-05-policy-console-390x844.png"), fullPage: true });
 });
 
 test("policy editor previews, activates, and rolls back a version", async ({ page }) => {
@@ -465,116 +466,4 @@ test("policy editor previews, activates, and rolls back a version", async ({ pag
   await page.locator(`[data-rollback="${originalActive.version}"]`).click();
   expect((await rollback).status()).toBe(200);
   await expect(page.locator(".page-intro .state-chip")).toHaveText(`ACTIVE v${originalActive.version}`);
-});
-
-test("fault demo recovers or safely stops with stable traces and unchanged game state", async ({ page }) => {
-  test.setTimeout(60000);
-  await openCreate(page);
-  await page.getByRole("button", { name: "복구 시연" }).click();
-  const scenarios = [
-    { id: "mcp_timeout_once", label: "일시적인 게임 데이터 조회 실패", retries: 1, revisions: 0, terminal: "WAITING_APPROVAL", heading: "복구 성공" },
-    { id: "mission_unreachable_once", label: "미션 조건 수정 및 재검증", retries: 0, revisions: 1, terminal: "WAITING_APPROVAL", heading: "복구 성공" },
-    { id: "retry_limit_exceeded", label: "복구 한도 소진", retries: 3, revisions: 0, terminal: "FAILED", heading: "안전 종료" },
-  ];
-
-  for (const scenario of scenarios) {
-    let expectedSignature;
-    for (let repeat = 0; repeat < 3; repeat += 1) {
-      const before = await page.evaluate(async () =>
-        fetch("/api/game/state").then((response) => response.json()),
-      );
-      await page.locator("#fault-type").selectOption(scenario.id);
-      const resultResponse = page.waitForResponse(
-        (response) => response.url().endsWith("/api/test/events/generate") && response.request().method() === "POST",
-      );
-      await page.getByRole("button", { name: /복구 시나리오 실행/ }).click();
-      const response = await resultResponse;
-      expect(response.status()).toBe(201);
-      const result = await response.json();
-      expect(result.workflow_status).toBe(scenario.terminal);
-      await expect(page.getByRole("heading", { name: scenario.heading })).toBeVisible();
-      await expect(page.locator("#fault-type")).toHaveValue(scenario.id);
-      await expect(page.locator(".fault-summary")).toContainText(scenario.label);
-      await expect(page.locator(".fault-summary")).toContainText(`${scenario.retries}회`);
-      await expect(page.locator(".fault-summary")).toContainText(`${scenario.revisions}회`);
-      await expect(page.locator(".fault-trace-list")).not.toContainText(/ERR-[A-Z]+-|RUN_AGENT|validate_plan/);
-      await expect(page.locator(".fault-result details pre")).toBeHidden();
-      if (repeat === 0) {
-        await expect.poll(() => page.locator("#toast").evaluate((element) => getComputedStyle(element).opacity)).toBe("0");
-        await page.screenshot({ path: `../docs/ik/ux-evidence/ux-06-${scenario.id}-1910x912.png`, fullPage: true });
-        if (scenario.id === "retry_limit_exceeded") {
-          await page.setViewportSize({ width: 390, height: 844 });
-          expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-          await expect(page.locator(".page-intro h2")).toHaveCSS("word-break", "keep-all");
-          await page.screenshot({ path: "../docs/ik/ux-evidence/ux-06-retry-limit-390x844.png", fullPage: true });
-          await page.setViewportSize({ width: 1440, height: 1000 });
-        }
-      }
-      if (scenario.id === "mcp_timeout_once" && repeat === 0) {
-        await page.locator(".fault-result details summary").click();
-        await expect(page.locator(".fault-result details pre")).toContainText("RETRY");
-        await page.locator(".fault-result details summary").click();
-      }
-
-      const traceResponse = await page.request.get(`/api/tasks/${result.task_id}/trace`);
-      expect(traceResponse.status()).toBe(200);
-      const trace = await traceResponse.json();
-      expect(trace.traces.filter((entry) => entry.action === "RETRY" || entry.action.endsWith("_RETRY"))).toHaveLength(scenario.retries);
-      expect(trace.traces.find((entry) => entry.action === "create_task")?.actor_id).toBe("liveops01");
-      if (scenario.id === "mission_unreachable_once") {
-        expect(result.revision_count).toBe(1);
-        const failedValidation = trace.traces.findIndex(
-          (entry) => entry.action === "validate_plan" && entry.phase === "validation" && entry.status === "ERROR",
-        );
-        const revisionRoute = trace.traces.findIndex(
-          (entry) => entry.action === "RUN_AGENT" && entry.phase === "recovery",
-        );
-        const plannerRevision = trace.traces.findIndex(
-          (entry) => entry.actor === "event_planner_agent" && entry.action === "regenerate_plan",
-        );
-        const dataReload = trace.traces.findIndex(
-          (entry) => entry.actor === "mcp" && entry.phase === "revalidation",
-        );
-        const finalValidation = trace.traces.findIndex(
-          (entry) => entry.action === "validate_plan" && entry.phase === "revalidation" && entry.status === "SUCCESS",
-        );
-        expect(failedValidation).toBeGreaterThanOrEqual(0);
-        expect(revisionRoute).toBeGreaterThan(failedValidation);
-        expect(plannerRevision).toBeGreaterThan(revisionRoute);
-        expect(dataReload).toBeGreaterThan(plannerRevision);
-        expect(finalValidation).toBeGreaterThan(dataReload);
-      }
-      const signature = JSON.stringify({
-        workflow_status: result.workflow_status,
-        retry_count: result.retry_count,
-        revision_count: result.revision_count,
-        critic_status: result.critic_status,
-        error_type: result.error?.error_type ?? null,
-        trace: trace.traces.map(({ action, phase, status, error_type, error_code }) => ({
-          action,
-          phase,
-          status,
-          error_type,
-          error_code,
-        })),
-      });
-      if (expectedSignature === undefined) expectedSignature = signature;
-      else expect(signature).toBe(expectedSignature);
-
-      const after = await page.evaluate(async () =>
-        fetch("/api/game/state").then((stateResponse) => stateResponse.json()),
-      );
-      expect(after).toEqual(before);
-    }
-  }
-});
-
-test("restores workflow after backend restart", async ({ page }) => {
-  const state = process.env.EVENTQUEST_E2E_RESTORE_STATE ? JSON.parse(process.env.EVENTQUEST_E2E_RESTORE_STATE) : null;
-  test.skip(!state || state.contractKind === "space_workflow", "uses the matching restart profile");
-  await page.addInitScript(id => localStorage.setItem("eventquest.latestWorkflow", id), state.workflowId);
-  await page.goto("/");
-  await expect(page.locator(".page-intro .state-chip")).toHaveText("가상 게임 등록 완료");
-  const restored = await page.request.get(`/api/v1/workflows/${state.workflowId}`).then(r => r.json());
-  expect(restored.runtime_event.runtime_event_id).toBe(state.runtimeEventId);
 });

@@ -207,7 +207,7 @@ test("all 28 campaign outcomes render actual evidence without replay in Edge",as
   const {readFile}=await import("node:fs/promises");
   expect(JSON.parse(await readFile(await downloaded.path(),"utf8"))).toEqual(record);
   await page.locator("#lab-result").selectOption("9");
-  await page.screenshot({path:"../docs/ik/ux-evidence/fault-campaign-28-desktop.png",fullPage:true});
+  await page.screenshot({path: test.info().outputPath("fault-campaign-28-desktop.png"),fullPage:true});
   await page.reload();
   await page.getByRole("button",{name:"복구 시연",exact:true}).click();
   await expect(page.locator("#lab-result option")).toHaveCount(29);
@@ -217,7 +217,7 @@ test("all 28 campaign outcomes render actual evidence without replay in Edge",as
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button",{name:"실행 경로 숨기기",exact:true})).toBeVisible();
   await page.getByRole("button",{name:"시험 결과로 돌아가기",exact:true}).click();
-  await page.screenshot({path:"../docs/ik/ux-evidence/fault-campaign-28-mobile.png",fullPage:true});
+  await page.screenshot({path: test.info().outputPath("fault-campaign-28-mobile.png"),fullPage:true});
   expect(posts).toBe(0);
   expect(errors).toEqual([]);
 });
@@ -252,7 +252,7 @@ test("static topology, scoped selection and actual recovery report in Edge", asy
   const download=page.waitForEvent("download");
   await page.getByRole("button",{name:"JSON 보고서 저장"}).click();
   expect((await download).suggestedFilename()).toMatch(/^fault-.*\.json$/);
-  await page.screenshot({path:"../docs/ik/ux-evidence/fault-campaign-selection-desktop.png",fullPage:true});
+  await page.screenshot({path: test.info().outputPath("fault-campaign-selection-desktop.png"),fullPage:true});
   await page.getByRole("button",{name:"실행 경로 숨기기",exact:true}).click();
   let posts=0;
   page.on("request",request=>{if(request.method()==="POST" && request.url().includes("/api/test/")) posts++;});

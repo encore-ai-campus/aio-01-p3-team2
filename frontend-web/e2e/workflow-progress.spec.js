@@ -106,7 +106,7 @@ for (const kind of ["success", "review", "blocked", "recovery", "safe-stop", "ap
     expect(clipping).toBe(0);
     expect(errors).toEqual([]);
     if (["success", "recovery", "review", "safe-stop"].includes(kind)) {
-      await page.locator(".workflow-board").screenshot({ path: "../docs/ik/ux-evidence/workflow-graph-" + kind + "-desktop.png" });
+      await page.locator(".workflow-board").screenshot({ path: test.info().outputPath("workflow-graph-" + kind + "-desktop.png") });
     }
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
@@ -115,7 +115,7 @@ for (const kind of ["success", "review", "blocked", "recovery", "safe-stop", "ap
     expect(await scroll.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
     if (kind === "success") {
       await scroll.evaluate((element) => { element.scrollLeft = 0; });
-      await page.screenshot({ path: "../docs/ik/ux-evidence/workflow-graph-success-mobile.png", fullPage: true });
+      await page.screenshot({ path: test.info().outputPath("workflow-graph-success-mobile.png"), fullPage: true });
     }
   });
 }

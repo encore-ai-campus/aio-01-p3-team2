@@ -44,7 +44,7 @@ test("durable asynchronous workflow connects approval and game registration", as
     missionCount: progress.missions.length,
   }));
   expect(errors).toEqual([]);
-  await page.screenshot({ path: "../docs/ik/ux-evidence/workflow-connected-desktop.png", fullPage: true });
+  await page.screenshot({ path: test.info().outputPath("workflow-connected-desktop.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });

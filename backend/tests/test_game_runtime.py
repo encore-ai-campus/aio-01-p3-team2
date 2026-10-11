@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
+from itertools import pairwise
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -364,3 +365,108 @@ def test_event_application_requires_a_mapped_planner_data_version(
             ApplyEventRequest(request_id=uuid4(), task_id="TASK-ABCDEF123456", result_version=1)
         )
     assert error.value.code == "catalog_version_unavailable"
+
+
+@pytest.mark.parametrize("order", [9, 100, 1000])
+def test_endless_stage_repeats_appearance_but_increases_stats(order):
+    from backend.app.game.rules import endless_stage
+
+    catalog = get_catalog()
+    stage, later = endless_stage(order, catalog), endless_stage(order + 5, catalog)
+    assert stage["monster"]["archetype"] == later["monster"]["archetype"]
+    assert later["combat"]["monster_hp"] > stage["combat"]["monster_hp"]
+    assert later["combat"]["monster_attack"] >= stage["combat"]["monster_attack"]
+    assert later["rewards"][0]["quantity"] > stage["rewards"][0]["quantity"]
+    assert later["id"] != stage["id"]
+
+
+def test_endless_levels_growth_costs_and_dungeon_bosses_follow_catalog():
+    from backend.app.game.rules import endless_dungeon_floor, level_threshold
+    from backend.app.game.service import _growth_cost
+
+    catalog = get_catalog()
+    thresholds = catalog["progression"]["level_thresholds"]
+    for level in (9, 100, 1000):
+        threshold = level_threshold(level, thresholds)
+        assert level_for_experience(threshold, thresholds) == level
+        assert level_for_experience(threshold - 1, thresholds) == level - 1
+    for action_id in catalog["growth_actions"]:
+        costs = [_growth_cost(action_id, rank, catalog)[0] for rank in range(1, 101)]
+        assert all(a < b for a, b in pairwise(costs))
+        interval = catalog["endless_progression"]["moon_shard_rank_interval"]
+        rank = interval * 100
+        assert _growth_cost(action_id, rank, catalog)[1] == 1
+    interval = catalog["dungeon_encounter_profile"]["boss_floor_interval"]
+    floor = endless_dungeon_floor(interval, catalog)
+    later = endless_dungeon_floor(interval * 100, catalog)
+    assert floor["is_boss"] and later["is_boss"]
+    assert len(floor["enemies"]) == 3
+    assert sum(enemy["role"] == "boss" for enemy in floor["enemies"]) == 1
+    assert later["combat"]["base_hp"] > floor["combat"]["base_hp"]
+    assert not endless_dungeon_floor(interval + 1, catalog)["is_boss"]
+
+
+def test_combat_records_counterattack_defeat_and_bounds_response():
+    from backend.app.game.rules import resolve_combat
+
+    defeat = resolve_combat({"max_hp": 10, "attack": 1}, {"max_hp": 100, "attack": 10})
+    assert defeat["result"] == "failed" and defeat["hero_hp_after"] == 0
+    assert any(row["actor"] == "monster" for row in defeat["combat_log"])
+    lengthy = resolve_combat({"max_hp": 10000, "attack": 1}, {"max_hp": 1000, "attack": 1})
+    assert lengthy["result"] == "succeeded"
+    assert lengthy["combat_log_truncated"]
+    assert len(lengthy["combat_log"]) <= 82
+    assert lengthy["combat_log"][-1]["target_hp_after"] == 0
+
+
+def test_growth_is_idempotent_and_failed_purchase_does_not_change_balance(game_service):
+    from backend.app.game.schemas import GrowthActionRequest
+
+    before = game_service.state()["user"]
+    request = GrowthActionRequest(request_id=uuid4(), growth_action_id="weapon_training")
+    result = game_service.grow(request)
+    assert game_service.grow(request) == result
+    after = game_service.state()["user"]
+    cost = before["growth_options"]["weapon_training"]["next_cost"]
+    assert after["inventory"]["GOLD"] == before["inventory"]["GOLD"] - cost
+    assert after["stats"]["attack"] > before["stats"]["attack"]
+    assert after["growth_options"]["weapon_training"]["next_cost"] > cost
+    with game_service.repository.session() as session, session.begin():
+        balance = session.get(InventoryBalanceRow, (before["user_id"], "GOLD"))
+        balance.quantity = 0
+    snapshot = game_service.inventory()
+    with pytest.raises(GameError, match="강화"):
+        game_service.grow(
+            GrowthActionRequest(request_id=uuid4(), growth_action_id="weapon_training")
+        )
+    assert game_service.inventory() == snapshot
+
+
+def test_skin_purchase_equip_unequip_and_replay_preserve_ownership(game_service):
+    from backend.app.game.schemas import EquipSkinRequest, ShopPurchaseRequest
+
+    offers = game_service.shop_offers()["offers"]
+    user = game_service.state()["user"]
+    offer = offers[0]
+    with game_service.repository.session() as session, session.begin():
+        balance = session.get(InventoryBalanceRow, (user["user_id"], offer["price_item_id"]))
+        balance.quantity = 10
+    purchase = ShopPurchaseRequest(request_id=uuid4(), offer_id=offer["offer_id"])
+    result = game_service.purchase_skin(purchase)
+    assert game_service.purchase_skin(purchase) == result
+    assert game_service.inventory()["balances"][offer["price_item_id"]] == 10 - offer["price"]
+    assert game_service.shop_offers()["offers"][0]["owned"]
+    equipped = game_service.equip_skin(
+        EquipSkinRequest(request_id=uuid4(), skin_id=offer["item_id"])
+    )
+    assert equipped["equipped_skin_id"] == offer["item_id"]
+    unequip = EquipSkinRequest(request_id=uuid4(), skin_id=None)
+    assert game_service.equip_skin(unequip)["equipped_skin_id"] is None
+    assert game_service.equip_skin(unequip)["equipped_skin_id"] is None
+    assert offer["item_id"] in game_service.state()["user"]["owned_skin_ids"]
+    snapshot = game_service.inventory()
+    with pytest.raises(GameError, match="이미 보유"):
+        game_service.purchase_skin(
+            ShopPurchaseRequest(request_id=uuid4(), offer_id=offer["offer_id"])
+        )
+    assert game_service.inventory() == snapshot

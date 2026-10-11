@@ -1,6 +1,6 @@
 param(
-    [int]$ApiPort = 8004,
-    [int]$UiPort = 5177,
+    [int]$ApiPort = 8015,
+    [int]$UiPort = 5195,
     [string]$TestName,
     [switch]$CanonicalMcp503,
     [switch]$VerifyRestart,
@@ -170,14 +170,21 @@ try {
     if ($CanonicalMcp503) {
         $env:EVENTQUEST_E2E_CANONICAL_MCP_503 = "1"
     }
-    if ($TestName) {
-        pnpm --dir frontend-web exec playwright test --config=$playwrightConfig --grep $TestName
-    } else {
-        pnpm --dir frontend-web exec playwright test --config=$playwrightConfig
+    Push-Location (Join-Path $repositoryRoot 'frontend-web')
+    try {
+        $browserArgs = @('node_modules/@playwright/test/cli.js', 'test', "--config=$playwrightConfig")
+        if ($TestName) { $browserArgs += @('--grep', $TestName) }
+        & node @browserArgs
+        if ($LASTEXITCODE -ne 0) { throw "Browser E2E failed." }
+    } finally { Pop-Location }
+    if (-not $TestName -and -not $CanonicalMcp503) {
+        Push-Location (Join-Path $repositoryRoot 'frontend-web')
+        try {
+            node node_modules/@playwright/test/cli.js test --config=playwright.game.config.js
+            if ($LASTEXITCODE -ne 0) { throw "Game UI smoke verification failed." }
+        } finally { Pop-Location }
     }
-    if ($LASTEXITCODE -ne 0) {
-        throw "Browser E2E failed."
-    }
+
     if ($TestName -and -not $VerifyRestart) {
         return
     }
@@ -214,8 +221,14 @@ try {
     }
 
     $env:EVENTQUEST_E2E_RESTORE_STATE = Get-Content -LiteralPath $restoreStateFile -Raw
-    $restartCase = if ($restoreState.contractKind -eq "space_workflow") { "restores durable workflow after backend restart" } else { "restores workflow after backend restart" }
-    pnpm --dir frontend-web exec playwright test --config=$playwrightConfig --grep $restartCase
+    if ($restoreState.contractKind -ne "space_workflow") {
+        throw "Restart verification requires the current persisted space workflow contract."
+    }
+    $restartCase = "restores durable workflow after backend restart"
+    Push-Location (Join-Path $repositoryRoot 'frontend-web')
+    try { node node_modules/@playwright/test/cli.js test "--config=$playwrightConfig" --grep $restartCase
+        if ($LASTEXITCODE -ne 0) { throw "Backend restart browser verification failed." }
+    } finally { Pop-Location }
     if ($LASTEXITCODE -ne 0) {
         throw "Workflow did not restore after API process restart."
     }

@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 
 test("shared UI reads separate ordinary and fault databases without replay", async ({page, request}) => {
   test.skip(!process.env.UNIFIED_FRONT_CHECK, "Requires the shared UI and both local backends.");
+  const runId = process.env.UNIFIED_FRONT_RUN_ID;
+  test.skip(!runId, "Requires an explicitly selected completed recovery run via UNIFIED_FRONT_RUN_ID.");
   const normal = await (await request.get("/api/v1/recovery-policies")).json();
   const status = await (await request.get("/api/test/fault-status")).json();
   expect(status.environment).toBe("isolated");
@@ -13,12 +15,12 @@ test("shared UI reads separate ordinary and fault databases without replay", asy
   await page.goto("/");
   await page.getByRole("button", {name:"복구 시연", exact:true}).click();
   await expect(page.getByLabel("격리 시험 환경")).toContainText(`시험 정책 버전: ${status.active_policy_version}`);
-  await page.locator("#lab-record-id").fill("e6b8ec4b-439f-4114-942d-0542def3a7d6");
+  await page.locator("#lab-record-id").fill(runId);
   await page.getByRole("button", {name:"기록 ID로 조회", exact:true}).click();
   await expect(page.getByLabel("시험 결과 설명")).toContainText("오류 대응 후 승인 대기까지 진행");
   await page.reload();
   await page.getByRole("button", {name:"복구 시연", exact:true}).click();
-  await expect(page.locator("#lab-report")).toContainText("e6b8ec4b-439f-4114-942d-0542def3a7d6");
+  await expect(page.locator("#lab-report")).toContainText(runId);
   expect(posts).toBe(0);
 });
 

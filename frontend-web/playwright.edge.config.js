@@ -6,6 +6,7 @@ const baseURL = `http://127.0.0.1:${uiPort}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  testMatch: ["planning-flow.spec.js", "workflow-connected.spec.js"],
   outputDir: "./test-results",
   fullyParallel: false,
   workers: 1,
@@ -22,7 +23,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
-    command: `pnpm dev --host 127.0.0.1 --port ${uiPort} --strictPort`,
+    command: `node node_modules/vite/bin/vite.js --host 127.0.0.1 --port ${uiPort} --strictPort`,
     cwd: process.cwd(),
     url: baseURL,
     reuseExistingServer: false,

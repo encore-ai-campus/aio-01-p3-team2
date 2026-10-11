@@ -44,6 +44,21 @@ def clean_repository(monkeypatch: pytest.MonkeyPatch) -> None:
     _MEMORY.clear()
 
 
+@pytest.fixture(autouse=True)
+def omit_core_retry_pauses(request, monkeypatch):
+    """Core verifies decisions; dedicated backoff tests verify real delay calculation."""
+    if request.config.getoption("--test-profile") != "core":
+        return
+    from backend.app.orchestration import engine
+    from backend.app.services import canonical_planning
+
+    async def no_pause(_retry_count):
+        return None
+
+    monkeypatch.setattr(engine, "wait_before_retry", no_pause)
+    monkeypatch.setattr(canonical_planning, "wait_before_retry", no_pause)
+
+
 @pytest.fixture
 def client() -> TestClient:
     from backend.app.main import app

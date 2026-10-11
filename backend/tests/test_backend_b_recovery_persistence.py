@@ -22,6 +22,7 @@ def test_recovery_scenarios_survive_api_process_restart():
     environment["DATABASE_URL"] = database_url
     environment["WORKFLOW_ENGINE"] = "backend_b_mock"
     environment["ENABLE_FAULT_INJECTION"] = "true"
+    environment["FAULT_LAB_MODE"] = "isolated"
     root = Path(__file__).resolve().parents[2]
     create_script = """
 import json
