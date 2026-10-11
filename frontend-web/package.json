@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "test:e2e": "playwright test --config=playwright.config.js",
+    "test:e2e:edge": "playwright test --config=playwright.edge.config.js",
     "preview": "vite preview --host 127.0.0.1"
   },
   "devDependencies": {

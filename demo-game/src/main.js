@@ -113,7 +113,9 @@ function render() {
   if (selected) {
     $("#event-title").textContent = selected.event_name;
     $("#event-subtitle").textContent = selected.status === "active" ? "달빛의 부름이 원정대를 기다립니다" : "종료된 이벤트 기록을 조회 중입니다";
-    $("#event-period").textContent = `${formatDate(selected.start_at)} — ${formatDate(selected.end_at)}`;
+    $("#event-period").textContent = selected.end_at
+      ? `${formatDate(selected.start_at)} — ${formatDate(selected.end_at)}`
+      : `${formatDate(selected.start_at)} — 상시 운영`;
     $("#event-target").textContent = targetLabel(selected.target_user);
     $("#event-apply-state").textContent = selected.status === "active" ? "게임에 적용됨" : selected.status === "ended" ? "이벤트 종료" : "시작 대기";
     $("#event-apply-state").className = selected.status === "active" ? "success-value" : "muted-value";
@@ -134,7 +136,7 @@ function render() {
   }
   $("#version-label").textContent = (state.versions?.game_data_snapshot_id || state.progress?.event?.versions?.game_data_snapshot_id || "opong-data-1.1.0") + " · " + (state.versions?.game_ruleset_version || state.progress?.event?.versions?.game_ruleset_version || "opong-rules-1.1.0");
   $("#guide-copy").textContent = live?.venue
-    ? "특별 던전의 현재 층에 도전하세요. 서버가 확정한 행동만 미션과 보상에 기록됩니다."
+    ? "기획안에서 선택한 이벤트 공간에 입장하세요. 서버가 확정한 행동만 미션과 보상에 기록됩니다."
     : "스테이지를 클리어해 영웅을 성장시키고, 승인된 이벤트로 특별 던전을 여세요.";
   renderChoices();
   syncWorld(state.mode);
@@ -161,7 +163,7 @@ function renderMissions(missions) {
     };
     return `<article class="mission ${missionStatus}">
       <div class="mission-mark">${missionStatus === "completed" ? "✓" : missionStatus === "active" ? "✧" : "·"}</div>
-      <div class="mission-content"><div class="mission-title-row"><b>${escapeHtml(mission.name)}</b><span>DAY ${mission.day}</span></div>
+      <div class="mission-content"><div class="mission-title-row"><b>${escapeHtml(mission.name)}</b><span>${mission.active_during_event ? "이벤트 기간 중 첫 클리어" : `DAY ${mission.day}`}</span></div>
       <small class="mission-mapping">게임 연결: ${escapeHtml(actionLabels[mission.source_mission_type] || mission.action_type)}</small>
       <div class="mission-progress-row"><span>${value} <i>/ ${mission.target}</i></span><b>${statusLabelText}</b></div>
       <div class="progress-track"><i style="width:${percent}%"></i></div></div></article>`;
@@ -212,10 +214,13 @@ function renderChoices() {
   } else if (state.mode === "special") {
     const templateId = live?.venue?.template_id;
     const template = state.catalogs.templates?.find((row) => row.template_id === templateId);
-    options = template?.floors || [];
+    const configuredSpaceIds = live?.venue?.space_ids;
+    options = (template?.spaces || template?.floors || []).filter((space) =>
+      !Array.isArray(configuredSpaceIds) || configuredSpaceIds.includes(space.id),
+    );
     command = "special_dungeon_challenge";
     title = live?.event_name || "월광 균열";
-    hint = live ? "현재 층을 돌파하고 이벤트 미션을 완수하세요" : "승인 이벤트를 게임에 적용해야 입장할 수 있습니다";
+    hint = live ? `이 이벤트에 열린 공간 ${options.length}곳 · 순서와 관계없이 도전 가능` : "승인 이벤트를 게임에 적용해야 입장할 수 있습니다";
   }
   $("#dock-title").textContent = title;
   $("#dock-hint").textContent = hint;
@@ -313,12 +318,12 @@ function renderChoices() {
     return;
   }
   const enabled = state.mode !== "special" || Boolean(live?.venue);
-  root.innerHTML = options.map((content) => {
+  root.innerHTML = options.length ? options.map((content) => {
     const required = content.clear_level ?? content.entry_level ?? 1;
     const unlocked = state.user.level >= (content.unlock_level ?? content.entry_level ?? 1);
     return `<button class="content-card ${unlocked && enabled ? "" : "locked"}" data-content="${escapeAttr(content.id)}" ${unlocked && enabled ? "" : "disabled"}>
-      <span>${content.is_boss ? "♛" : state.mode === "special" ? "✧" : "⚔"}</span><b>${escapeHtml(content.name)}</b><small>권장 Lv.${required} · ${content.experience_reward} EXP</small><i>${unlocked ? "도전 →" : "🔒"}</i></button>`;
-  }).join("");
+      <span>${content.is_boss ? "♛" : state.mode === "special" ? "✧" : "⚔"}</span><b>${escapeHtml(content.name)}</b><small>${state.mode === "special" ? "입장" : "권장"} Lv.${required} · ${content.experience_reward} EXP</small><i>${unlocked ? "공간 입장 →" : "🔒"}</i></button>`;
+  }).join("") : `<p class="empty-quest">이 이벤트에 열린 공간이 없습니다.</p>`;
   root.querySelectorAll("[data-content]").forEach((button) => button.addEventListener("click", () => {
     const content = options.find((item) => item.id === button.dataset.content);
     if (content) play(command, content);

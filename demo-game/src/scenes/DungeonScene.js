@@ -66,7 +66,11 @@ export class DungeonScene extends Phaser.Scene {
     this.heroStats.setText(`Lv. ${this.context.user?.level || 1}  ·  ATK ${stats.attack || 0}  ·  DEF ${stats.defense || 0}`);
     const isBoss = Boolean(content.is_boss);
     this.title.setText(this.isSpecial ? "월광 균열 · 심연으로" : this.isMine ? "별무리 폐광 · 파티 전투" : "원정 · 스테이지 도전");
-    this.subtitle.setText(`${content.name} · ${this.isMine ? `${content.order}층` : content.order ? `${content.order}구역` : "보스전"}`);
+    this.subtitle.setText(
+      this.isSpecial
+        ? `${content.name} · 이벤트 공간`
+        : `${content.name} · ${this.isMine ? `${content.order}층` : content.order ? `${content.order}구역` : "보스전"}`,
+    );
     if (this.isMine && Array.isArray(content.enemies)) {
       this.createMineParty(content.enemies, isBoss);
     } else {
@@ -169,7 +173,9 @@ export class DungeonScene extends Phaser.Scene {
           }
           this.renderVitals();
           const won = combat.result === "succeeded";
-          this.status.setText(won ? "승리 · 보상 확정" : "패배 · 최고 층으로 복귀");
+          this.status.setText(
+            won ? "승리 · 보상 확정" : this.isMine ? "패배 · 최고 층으로 복귀" : "패배 · 성장 후 재도전",
+          );
           if (won) {
             for (const view of this.enemies.values()) {
               this.tweens.add({ targets: view.sprite, alpha: 0.15, scale: view.sprite.scale * 0.7, duration: 260 });

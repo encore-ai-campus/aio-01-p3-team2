@@ -1,30 +1,64 @@
-# Event Quest AI 이벤트 시연 게임
+# 오퐁 히어로즈 가상 게임
 
-운영 담당자가 승인한 이벤트 기획안을 Task ID로 불러와 Day별 미션과 보상을 확인하고, 짧은 몬스터 전투를 시연하는 로컬 데모다. 이전 오퐁마을의 건물 관리·원정 화면은 사용하지 않는다.
+Phaser 3와 Vite로 실행하는 로컬 방치형 RPG 시연 게임이다. 승인된 이벤트 기획안을 PostgreSQL Runtime에 등록하고, 스테이지·성장·던전·이벤트 미션 진행을 Backend API로 판정·저장한다. 화면의 게임 장면은 Phaser가 그리고 이벤트·성장·상점 정보는 HTML/CSS UI로 표시한다.
 
-## 실행
+## 로컬 실행
 
-1. 백엔드를 실행하고, 운영 화면에서 이벤트의 규칙 검증·AI 검수와 **운영 담당자 최종 승인**을 완료한다.
-2. 저장소 루트에서 게임 서버를 실행한다.
+PostgreSQL을 시작하고 저장소 루트에서 게임 Runtime 마이그레이션과 초기 카탈로그/가상 유저를 적용한다. `seed_game_runtime`은 반복 실행할 수 있으며 진행 중인 게임 데이터를 초기화하지 않는다.
 
 ```powershell
-$env:BACKEND_BASE_URL="http://127.0.0.1:8000"
-python demo-game/server.py
+$env:DATABASE_URL = "postgresql+psycopg://eventquest:eventquest-local-only@127.0.0.1:5433/eventquest"
+backend\.venv\Scripts\python.exe -m backend.scripts.seed_game_runtime
 ```
 
-`http://127.0.0.1:8090`을 열어 승인된 `TASK-XXXXXXXXXXXX`를 입력하고 **확인**을 누른다. 서버는 백엔드의 `GET /api/tasks/{task_id}`에서 이벤트를 조회한다. 다른 Task를 보려면 오른쪽 위 **다른 Task 입력**을 누른다. 게임 포트는 `DEMO_GAME_PORT`로 변경할 수 있다.
+Backend 터미널:
 
-## 시연 흐름
+```powershell
+$env:DATABASE_URL = "postgresql+psycopg://eventquest:eventquest-local-only@127.0.0.1:5433/eventquest"
+$env:WORKFLOW_ENGINE = "backend_b_mock"
+$env:CANONICAL_PLANNING_MODE = "deterministic"
+$env:APPROVED_ACTOR_IDS = "liveops01"
+backend\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8001
+```
 
-- 왼쪽 전투 화면에서 용사는 고정되고, 몬스터가 오른쪽에서 다가온다. 가까워졌을 때 **공격**을 누르면 검이 휘둘러지고 몬스터 HP가 줄어든다.
-- Day마다 몬스터 3마리를 차례로 처치한다. 첫 번째는 1회, 두 번째는 2회, 세 번째는 3회 명중해야 쓰러진다. 처치 시 시연용 골드가 쌓인다.
-- 3마리를 처치하면 **다음 Day**로 이동한다. Day 1~6은 서로 다른 몬스터이고, Day 7은 점점 커지는 드래곤 3마리다. 승인된 이벤트 기간이 7일보다 짧으면 해당 마지막 Day에서 끝난다.
-- 오른쪽에는 승인된 기획안의 Day별 미션과 보상을 표시한다. **시연 완료**는 데모 전투를 진행한 상태만 나타낸다.
+게임 UI 터미널:
 
-## 연결 범위
+```powershell
+$env:BACKEND_BASE_URL = "http://127.0.0.1:8001"
+Set-Location demo-game
+pnpm install
+pnpm dev
+```
 
-`workflow_status=COMPLETED`, `approval_status=APPROVED`, `critic_status=PASS`, `rule_validation.is_valid=true`인 Task의 `final_result`만 불러온다. 승인 대기·실패·거절·검증 실패 결과는 플레이할 수 없다.
+브라우저에서 `http://127.0.0.1:5173`을 연다. Vite 개발 서버는 `/game-api/*` 요청을 Backend의 `/api/game/*`로 전달한다. 다른 Backend 주소를 사용할 때 `BACKEND_BASE_URL`을 맞춘다.
 
-이 전투는 이벤트 기획안을 살펴보는 시각적 시연이다. 몬스터 처치와 골드는 기획안의 실제 미션 달성이나 보상 지급으로 변환되지 않는다. 실제 게임 계정·인벤토리와 연동하거나 진행 상황을 백엔드에 저장하지 않는다. 새로고침하면 시연 상태는 초기화된다. Clash of Clans 공개 표본을 사용한 기획안도 승인된 미션·보상 내용만 표시하며, 데모 전투의 몬스터나 게임 계정 데이터로 연결하지 않는다.
+## 이벤트 적용과 플레이
 
-테스트: `python -m unittest discover -s demo-game/tests -v`
+1. 운영 콘솔에서 이벤트 기획안을 제출하고 검증을 마친 뒤 운영자 승인을 완료한다.
+2. 게임 화면의 `승인된 Task ID` 입력란에 Task ID를 입력하고 `이벤트 적용`을 누른다.
+3. 승인된 이벤트가 열어 준 월광 균열에서 미션과 보상을 확인한다. 미승인·검증 실패·지원 불가 기획은 Runtime 등록이 거부된다.
+4. 스테이지를 push/farm 모드로 진행하고 성장 화면에서 골드를 사용해 강화한다. 일반 던전과 적용된 이벤트 던전은 각각 독립된 콘텐츠다.
+5. 보관함과 운영 기록에서 스킨·재화·행동·이벤트 보상 상태를 확인한다.
+
+게임 행동, 이벤트 적용, 진행도, 성장, 인벤토리와 보상 원장은 PostgreSQL에 저장된다. 새로고침이나 Backend 재시작 후에도 복원된다. 게임 Runtime 초기화는 진행 데이터를 삭제하므로 필요한 경우에만 실행한다.
+
+## 빌드와 확인
+
+```powershell
+pnpm build
+```
+
+프록시 서버 테스트는 저장소 루트에서 실행한다.
+
+```powershell
+backend\.venv\Scripts\python.exe -m pytest demo-game/tests -q
+```
+
+빌드 파일을 Python 서버에서 제공할 때는 `pnpm build` 후 저장소 루트에서 다음을 실행한다.
+
+```powershell
+$env:BACKEND_BASE_URL = "http://127.0.0.1:8001"
+backend\.venv\Scripts\python.exe demo-game/server.py
+```
+
+이 경우 게임 UI는 `http://127.0.0.1:8090`에서 열린다. 기본 개발 방식은 Vite의 `5173` 포트다.
