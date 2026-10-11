@@ -54,9 +54,26 @@ let pendingBody = rememberedRequest?.body ?? null;
 
 
 const actionLabels = {RUN_AGENT:"기획안 재작성 후 재검증",TOOL_FALLBACK:"검증된 대체 게임 규칙 조회",STOP:"안전 중단",RETRY:"같은 작업 재시도",SAFE_STOP:"안전 중단",FALLBACK:"대체 경로 사용",REPLAN:"기획안 재작성",REVISE:"기획안 수정",NEEDS_DATA:"추가 데이터 요청",NEEDS_DEVELOPMENT:"개발 필요 표시"};
-const terminalLabels = {REQUEST_BLOCKED:"입력 요청 거절",COMPLETED:"처리 완료",WAITING_APPROVAL:"기획안 작성 완료 · 사람 승인 대기",SAFE_STOP:"안전 중단",FAILED:"처리 실패",NEEDS_DATA:"추가 데이터 필요",NEEDS_DEVELOPMENT:"개발 필요",CANCELLED:"취소",REJECTED:"요청 거절"};
+const terminalLabels = {REQUEST_BLOCKED:"입력 요청 거절",COMPLETED:"처리 완료",WAITING_APPROVAL:"기획안 작성 완료 · 사람 승인 대기",SAFE_STOP:"안전 중단",FAILED:"작업 실패 종료 (FAILED) · 시험 판정과 별도",NEEDS_DATA:"추가 데이터 필요",NEEDS_DEVELOPMENT:"개발 필요",CANCELLED:"취소",REJECTED:"요청 거절"};
 const checkLabels = {input_rejection_contract:"입력 거절 원인 계약",trace_pinned_policy:"고정된 정책 버전 유지",trace_policy_hash:"정책 참조 해시 일치",recovery_rule_reference:"오류 대응 규칙 근거",state_version_chain:"상태 버전·전이 순서",terminal_no_further_execution:"종료 후 추가 작업 차단",fallback_calls:"대체 조회 횟수",injection_applied:"선택한 오류 주입",detector_evidence:"실제 오류 검출",terminal:"예상한 최종 상태",target_attempts:"허용된 시도 횟수",runtime_unchanged:"게임 데이터 보존",forbidden_runtime_calls:"금지된 게임 쓰기 차단",policy_recovery_actions:"정책에 따른 대응",fixed_request:"원래 요청 유지",fixed_actions:"유저 행동 계약 유지",fixed_rewards:"보상 계약 유지",fixed_reward_links:"행동과 보상 연결 유지",critical_trace_mapping:"필수 실행 기록 확인",idempotent_workflow_replay:"중복 실행 방지",run_owned_result_rows:"시험 결과 저장 범위",policy_restored:"시험 후 원래 정책 복원"};
 function resultSummary(result) {
+  if (result.provider_mode === "live") {
+    const attempts=result.provider_attempts ?? [];
+    const measured=attempts.filter(a=>a.status==="MEASURED");
+    const unknown=attempts.filter(a=>a.status!=="MEASURED").length;
+    const normal=result.experiment_kind==="normal";
+    const tokens=measured.reduce((n,a)=>n+a.input_tokens+a.output_tokens,0);
+    const cost=measured.reduce((n,a)=>n+Number(a.cost),0);
+    const rows=[
+      ["시험 종류",normal ? "실제 LLM 정상 기획 · 오류 주입 없음" : result.experiment_kind==="wire" ? "실제 MCP 통신 장애 · 실제 LLM 후속 처리" : "실제 LLM 응답/호출 경계 상황 주입"],
+      ["최종 상태",terminalLabels[result.actual_terminal] ?? "확인 불가"],
+      ["복구 결과",normal ? "정상 기획 계약 검증" : result.recovered ? "오류 대응 후 승인 대기까지 진행" : "복구 완료 확인 안 됨 · 정책 종료/불일치 확인"],
+      ["시험 판정",`${result.verdict} · 아래 독립 검증 항목과 원본 Trace를 확인하세요.`],
+      ["실제 호출 근거",`사용량 확인 ${measured.length}회 · 사용량 불명 ${unknown}회 · 확인된 토큰 ${tokens} · 설정 단가 기준 $${cost.toFixed(6)} (청구액 확정 아님)`],
+      ["정책",`고정 정책 버전 ${result.policy_ref?.version ?? "확인 불가"} · 원복 ${result.cleanup_ok ? "확인" : "확인 안 됨"}`],
+    ];
+    return `<div class="lab-result-summary" aria-label="시험 결과 설명">${rows.map(([title,value])=>`<div class="log-row"><b>${escape(title)}</b><span>${escape(value)}</span></div>`).join("")}</div>`;
+  }
   const checks=result.checks ?? [];
   const check=(name)=>checks.find(c=>c.name===name);
   const actions=check("policy_recovery_actions")?.actual ?? [];
@@ -152,12 +169,14 @@ function draw(host) {
     <button id="lab-suite" class="secondary-button" ${["RUNNING","QUEUED"].includes(current?.lifecycle) ? "disabled" : ""}>전체 ${ready.length}개 시나리오 · 안전 종료 시험</button>
     <p>전체 시험에는 기획안 작성 흐름과 기존 Task 업무 검증 오류 3개가 포함됩니다.</p>
     ${history.length ? `<label>이 탭에서 요청한 시험 기록<select id="lab-history" ${["RUNNING","QUEUED"].includes(current?.lifecycle) ? "disabled" : ""}><option value="">기록 선택 · 조회만 수행</option>${history.map(r=>`<option value="${escape(r.id)}">${r.kind === "suite" ? "전체/묶음 시험" : "개별 시험"} · ${escape(r.id)}</option>`).join("")}</select></label>` : ""}
+    <label>CLI 개별 시험 기록 ID<input id="lab-record-id" placeholder="실행 결과의 UUID · 조회만 수행" ${["RUNNING","QUEUED"].includes(current?.lifecycle) ? "disabled" : ""}></label><button id="lab-load-record" class="secondary-button" ${["RUNNING","QUEUED"].includes(current?.lifecycle) ? "disabled" : ""}>기록 ID로 조회</button><p>실제 LLM 시험은 CLI에서 명시적으로 실행합니다. 이 화면의 조회는 LLM을 재호출하지 않습니다.</p>
     ${error ? `<p class="warning-note" role="alert">${escape(error)}</p>` : ""}</section>
     ${current ? `<section class="panel" id="lab-report"><div class="panel-heading"><h3>시험 ${escape(current.lifecycle)} · ${escape(current.verdict ?? "판정 대기")}</h3><span>${escape(current.id)}</span></div>${["QUEUED","RUNNING"].includes(current.lifecycle) ? `<p role="status">시험을 실행하고 있습니다. 아직 확인되지 않은 단계는 그래프에 표시하지 않습니다.</p>` : ""}
     ${current.results?.length > 1 ? `<label>개별 시험 결과<select id="lab-result"><option value="-1" ${selectedResultIndex === -1 ? "selected" : ""}>최근 완료 결과</option>${current.results.map((r,i)=>`<option value="${i}" ${selectedResultIndex === i ? "selected" : ""}>${i+1}. ${escape(r.scenario?.safe_message ?? "시험")} · ${escape(r.verdict)}</option>`).join("")}</select></label>` : ""}
     ${current.counts ? `<p>선택 ${current.counts.selected} · 실행 ${current.counts.executed} · 통과 ${current.counts.PASS} · 실패 ${current.counts.FAIL} · 미실행 ${current.counts.NOT_EXECUTED} · 판정 불가 ${current.counts.INCONCLUSIVE}</p>` : ""}
     ${result ? `${resultSummary(result)}<button class="secondary-button" id="lab-path" aria-pressed="${showExecutionPath}">${showExecutionPath ? "실행 경로 숨기기" : "실행 경로 보기"}</button>` : ""}
     ${result?.warnings?.length ? `<details><summary>UNMAPPED_EVENT · 미매핑 관측 ${result.warnings.length}개</summary><pre>${escape(JSON.stringify(result.warnings,null,2))}</pre></details>` : ""}
+    ${result?.observations?.length ? `<details><summary>보조 관측 정보 · ${result.observations.length}개</summary><p>LLM 사용량과 결과 저장 기록입니다. 그래프 단계나 오류 매핑 경고와 구분하며 원본 Trace에 보존합니다.</p><pre>${escape(JSON.stringify(result.observations,null,2))}</pre></details>` : ""}
     <details><summary>검증 항목 ${result?.checks?.length ? (result.checks.some(c=>!c.passed) ? `· 불일치 ${result.checks.filter(c=>!c.passed).length}개` : `· ${result.checks.length}개 일치`) : "· 판정 대기"}</summary><div class="fault-checks">${(result?.checks ?? []).map((c) => `<div class="log-row"><b>${c.passed ? "✓" : "!"} ${escape(checkLabels[c.name] ?? c.name)}</b><span>${c.passed ? "일치" : "기대·실제 불일치"}</span>${!c.passed ? `<details><summary>기대값과 실제값</summary><pre>${escape(JSON.stringify({expected:c.expected,actual:c.actual},null,2))}</pre></details>` : ""}</div>`).join("")}</div></details>
     <details><summary>주입·검출·정책·실행 Trace 상세</summary><p>내부 경계 호출 ${result?.boundary_calls ?? "확인 불가"}회 · 재시도 횟수와 구분되는 기록입니다.</p><pre>${escape(JSON.stringify(current, null, 2))}</pre></details>
     <button class="secondary-button" id="lab-download">JSON 보고서 저장</button></section>` : ""}
@@ -170,6 +189,16 @@ function draw(host) {
     [patternInput,profileInput,nInput].forEach((input)=>input.addEventListener("change",()=>{selectedOptions={pattern:patternInput.value,profile:profileInput.value,first_n:Number(nInput.value)};}));
   }
   host.querySelector("#lab-advanced")?.addEventListener("toggle",e=>{advancedOpen=e.target.open;});
+  host.querySelector("#lab-load-record")?.addEventListener("click",async()=>{
+    const id=host.querySelector("#lab-record-id").value.trim();
+    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)){error="시험 기록 UUID를 입력하세요.";draw(host);return;}
+    try {
+      const response=await fetch(`/api/test/fault-runs/${id}`);
+      if(!response.ok)throw new Error("개별 시험 기록 조회 실패");
+      current=await response.json();error="";selectedResultIndex=-1;showExecutionPath=false;rememberRun(current);clearTimeout(poll);draw(host);
+      if(["QUEUED","RUNNING"].includes(current.lifecycle))resumePoll(host);
+    } catch(failure) {error=failure.message;draw(host);}
+  });
   host.querySelector("#lab-path")?.addEventListener("click",()=>{showExecutionPath=!showExecutionPath;if(showExecutionPath && result){selectedTarget=result.scenario.target_id;selectedScenario=result.scenario.scenario_id;selectedTopology=catalog.topologies.find(t=>t.route===result.scenario.route)?.topology_id ?? "canonical_planning";advancedOpen=selectedTopology!=="canonical_planning";selectedNode=catalog.topologies.find(t=>t.topology_id===selectedTopology).nodes.find(n=>n.target_ids.includes(result.scenario.target_id))?.node_id ?? "planner";}draw(host);if(showExecutionPath)host.querySelector(".fault-graph-scroll")?.scrollIntoView({block:"start"});});
   host.querySelector("#lab-back-result")?.addEventListener("click",()=>host.querySelector("#lab-report")?.scrollIntoView({block:"start"}));
   host.querySelector("#lab-history")?.addEventListener("change",async(e)=>{const entry=history.find(r=>r.id===e.target.value);if(!entry)return;try{const response=await fetch(`/api/test/fault-${entry.kind === "suite" ? "suites" : "runs"}/${entry.id}`);if(!response.ok)throw new Error("시험 기록 조회 실패");current=await response.json();selectedResultIndex=-1;showExecutionPath=false;rememberRun(current);clearTimeout(poll);draw(host);if(["QUEUED","RUNNING"].includes(current.lifecycle))resumePoll(host);}catch(failure){error=failure.message;draw(host);}});

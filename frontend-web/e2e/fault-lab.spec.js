@@ -1,5 +1,170 @@
 import { expect, test } from "@playwright/test";
 
+test("CLI record ID retrieves stored evidence without posting or rerunning",async({page})=>{
+  const id="e63014b4-0c81-42f8-8c67-297aa37a584c";
+  let posts=0;
+  const errors=[];
+  page.on("request",r=>{if(r.method()==="POST")posts++;});
+  page.on("pageerror",e=>errors.push(e.message));
+  await page.goto("/");
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  await page.locator("#lab-record-id").fill(id);
+  await page.getByRole("button",{name:"기록 ID로 조회",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"시험 COMPLETED · PASS"})).toBeVisible();
+  await expect(page.locator("#lab-report")).toContainText(id);
+  await page.reload();
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  await expect(page.locator("#lab-report")).toContainText(id);
+  expect(posts).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test("live report presentation uses a synthetic UI fixture without executing LLM",async({page})=>{
+  const id="11111111-1111-4111-8111-111111111111";
+  let posts=0;
+  page.on("request",r=>{if(r.method()==="POST")posts++;});
+  const record={id,kind:"run",lifecycle:"COMPLETED",verdict:"PASS",results:[{
+    provider_mode:"live",experiment_kind:"normal",verdict:"PASS",actual_terminal:"WAITING_APPROVAL",cleanup_ok:true,
+    policy_ref:{version:1},provider_attempts:[{status:"MEASURED",input_tokens:10,output_tokens:5,cost:"0.00002"}],checks:[],
+    scenario:{scenario_id:"normal_single",target_id:"planner.response",route:"canonical_planning"},trace:[],
+  }]};
+  await page.route(`**/api/test/fault-runs/${id}`,route=>route.fulfill({json:record}));
+  await page.goto("/");
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  await page.locator("#lab-record-id").fill(id);
+  await page.getByRole("button",{name:"기록 ID로 조회",exact:true}).click();
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("오류 주입 없음");
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("사용량 확인 1회");
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("청구액 확정 아님");
+  await page.getByRole("button",{name:"실행 경로 보기",exact:true}).click();
+  await expect(page.locator(".fault-node.fault-detected")).toHaveCount(0);
+  expect(posts).toBe(0);
+});
+
+test("known trace metadata is explained separately from mapping warnings",async({page,request})=>{
+  const id=process.env.FAULT_LAB_METADATA_RUN_ID;
+  test.skip(!id,"Set FAULT_LAB_METADATA_RUN_ID to the completed metadata follow-up run.");
+  const record=await (await request.get(`/api/test/fault-runs/${id}`)).json();
+  expect(record.lifecycle).toBe("COMPLETED");
+  expect(record.results[0].warnings).toEqual([]);
+  expect(record.results[0].observations).toHaveLength(2);
+  let posts=0;
+  page.on("request",r=>{if(r.method()==="POST" && r.url().includes("/api/test/"))posts++;});
+  await page.addInitScript(id=>sessionStorage.setItem("eventquest.faultLabRun",JSON.stringify({kind:"run",id})),id);
+  await page.goto("/");
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  await page.getByText("보조 관측 정보 · 2개",{exact:true}).click();
+  await expect(page.getByText("LLM 사용량과 결과 저장 기록입니다.",{exact:false})).toBeVisible();
+  await expect(page.getByText(/^UNMAPPED_EVENT · 미매핑 관측/)).toHaveCount(0);
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("PASS · 기대한 정책 대응");
+  expect(posts).toBe(0);
+});
+
+test("historical failed reports retain mismatch evidence without replay",async({page,request})=>{
+  const id=process.env.FAULT_LAB_FAILURE_RUN_ID;
+  test.skip(!id,"Set FAULT_LAB_FAILURE_RUN_ID to the preserved failed preparation suite.");
+  const record=await (await request.get(`/api/test/fault-suites/${id}`)).json();
+  expect(record.lifecycle).toBe("COMPLETED");
+  const indices=record.results.flatMap((r,i)=>r.verdict==="FAIL" ? [i] : []);
+  expect(indices).toHaveLength(3);
+  let posts=0;
+  page.on("request",r=>{if(r.method()==="POST" && r.url().includes("/api/test/"))posts++;});
+  await page.addInitScript(id=>sessionStorage.setItem("eventquest.faultLabRun",JSON.stringify({kind:"suite",id})),id);
+  await page.goto("/");
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  for(const index of indices){
+    await page.locator("#lab-result").selectOption(String(index));
+    await expect(page.getByLabel("시험 결과 설명")).toContainText("FAIL · 기대 결과와 다른 항목");
+    await page.getByText(/^검증 항목 · 불일치/, {exact:false}).click();
+    await expect(page.locator(".fault-checks")).toContainText("기대·실제 불일치");
+    await page.getByText("기대값과 실제값",{exact:true}).first().click();
+    await expect(page.locator(".fault-checks pre").first()).toContainText('"expected"');
+    await expect(page.locator(".fault-checks pre").first()).toContainText('"actual"');
+    await expect(page.locator(".fault-node.observed, .fault-node.fault-detected")).toHaveCount(0);
+  }
+  expect(posts).toBe(0);
+});
+
+test("repeated campaign outcomes distinguish retries revisions and safe stops",async({page,request})=>{
+  const id=process.env.FAULT_LAB_REPEAT_RUN_ID;
+  test.skip(!id,"Set FAULT_LAB_REPEAT_RUN_ID to the completed retry policy campaign.");
+  const record=await (await request.get(`/api/test/fault-suites/${id}`)).json();
+  expect(record.lifecycle).toBe("COMPLETED");
+  expect(record.results).toHaveLength(46);
+  const selected=new Set(["planner_explanation_mismatch","planner_output_invalid","llm_timeout","mcp_timeout","event_brief_mismatch"]);
+  const indices=record.request.cases.flatMap((c,i)=>selected.has(c.scenario_id) && c.pattern!=="once" ? [i] : []);
+  expect(indices).toHaveLength(20);
+  let posts=0;
+  page.on("request",r=>{if(r.method()==="POST" && r.url().includes("/api/test/"))posts++;});
+  await page.addInitScript(id=>sessionStorage.setItem("eventquest.faultLabRun",JSON.stringify({kind:"suite",id})),id);
+  await page.goto("/");
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  for(const index of indices){
+    const result=record.results[index];
+    expect(result.verdict).toBe("PASS");
+    await page.locator("#lab-result").selectOption(String(index));
+    const summary=page.getByLabel("시험 결과 설명");
+    const outcome=result.actual_terminal==="SAFE_STOP" ? "안전 중단" : result.actual_terminal==="FAILED" ? "작업 실패 종료 (FAILED) · 시험 판정과 별도" : "자동 복구 후 작업을 계속했습니다.";
+    await expect(summary).toContainText(outcome);
+    await expect(page.getByText(`재시도 ${result.retries}회 · 기획 수정 ${result.plan_revisions}회 · 대체 조회 ${result.fallback_calls}회.`,{exact:false})).toBeVisible();
+    if(result.plan_revisions>0) await expect(page.getByText(`해당 경계 관측 ${result.attempts}회 · 기획 수정 후 재검증을 포함합니다.`,{exact:true})).toBeVisible();
+    else await expect(page.getByText(`해당 작업의 최초 시도 1회 + 재시도 ${result.retries}회 · 전체 시도 ${result.attempts}회`,{exact:true})).toBeVisible();
+    await expect(page.locator(".fault-node.observed, .fault-node.fault-detected")).toHaveCount(0);
+  }
+  expect(posts).toBe(0);
+});
+
+test("all 28 campaign outcomes render actual evidence without replay in Edge",async({page,request})=>{
+  const id=process.env.FAULT_LAB_BASIC_RUN_ID;
+  test.skip(!id,"Set FAULT_LAB_BASIC_RUN_ID to the completed basic 28-case campaign.");
+  const response=await request.get(`/api/test/fault-suites/${id}`);
+  expect(response.ok()).toBeTruthy();
+  const record=await response.json();
+  expect(record.lifecycle).toBe("COMPLETED");
+  expect(record.results).toHaveLength(28);
+  const errors=[];let posts=0;
+  page.on("pageerror",e=>errors.push(e.message));
+  page.on("request",r=>{if(r.method()==="POST" && r.url().includes("/api/test/"))posts++;});
+  await page.addInitScript(id=>sessionStorage.setItem("eventquest.faultLabRun",JSON.stringify({kind:"suite",id})),id);
+  await page.goto("/");
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  const terminals={REQUEST_BLOCKED:"입력 요청 거절",WAITING_APPROVAL:"사람 승인 대기",SAFE_STOP:"안전 중단",NEEDS_DATA:"추가 게임 데이터 필요",NEEDS_DEVELOPMENT:"지원 기능 개발 필요"};
+  for(let index=0;index<record.results.length;index++){
+    const actual=record.results[index];
+    expect(actual.verdict).toBe("PASS");
+    await page.locator("#lab-result").selectOption(String(index));
+    const summary=page.getByLabel("시험 결과 설명");
+    await expect(summary).toContainText(actual.scenario.code);
+    await expect(summary).toContainText(actual.observed_error_code);
+    await expect(summary).toContainText("주입 확인");
+    await expect(summary).toContainText("PASS · 기대한 정책 대응");
+    const terminal=actual.scenario.scenario_id==="supervisor_state_conflict" ? "상태 충돌 요청 거절" : terminals[actual.actual_terminal];
+    if(terminal) await expect(summary).toContainText(terminal);
+    await expect(page.locator(".fault-node.observed, .fault-node.fault-detected")).toHaveCount(0);
+    const labels=await summary.locator("b").allTextContents();
+    expect(labels).toEqual(["1. 주입한 오류","2. 검출 결과","3. 정책 결정","4. 최종 상태","5. 시험 판정"]);
+  }
+  const downloadPromise=page.waitForEvent("download");
+  await page.getByRole("button",{name:"JSON 보고서 저장"}).click();
+  const downloaded=await downloadPromise;
+  const {readFile}=await import("node:fs/promises");
+  expect(JSON.parse(await readFile(await downloaded.path(),"utf8"))).toEqual(record);
+  await page.locator("#lab-result").selectOption("9");
+  await page.screenshot({path:"../docs/ik/ux-evidence/fault-campaign-28-desktop.png",fullPage:true});
+  await page.reload();
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  await expect(page.locator("#lab-result option")).toHaveCount(29);
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.getByRole("button",{name:"실행 경로 보기",exact:true}).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button",{name:"실행 경로 숨기기",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"시험 결과로 돌아가기",exact:true}).click();
+  await page.screenshot({path:"../docs/ik/ux-evidence/fault-campaign-28-mobile.png",fullPage:true});
+  expect(posts).toBe(0);
+  expect(errors).toEqual([]);
+});
+
 test("static topology, scoped selection and actual recovery report in Edge", async ({page}) => {
   const errors=[];
   page.on("pageerror", (e)=>errors.push(e.message));
@@ -15,6 +180,7 @@ test("static topology, scoped selection and actual recovery report in Edge", asy
   await page.locator("#lab-profile").selectOption("retry_allowed");
   await page.locator("#lab-run").click();
   await expect(page.getByRole("heading",{name:"시험 COMPLETED · PASS"})).toBeVisible({timeout:45000});
+  console.log("UI static recovery run:",await page.locator("#lab-report .panel-heading span").textContent());
   await expect(page.locator("#lab-profile")).toHaveValue("retry_allowed");
   expect(await page.locator(".fault-topology foreignObject").evaluateAll(nodes=>nodes.map(n=>[n.getAttribute("x"),n.getAttribute("y")]))).toEqual(positions);
   await expect(page.locator('[data-fault-node="planner"]')).toHaveAttribute("aria-pressed","true");
@@ -29,7 +195,7 @@ test("static topology, scoped selection and actual recovery report in Edge", asy
   const download=page.waitForEvent("download");
   await page.getByRole("button",{name:"JSON 보고서 저장"}).click();
   expect((await download).suggestedFilename()).toMatch(/^fault-.*\.json$/);
-  await page.screenshot({path:"../docs/ik/ux-evidence/fault-lab-desktop.png",fullPage:true});
+  await page.screenshot({path:"../docs/ik/ux-evidence/fault-campaign-selection-desktop.png",fullPage:true});
   await page.getByRole("button",{name:"실행 경로 숨기기",exact:true}).click();
   let posts=0;
   page.on("request",request=>{if(request.method()==="POST" && request.url().includes("/api/test/")) posts++;});
@@ -56,6 +222,7 @@ test("accepted request is idempotent and rejects different content with same key
   const first=await request.post("/api/test/fault-runs",{headers,data:body});
   expect(first.status()).toBe(202);
   const admitted=await first.json();
+  console.log("UI idempotency run:",admitted.id);
   const again=await request.post("/api/test/fault-runs",{headers,data:body});
   expect(again.status()).toBe(202);
   expect((await again.json()).id).toBe(admitted.id);
@@ -72,6 +239,7 @@ test("suite exposes each case separately without replaying the run",async({page,
   ]}});
   expect(response.status()).toBe(202);
   const run=await response.json();
+  console.log("UI safe-stop suite:",run.id);
   await expect.poll(async()=> (await (await request.get(`/api/test/fault-suites/${run.id}`)).json()).lifecycle,{timeout:45000}).toBe("COMPLETED");
   await page.addInitScript((id)=>sessionStorage.setItem("eventquest.faultLabRun",JSON.stringify({kind:"suite",id})),run.id);
   await page.goto("/");
