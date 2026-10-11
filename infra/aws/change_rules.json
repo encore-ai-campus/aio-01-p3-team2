@@ -6,7 +6,7 @@
     {"id": "runtime-runner", "patterns": ["backend/tests/support/**"], "targets": ["main-api", "fault-api"], "ci": true},
     {"id": "tests", "patterns": ["backend/tests/**", "mcp_server/tests/**", "demo-game/tests/**", "frontend-web/e2e/**", "frontend-web/game-e2e/**", "frontend-web/tests/**", "frontend-web/playwright*.js", "backend/testing/**", "conftest.py"], "targets": [], "ci": true},
     {"id": "shared-contract", "patterns": ["backend/app/game/**", "backend/app/schemas/**", "backend/data/**", "mcp_server/data/**"], "targets": ["plan-web", "game-web", "main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true},
-    {"id": "sql", "patterns": ["backend/sql/**", "mcp_server/sql/**"], "targets": ["plan-web", "game-web", "main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true, "migration": true},
+    {"id": "sql", "patterns": ["backend/sql/**", "mcp_server/sql/**", "backend/app/deployment/**"], "targets": ["plan-web", "game-web", "main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true, "migration": true},
     {"id": "planning-ui", "patterns": ["frontend-web/**"], "targets": ["plan-web"], "ci": true},
     {"id": "game-ui", "patterns": ["demo-game/**"], "targets": ["game-web"], "ci": true},
     {"id": "mcp-entry", "patterns": ["mcp_server/server.py"], "targets": ["main-mcp", "fault-mcp"], "ci": true},

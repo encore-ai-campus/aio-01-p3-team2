@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from sqlalchemy import create_engine, text
 
+from backend.app.config.deployment import runtime_schema_creation_allowed
 from backend.app.config.test_database import validate_test_database_environment
 from backend.app.fault_injection.injector import enabled
 from backend.app.services.settings import configured_operator_actor_id
@@ -89,7 +90,10 @@ def initialize() -> None:
     engine = database_engine()
     try:
         with engine.begin() as connection:
-            connection.execute(text(DDL))
+            if runtime_schema_creation_allowed():
+                connection.execute(text(DDL))
+            else:
+                connection.execute(text("SELECT id FROM fault_lab_environment WHERE id=1")).one()
     finally:
         engine.dispose()
 

@@ -23,6 +23,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.pool import StaticPool
 
+from backend.app.config.deployment import runtime_schema_creation_allowed
+
 
 class GameBase(DeclarativeBase):
     pass
@@ -286,7 +288,7 @@ class GameRepository:
     def __init__(self, engine: Engine, *, create_schema: bool = False) -> None:
         self.engine = engine
         self.database_url = str(engine.url)
-        if create_schema:
+        if create_schema and runtime_schema_creation_allowed():
             GameBase.metadata.create_all(engine)
 
     @classmethod

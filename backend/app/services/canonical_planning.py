@@ -35,6 +35,7 @@ from backend.app.agents.supervisor import (
     SupervisorDecisionError,
     SupervisorWorkflowState,
 )
+from backend.app.config.deployment import runtime_schema_creation_allowed
 from backend.app.faults.error_catalog import error_definition
 from backend.app.guards.input_guard import validate_text
 from backend.app.guards.response_guard import validate_response
@@ -173,33 +174,36 @@ def _engine(database_url: str) -> Any:
     engine = _ENGINES.get(database_url)
     if engine is None:
         engine = create_engine(database_url, pool_pre_ping=True)
-        _CanonicalBase.metadata.create_all(engine)
-        columns = {
-            column["name"]
-            for column in sqlalchemy_inspect(engine).get_columns("canonical_planning_events")
-        }
-        if "state_version" not in columns:
-            with engine.begin() as connection:
-                connection.execute(
-                    text("ALTER TABLE canonical_planning_events ADD COLUMN state_version INTEGER")
-                )
-        inspector = sqlalchemy_inspect(engine)
-        unique_names = {
-            constraint.get("name")
-            for constraint in inspector.get_unique_constraints("canonical_planning_events")
-        }
-        index_names = {
-            index.get("name") for index in inspector.get_indexes("canonical_planning_events")
-        }
-        if "uq_canonical_planning_state_version" not in unique_names | index_names:
-            with engine.begin() as connection:
-                connection.execute(
-                    text(
-                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_canonical_planning_state_version "
-                        "ON canonical_planning_events (workflow_id, state_version) "
-                        "WHERE state_version IS NOT NULL"
+        if runtime_schema_creation_allowed():
+            _CanonicalBase.metadata.create_all(engine)
+            columns = {
+                column["name"]
+                for column in sqlalchemy_inspect(engine).get_columns("canonical_planning_events")
+            }
+            if "state_version" not in columns:
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "ALTER TABLE canonical_planning_events ADD COLUMN state_version INTEGER"
+                        )
                     )
-                )
+            inspector = sqlalchemy_inspect(engine)
+            unique_names = {
+                constraint.get("name")
+                for constraint in inspector.get_unique_constraints("canonical_planning_events")
+            }
+            index_names = {
+                index.get("name") for index in inspector.get_indexes("canonical_planning_events")
+            }
+            if "uq_canonical_planning_state_version" not in unique_names | index_names:
+                with engine.begin() as connection:
+                    connection.execute(
+                        text(
+                            "CREATE UNIQUE INDEX IF NOT EXISTS uq_canonical_planning_state_version "
+                            "ON canonical_planning_events (workflow_id, state_version) "
+                            "WHERE state_version IS NOT NULL"
+                        )
+                    )
         _ENGINES[database_url] = engine
     return engine
 

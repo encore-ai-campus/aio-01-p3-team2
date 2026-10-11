@@ -22,6 +22,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from backend.app.agents.supervisor import Supervisor, SupervisorWorkflowState
+from backend.app.config.deployment import runtime_schema_creation_allowed
 from backend.app.faults.error_catalog import classify_workflow_exception, error_definition
 from backend.app.services.llm_service import LLMOutputContractError, workflow_llm_call_budget
 from backend.app.services.recovery_policy import pinned_policy_reference
@@ -66,7 +67,8 @@ def _engine():
     from backend.app.services.canonical_planning import _engine as planning_engine
 
     engine = planning_engine(os.environ["DATABASE_URL"])
-    ExecutionBase.metadata.create_all(engine)
+    if runtime_schema_creation_allowed():
+        ExecutionBase.metadata.create_all(engine)
     return engine
 
 

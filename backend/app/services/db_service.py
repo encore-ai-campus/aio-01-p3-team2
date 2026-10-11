@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from threading import RLock
 
+from backend.app.config.deployment import deployment_mode
 from backend.app.repositories.interface import WorkflowRepository
 from backend.app.schemas.workflow_state import (
     SupervisorStateConflict,
@@ -194,6 +195,8 @@ class InMemoryRepository:
 def build_repository() -> WorkflowRepository:
     database_url = os.getenv("DATABASE_URL", "").strip()
     if not database_url:
+        if deployment_mode() == "cloud":
+            raise RuntimeError("Cloud runtime requires DATABASE_URL")
         return InMemoryRepository()
 
     from backend.app.repositories.postgres import SqlAlchemyRepository

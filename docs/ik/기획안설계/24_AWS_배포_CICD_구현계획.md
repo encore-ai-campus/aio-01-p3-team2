@@ -261,3 +261,35 @@ AWS 수용 시 `docs/ik/검증산출물/<실제 실행일>_AWS_배포장애복�
 현재 A0의 manifest/영향 계약, A1의 proxy ingress, A4의 기본 CI만 구현했다. **시험 RDS guard·DB TLS·runtime DDL 이전·migration/maintenance·production image/PG/E2E gate·IaC·CD/rollback·정리 script는 미구현**이다. 실제 배포 전 마지막 성공 release baseline 재판별/target lock도 아직 deploy 경로에 연결하지 않았다. 자동 CD는 아직 활성화할 수 없다.
 
 알림 수신 정보는 확인했으며 AWS 실행 시 사용자 인증 세션에서 계정/권한을 확인할 예정이다. 이 문서와 로컬 성공 결과를 AWS 배포·복원·정리 성공으로 해석하지 않는다.
+
+
+## 11. Runtime DDL 분리·migration 기반 구현 (2026-10-12)
+
+### 현재 구현
+
+A2의 첫 단계로 `backend/app/config/deployment.py`를 추가했다. `DEPLOYMENT_MODE=cloud`에서는 Workflow repository, canonical planning, 실행 예약, 게임 repository와 시험실 초기화의 런타임 CREATE/ALTER를 실행하지 않는다. local 기본 동작은 유지하며, 알 수 없는 mode 또는 cloud에서 DATABASE_URL 누락은 거부한다. 이 코드 분기는 DB 권한 설정을 대신하지 않는다.
+
+`backend/app/deployment/migrate.py`는 명시적으로 실행하는 PostgreSQL migration 명령이다. Workflow ORM의 초기 DDL과 시험실 초기 DDL을 `deployment/sql/`에 고정하고, 기존 `backend/sql/001~016`을 순서대로 적용한다. 일반 17개/시험 18개 ledger 항목이며, 새로운 SQL은 번호를 이어 추가한다. 적용한 baseline/SQL은 수정하지 않는다. 환경·main/fault marker, checksum ledger, transaction advisory lock을 사용한다. public schema에 적용하며, 같은 migration의 재실행은 기록·업무 데이터를 변경하지 않는다. 실패하면 전체 transaction을 rollback한다.
+
+추적되지 않은 기존 public table/view가 있으면 **명시적인 baseline 채택 절차가 필요하다는 오류로 중단**한다. 현재 채택 명령은 구현하지 않았고 기존 로컬 DB에 이 명령을 적용하지 않았다. 신규 RDS DB에 우선 사용할 수 있는 기반이다. 게임 catalog seed·활성 정책 bootstrap·migration owner/runtime/read-only MCP role 생성·권한 revoke는 아직 구현하지 않았다. 시험실 cloud RDS 경로도 아직 기존 Docker guard에서 차단된다.
+
+### 실행 계약
+
+저장소 루트에서 다음 명령은 DB에 연결하지 않고 적용 파일 이름과 checksum만 출력한다.
+
+```powershell
+backend/.venv/Scripts/python.exe -m backend.app.deployment.migrate --purpose main --environment ikonly-demo
+```
+
+실제 적용은 별도 소유자 접속값을 `MIGRATION_DATABASE_URL`에 주입한 뒤 위 명령에 `--apply`를 추가한다. 시험 DB에는 `--purpose fault`를 사용한다. 비밀 URL을 명령 인자·문서·로그에 기록하지 않는다. 현재 CLI는 cloud TLS/role/접속 대상 검증을 통합하기 전이므로 아직 AWS 배포에 연결하지 않는다. CI 변경 판별은 `backend/app/deployment/**`를 migration 및 전체 6역할 영향으로 분류한다.
+
+### 실제 검증·실험 기록
+
+- 신규 단위 검사 5 PASS: local/cloud DDL 분기, 명시적 게임 schema 생성 요청 차단, planning/실행 예약 DDL 차단, 잘못된 mode·cloud 메모리 fallback 거부, migration 목록.
+- core 전체 **453 PASS / 1 SKIP, 25.75초**. 이후 영향 판별 보충과 단위 검사 대상 재검사 **29 PASS**.
+- 실제 PostgreSQL migration 검사 **4 PASS, 최종 6.90초**: main/fault 최초 적용·재적용·업무 행 보존, 다른 환경 marker 거부, checksum 변조 거부, 기존 미추적 DB 보존, 실패 전체 rollback, 동시 실행 직렬화.
+- 기존 `ikonly-test` 컨테이너의 접속 설정을 프로세스 내부에서만 사용해 `migration_test_<uuid>` DB를 새로 만들고 finally에서 제거했다. 사용자 일반/시험 DB는 변경하지 않았다. 자동 시험용 DB는 접속 및 임시 DB 생성의 출발점으로만 사용했다. `MIGRATION_TEST_URL`은 loopback·test 이름 검사를 통과해야 한다.
+- 초기 검사에서 저장소 경로 계산과 SQLAlchemy CursorResult의 dict 변환 문제를 발견해 수정했다. PostgreSQL profile의 명시적 test URL도 설정한 뒤 재실행했다. 검사를 제거해 회피하지 않았다.
+- Ruff 전체 lint/format 및 diff 확인을 수행했다. 실제 LLM 호출, AWS 자원 생성, 사용자 서버 재시작, push는 하지 않았다.
+
+현재 inventory는 Python 65개 파일(core 48, postgres 12, external 3, compatibility 2), JavaScript 7개다. 다음은 A1의 RDS TLS·DB/role/marker guard 및 A2의 owner/runtime 권한·bootstrap·기존 baseline 채택·공유 maintenance이며, A2 전체 완료로 표시하지 않는다.

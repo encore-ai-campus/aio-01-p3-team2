@@ -42,6 +42,8 @@ def test_non_runtime_and_unknown_paths():
     unknown = classify(["new-runtime.py"])
     assert unknown["targets"] == list(ROLES) and unknown["manual_review_required"]
     assert classify(["backend/sql/017_example.sql"])["migration_required"]
+    assert classify(["backend/app/deployment/migrate.py"])["migration_required"]
+    assert classify(["backend/app/deployment/sql/000_workflow.sql"])["targets"] == list(ROLES)
     result = classify(["demo-game/src/game.js", "frontend-web/src/app.js"])
     assert result["images"] == ["web"] and result["web_sites"] == ["plan", "game"]
 

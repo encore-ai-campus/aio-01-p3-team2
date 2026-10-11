@@ -25,6 +25,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.pool import StaticPool
 
+from backend.app.config.deployment import runtime_schema_creation_allowed
 from backend.app.schemas.workflow_state import (
     SupervisorStateConflict,
     TaskRecord,
@@ -114,7 +115,7 @@ class SqlAlchemyRepository:
                 }
             )
         self.engine = create_engine(database_url, **options)
-        if create_schema:
+        if create_schema and runtime_schema_creation_allowed():
             Base.metadata.create_all(self.engine)
             self._backfill_creation_order()
 

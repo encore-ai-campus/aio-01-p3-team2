@@ -85,3 +85,8 @@ Health endpoint는 비밀·내부 상세 없이 서비스 준비 상태를 반�
 ```
 
 검증은 `eventquest_auto_test`만 대상으로 하며 사용자 DB/Edge 검토 DB는 변경하지 않는다. 명령의 성공 여부와 최종 확인 결과는 수정 계획의 기록을 확인한다. 현재 변경에 CI/CD나 Redis는 포함하지 않는다.
+
+
+## 2026-10-12 migration 기반 후속 동기화
+
+cloud runtime DDL 차단과 별도 migration CLI를 구현했다. PostgreSQL은 매 검사마다 새 임시 DB를 생성·제거해 사용자 DB를 보존한다. Python inventory 65개(core 48, postgres 12, external 3, compatibility 2), JavaScript 7개. core 453 PASS / 1 SKIP, 영향 보충 29 PASS, migration PostgreSQL 4 PASS. TLS/role/권한·bootstrap·maintenance는 미완료다. 실행 계약·실험 과정·남은 범위는 [구현 계획 24 §11](24_AWS_배포_CICD_구현계획.md#11-runtime-ddl-분리migration-기반-구현-2026-10-12)을 따른다.

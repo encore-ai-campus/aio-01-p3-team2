@@ -785,6 +785,27 @@
         "test_middleware_rejects_direct_and_forwarded_header_spoofing",
         "test_local_default_does_not_accept_remote_proxy_proofs"
       ]
+    },
+    {
+      "file": "backend/tests/unit/test_deployment_schema.py",
+      "suite": "core",
+      "reason": "Cloud runtime DDL prohibition and explicit migration history/data protection",
+      "test_functions": [
+        "test_runtime_ddl_mode",
+        "test_cloud_game_and_planning_do_not_create_schema",
+        "test_unknown_mode_and_cloud_memory_fallback_are_rejected",
+        "test_migration_plan_is_ordered_and_fault_specific"
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_deployment_migration.py",
+      "suite": "postgres",
+      "reason": "Cloud runtime DDL prohibition and explicit migration history/data protection",
+      "test_functions": [
+        "test_fresh_migration_reapply_identity_and_checksum",
+        "test_migration_failure_rolls_back_and_concurrent_calls_serialize",
+        "test_untracked_database_is_preserved"
+      ]
     }
   ],
   "javascript": [
