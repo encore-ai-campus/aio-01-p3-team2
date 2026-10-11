@@ -23,11 +23,19 @@ def get_event_capabilities(
     """List executable event/action/venue/reward capabilities and their evidence."""
     if game_id != GAME_ID:
         raise ValueError("game_id is not supported")
-    catalog_version = capability_catalog_version or "opong-capabilities-1.0.0"
-    if catalog_version != "opong-capabilities-1.0.0":
-        raise LookupError("Requested capability catalog version was not found")
     snapshot = load_opong_snapshot(game_data_snapshot_id)
     data = snapshot["catalog"]
+    catalog_version = (
+        capability_catalog_version or snapshot["game_context"]["capability_catalog_version"]
+    )
+    supported_versions = {
+        "opong-capabilities-1.0.1",
+        "opong-capabilities-1.0.2",
+        "opong-capabilities-1.0.3",
+    }
+    if catalog_version not in supported_versions:
+        raise LookupError("Requested capability catalog version was not found")
+    snapshot["game_context"]["capability_catalog_version"] = catalog_version
     game_context = GameContext.model_validate(snapshot["game_context"])
     evidence = [
         f"runtime_snapshot:{snapshot['snapshot_id']}:{snapshot['snapshot_digest']}",
@@ -53,6 +61,19 @@ def get_event_capabilities(
             reason_code=reason,
         )
 
+    uses_spaces = any("spaces" in template for template in data["special_dungeon_templates"])
+    special_action = "special_dungeon_space_clear" if uses_spaces else "special_dungeon_floor_clear"
+    special_progress = "space_cleared" if uses_spaces else "floor_cleared"
+    special_adapter = (
+        "game_runtime.special_dungeon_space_cleared.v1"
+        if uses_spaces
+        else "game_runtime.special_dungeon_floor_cleared.v1"
+    )
+    special_content = [
+        item
+        for template in data["special_dungeon_templates"]
+        for item in template.get("spaces", template.get("floors", []))
+    ]
     event_types = [
         record(
             "event.growth_progression",
@@ -69,7 +90,7 @@ def get_event_capabilities(
         record(
             "event.special_dungeon",
             CapabilityType.EVENT_TYPE,
-            {"actions": ["special_dungeon_floor_clear"]},
+            {"actions": [special_action]},
             "game_runtime.event.v1",
         ),
     ]
@@ -110,21 +131,17 @@ def get_event_capabilities(
             "game_runtime.growth_milestone_reached.v1",
         ),
         record(
-            "action.special_dungeon_floor_clear",
+            f"action.{special_action}",
             CapabilityType.MISSION_ACTION,
             {
                 "runtime_action": "special_dungeon_progressed",
-                "progress_type": "floor_cleared",
+                "progress_type": special_progress,
                 "metrics": ["count"],
                 "operators": ["gte"],
-                "content_ids": [
-                    floor["id"]
-                    for template in data["special_dungeon_templates"]
-                    for floor in template["floors"]
-                ],
+                "content_ids": [item["id"] for item in special_content],
                 "max_target": 10000,
             },
-            "game_runtime.special_dungeon_floor_cleared.v1",
+            special_adapter,
         ),
     ]
     venues = [
@@ -136,7 +153,9 @@ def get_event_capabilities(
                 "layout_id": template["layout_id"],
                 "theme_id": template["theme_id"],
                 "difficulty_id": template["difficulty_id"],
-                "floor_ids": [floor["id"] for floor in template["floors"]],
+                ("space_ids" if uses_spaces else "floor_ids"): [
+                    item["id"] for item in template.get("spaces", template.get("floors", []))
+                ],
             },
             "game_runtime.special_dungeon_template.v1",
         )
@@ -150,6 +169,8 @@ def get_event_capabilities(
                 "item_id": item_id,
                 "item_kind": item["kind"],
                 "max_quantity_per_grant": item["max_balance"],
+                "grant_policies": ["once_per_user"],
+                "max_grants_per_user": 1,
                 "event_grant_eligible": item["kind"]
                 in {"currency", "material", "consumable", "chest"},
             },
@@ -168,7 +189,11 @@ def get_event_capabilities(
     catalog_model = CapabilityCatalog(
         capability_catalog_version=catalog_version,
         game_context=game_context,
-        operation_modes=[OperationMode.FINITE],
+        operation_modes=(
+            [OperationMode.FINITE, OperationMode.ONGOING]
+            if catalog_version in {"opong-capabilities-1.0.2", "opong-capabilities-1.0.3"}
+            else [OperationMode.FINITE]
+        ),
         duration_days={"minimum": 1, "maximum": 7},
         audience_cardinality=1,
         audiences=list(data["segments"]),

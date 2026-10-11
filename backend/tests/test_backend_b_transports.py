@@ -65,8 +65,9 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         class FakeOpenAI:
             """네트워크 없이 Responses API 모양을 제공한다."""
 
-            def __init__(self) -> None:
+            def __init__(self, *, max_retries) -> None:
                 """가짜 Responses 리소스를 만든다."""
+                assert max_retries == 0
                 self.responses = FakeResponses()
 
             async def close(self) -> None:

@@ -303,6 +303,8 @@ def test_clash_snapshot_drops_unexpected_identifiers():
 
 
 def test_clash_api_keeps_sample_through_approval_and_records_trace(client, monkeypatch):
+    monkeypatch.setenv("ENABLE_ARCHIVED_CLASH_WORKFLOW", "true")
+
     async def mcp_transport(_tool, _arguments):
         return sample()
 
@@ -354,6 +356,7 @@ def test_clash_api_keeps_sample_through_approval_and_records_trace(client, monke
 
 
 def test_clash_api_returns_recorded_autohealing_after_real_validation_failure(client, monkeypatch):
+    monkeypatch.setenv("ENABLE_ARCHIVED_CLASH_WORKFLOW", "true")
     calls = 0
 
     async def mcp_transport(_tool, _arguments):

@@ -4,8 +4,10 @@ import ipaddress
 import os
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import SQLAlchemyError
 
+from backend.app.faults.error_catalog import error_definition
 from backend.app.game.schemas import (
     ApplyEventRequest,
     EquipSkinRequest,
@@ -15,6 +17,7 @@ from backend.app.game.schemas import (
 )
 from backend.app.game.service import GameError, GameService
 from backend.app.repositories.game_runtime import GameRepository
+from backend.app.services.unit_of_work import session_scope
 
 router = APIRouter(prefix="/game", tags=["virtual-game"])
 _service: GameService | None = None
@@ -97,9 +100,34 @@ def equip_owned_skin(request: EquipSkinRequest) -> dict:
 
 @router.post("/events/apply", dependencies=[Depends(require_local_request)])
 def apply_approved_event(request: ApplyEventRequest) -> dict:
+    service = get_game_service()
+    try:
+        with session_scope(service.repository.engine, write=True):
+            return _apply_approved_event(request)
+    except SQLAlchemyError as exc:
+        # Commit acknowledgement can be lost after all rows have been committed.
+        try:
+            previous = service._lookup_event_apply(request)
+        except (SQLAlchemyError, GameError):
+            previous = None
+        if previous is not None:
+            return previous
+        definition = error_definition("db_write_outcome_unknown")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": definition.code,
+                "operation_status": "UNKNOWN",
+                "retry_with_same_idempotency_key": True,
+            },
+        ) from exc
+
+
+def _apply_approved_event(request: ApplyEventRequest) -> dict:
     result = get_game_service().apply_event(request)
     from backend.app.services.canonical_planning import (
         append_workflow_lifecycle_event,
+        decide_saved_workflow_transition,
         get_workflow,
         workflow_id_for_task,
     )
@@ -109,18 +137,40 @@ def apply_approved_event(request: ApplyEventRequest) -> dict:
     if workflow_id and runtime_event_id:
         workflow = get_workflow(workflow_id) or {}
         plan = workflow.get("plan", {})
-        append_workflow_lifecycle_event(
-            workflow_id,
-            "runtime.event_registered",
-            "APPLIED",
-            {
-                "runtime_event_id": str(runtime_event_id),
-                "status": result.get("status", "applied"),
-                "plan_id": plan.get("plan_id"),
-                "result_version": request.result_version,
-            },
-            f"runtime:{runtime_event_id}",
-        )
+        try:
+            if isinstance(workflow.get("supervisor_state"), dict):
+                decide_saved_workflow_transition(
+                    workflow_id,
+                    "runtime_applied",
+                    payload={
+                        "reason": "승인된 Plan을 Runtime에 등록했습니다.",
+                        "runtime_event_id": str(runtime_event_id),
+                    },
+                    evidence_refs=(f"runtime_event:{runtime_event_id}",),
+                    dedupe_key=f"supervisor:{workflow_id}:runtime_applied:{runtime_event_id}",
+                )
+            append_workflow_lifecycle_event(
+                workflow_id,
+                "runtime.event_registered",
+                "APPLIED",
+                {
+                    "runtime_event_id": str(runtime_event_id),
+                    "status": result.get("status", "applied"),
+                    "plan_id": plan.get("plan_id"),
+                    "result_version": request.result_version,
+                },
+                f"runtime:{runtime_event_id}",
+            )
+        except Exception as exc:
+            definition = error_definition("trace_write_error")
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": definition.code,
+                    "message": definition.safe_message,
+                    "operation_status": "ROLLED_BACK",
+                },
+            ) from exc
     return result
 
 

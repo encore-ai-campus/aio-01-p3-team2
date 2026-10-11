@@ -32,6 +32,13 @@ MIGRATIONS = [
         "007_decision_workflow_id.sql",
         "008_llm_prompt_records.sql",
         "009_planning_lifecycle_events.sql",
+        "010_operator_actor_audit.sql",
+        "011_policy_operation_idempotency.sql",
+        "012_canonical_planning_lookup_indexes.sql",
+        "013_ongoing_event_and_first_clear_missions.sql",
+        "014_canonical_workflow_state_version.sql",
+        "015_task_trace_state_version_cas.sql",
+        "016_workflow_execution_reservations.sql",
     )
 ]
 
@@ -60,6 +67,15 @@ def apply_migration(database_url: str) -> None:
 def seed(database_url: str) -> None:
     apply_migration(database_url)
     catalog = get_catalog()
+    legacy_catalog_path = ROOT / "backend" / "data" / "virtual_game_v1.json"
+    previous_catalog_path = ROOT / "backend" / "data" / "virtual_game_v1_4_0.json"
+    legacy_catalog = json.loads(legacy_catalog_path.read_text(encoding="utf-8"))
+    previous_catalog = json.loads(previous_catalog_path.read_text(encoding="utf-8"))
+    if legacy_catalog.get("game_data_snapshot_id") != "opong-data-1.3.0":
+        raise ValueError("보존된 legacy 게임 snapshot ID가 예상값과 다릅니다.")
+    if previous_catalog.get("game_data_snapshot_id") != "opong-data-1.4.0":
+        raise ValueError("보존된 이전 게임 snapshot ID가 예상값과 다릅니다.")
+    snapshots = [legacy_catalog, previous_catalog, catalog]
     repository = GameRepository(make_engine(database_url))
     now = datetime.now(UTC)
     progression = catalog["progression"]
@@ -69,22 +85,25 @@ def seed(database_url: str) -> None:
         progression["level_thresholds"][starting_level - 1] + progression["start_experience"]
     )
     with repository.session() as session, session.begin():
-        snapshot = session.get(CatalogSnapshotRow, catalog["game_data_snapshot_id"])
-        if snapshot is None:
-            session.add(
-                CatalogSnapshotRow(
-                    snapshot_id=catalog["game_data_snapshot_id"],
-                    game_ruleset_version=catalog["game_ruleset_version"],
-                    domain_schema_version=catalog["domain_schema_version"],
-                    payload_digest=_digest(catalog),
-                    catalog_payload=catalog,
-                    created_at=now,
+        for snapshot_payload in snapshots:
+            snapshot_id = snapshot_payload["game_data_snapshot_id"]
+            digest = _digest(snapshot_payload)
+            snapshot = session.get(CatalogSnapshotRow, snapshot_id)
+            if snapshot is None:
+                session.add(
+                    CatalogSnapshotRow(
+                        snapshot_id=snapshot_id,
+                        game_ruleset_version=snapshot_payload["game_ruleset_version"],
+                        domain_schema_version=snapshot_payload["domain_schema_version"],
+                        payload_digest=digest,
+                        catalog_payload=snapshot_payload,
+                        created_at=now,
+                    )
                 )
-            )
-        elif snapshot.payload_digest != _digest(catalog):
-            raise ValueError(
-                "동일 snapshot ID의 카탈로그 내용이 달라졌습니다. 새 버전을 발급하세요."
-            )
+            elif snapshot.payload_digest != digest:
+                raise ValueError(
+                    "동일 snapshot ID의 카탈로그 내용이 달라졌습니다. 새 버전을 발급하세요."
+                )
         user = session.get(VirtualUserRow, demo_user["id"])
         if user is None:
             user = VirtualUserRow(

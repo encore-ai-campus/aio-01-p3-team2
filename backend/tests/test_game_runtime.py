@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
@@ -58,6 +59,26 @@ def game_service(monkeypatch: pytest.MonkeyPatch) -> GameService:
             session.add(
                 InventoryBalanceRow(
                     user_id=demo_user["id"], item_id=item_id, quantity=quantity, updated_at=now
+                )
+            )
+
+    # Canonical compatibility tests need the preserved authoritative snapshots too.
+    for name in ("virtual_game_v1.json", "virtual_game_v1_4_0.json"):
+        old = json.loads(
+            (Path(__file__).resolve().parents[1] / "data" / name).read_text(encoding="utf-8")
+        )
+        old_digest = hashlib.sha256(
+            json.dumps(old, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        with repository.session() as session, session.begin():
+            session.add(
+                CatalogSnapshotRow(
+                    snapshot_id=old["game_data_snapshot_id"],
+                    game_ruleset_version=old["game_ruleset_version"],
+                    domain_schema_version=old["domain_schema_version"],
+                    payload_digest=old_digest,
+                    catalog_payload=old,
+                    created_at=now,
                 )
             )
 
@@ -125,12 +146,87 @@ def test_versioned_core_rules_are_deterministic() -> None:
     end = datetime(2026, 10, 12, 15, tzinfo=UTC)
     assert event_status_at(start, start, end) == "active"
     assert event_status_at(end, start, end) == "ended"
+    assert event_status_at(start, start, None) == "active"
+    assert event_status_at(datetime(2099, 1, 1, tzinfo=UTC), start, None) == "active"
     assert event_day_number(datetime(2026, 10, 10, 15, tzinfo=UTC), start, "Asia/Seoul") == 2
+
+
+def test_ongoing_floor_mission_stays_active_and_grants_first_clear_once(
+    game_service: GameService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task_id = "TASK-ONFLOOR00001"
+    result = {
+        "event_name": "상시 균열",
+        "target_user": "new_user",
+        "duration": None,
+        "operation_mode": "ongoing",
+        "objective": "층별 첫 클리어 보상을 제공합니다.",
+        "game_source": "opong",
+        "venue": {"template_id": get_catalog()["special_dungeon_templates"][0]["template_id"]},
+        "missions": [
+            {
+                "day": 1,
+                "active_during_event": True,
+                "source_mission_id": "floor-one",
+                "content_id": "rift_floor_01",
+                "mission_type": "special_dungeon_floor_clear",
+                "mission_name": "균열 1층 첫 클리어",
+                "target_count": 1,
+            }
+        ],
+        "rewards": [
+            {
+                "day": 1,
+                "mission_id": "floor-one",
+                "item_id": "ITEM_001",
+                "quantity": 1,
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        game_service_module,
+        "load_approved_event",
+        lambda *_: {
+            "source": {
+                "validation": {"game_data_version": "tinyheroes-1.0.0"},
+                "result": result,
+            },
+            "digest": "ongoing-floor-source",
+        },
+    )
+
+    applied = game_service.apply_event(
+        ApplyEventRequest(request_id=uuid4(), task_id=task_id, result_version=1)
+    )
+    assert applied["operation_mode"] == "ongoing"
+    assert applied["end_at"] is None
+    event_id = applied["runtime_event_id"]
+
+    with game_service.repository.session() as session, session.begin():
+        user = session.get(VirtualUserRow, get_catalog()["demo_user"]["id"])
+        user.experience_total = get_catalog()["progression"]["level_thresholds"][1]
+    floor_request = _action(GameCommandType.SPECIAL_DUNGEON_CHALLENGE, "rift_floor_01", event_id)
+    first = game_service.action(floor_request)
+    assert first["attempt"]["result"] == "succeeded"
+    assert any(row["completed"] for row in first["mission_changes"])
+    assert sum(row["item_id"] == "ITEM_001" for row in first["reward_records"]) == 1
+
+    replay_clear = game_service.action(floor_request)
+    assert replay_clear == first
+    progress = game_service.progress(event_id)
+    assert progress["event"]["status"] == "active"
+    assert progress["missions"][0]["status"] == "completed"
+    assert len(progress["rewards"]) == 1
 
 
 def test_approved_event_runs_special_dungeon_and_grants_reward_once(
     game_service: GameService,
 ) -> None:
+    game_service.catalog = json.loads(
+        (Path(__file__).resolve().parents[1] / "data" / "virtual_game_v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
     task_id = "TASK-ABCDEF123456"
     applied = game_service.apply_event(
         ApplyEventRequest(request_id=uuid4(), task_id=task_id, result_version=1)
@@ -224,13 +320,20 @@ def test_approved_canonical_plan_registers_as_runtime_event(
             "impact_targets": [
                 {"metric": "participation", "unit": "users", "measurement_time": "event_end"}
             ],
-            "source_game_version": "opong-data-1.3.0",
+            "source_game_version": "opong-data-1.4.0",
         }
     )
-    run = create_event_workflow(brief, "runtime-canonical-idempotency-01")
+    test_run_id = uuid4().hex
+    run = create_event_workflow(brief, f"runtime-canonical-{test_run_id}")
     plan = run["plan"]
     assert plan["runtime_eligible"] is True
-    decide_plan(run["workflow_id"], plan["plan_id"], 1, "APPROVE", "runtime-decision-key-0001")
+    decide_plan(
+        run["workflow_id"],
+        plan["plan_id"],
+        1,
+        "APPROVE",
+        f"runtime-decision-{test_run_id}",
+    )
     monkeypatch.setattr(game_service_module, "load_approved_event", load_approved_event)
 
     applied = game_service.apply_event(

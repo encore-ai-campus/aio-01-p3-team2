@@ -13,6 +13,10 @@ from uuid import UUID, uuid4
 from cryptography.fernet import Fernet, InvalidToken
 
 from backend.app.services.llm_service import LLMExecutionError
+from backend.app.services.settings import OperatorIdentityError
+from backend.app.services.settings import (
+    configured_operator_actor_id as _configured_operator_actor_id,
+)
 
 _IDENTITY: ContextVar[tuple[str | None, str | None] | None] = ContextVar(
     "llm_record_identity", default=None
@@ -32,17 +36,12 @@ def _database_url() -> str:
     return url
 
 
-def _approved_actor_ids() -> set[str]:
-    raw = os.getenv("APPROVED_ACTOR_IDS", "liveops01")
-    return {value.strip() for value in raw.split(",") if value.strip()}
-
-
 def configured_operator_actor_id() -> str:
     """Return the server-configured local operator identity, never a request value."""
-    actor_id = os.getenv("OPERATOR_ACTOR_ID", "").strip()
-    if not actor_id:
-        raise LLMExecutionError("OPERATOR_ACTOR_ID is required for restricted LLM record access")
-    return actor_id
+    try:
+        return _configured_operator_actor_id()
+    except OperatorIdentityError as exc:
+        raise LLMExecutionError("Configured operator identity is invalid") from exc
 
 
 def _fernet() -> Fernet:
@@ -201,7 +200,7 @@ def store_llm_record(
 
 def read_llm_record(record_id: str, actor_id: str) -> dict[str, object]:
     """Audit an approved operator's raw-record read before returning plaintext."""
-    if actor_id not in _approved_actor_ids():
+    if actor_id != configured_operator_actor_id():
         raise PermissionError("LLM raw-record access is not authorized")
     try:
         record_id = str(UUID(record_id))

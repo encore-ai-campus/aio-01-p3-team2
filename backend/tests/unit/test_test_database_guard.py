@@ -13,6 +13,11 @@ def test_local_test_database_url_is_accepted() -> None:
     validate_test_database_environment(postgres_test_url=TEST_URL)
 
 
+def test_isolated_verification_database_url_is_accepted() -> None:
+    verify_url = TEST_URL.replace("eventquest_test", "eventquest_verify")
+    validate_test_database_environment(postgres_test_url=verify_url)
+
+
 @pytest.mark.parametrize(
     "url",
     [

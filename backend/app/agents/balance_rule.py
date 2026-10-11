@@ -8,7 +8,13 @@ from ..fault_injection.fault_manager import FaultManager
 from ..fault_injection.fault_types import FaultType
 from ..rules.game_rule_engine import GameDataError, GameRuleEngine, RuleCheck
 from ..services.llm_service import LLMService
-from ..services.mcp_client import MCPClient, MCPTimeoutError, MCPToolError
+from ..services.mcp_client import (
+    MCPClient,
+    MCPContractError,
+    MCPRecoveryStopped,
+    MCPTimeoutError,
+    MCPToolError,
+)
 
 
 @dataclass(frozen=True)
@@ -116,7 +122,7 @@ class BalanceRuleAgent:
                 sources.add(entry.data_source)
 
         if len(versions) > 1:
-            raise MCPToolError("game_data_version")
+            raise MCPContractError("game_data_version")
         failed = next((check for check in checks if not check.is_valid), None)
         rule_validation: dict[str, object] = {
             "is_valid": failed is None,
@@ -177,6 +183,7 @@ class BalanceRuleAgent:
         target_user: str,
         duration: int,
         fault_manager: FaultManager | None = None,
+        recovery_decider=None,
     ) -> EvaluatedEntry:
         """미션 Day, 콘텐츠 존재 여부, 해당 Day 접근 가능성을 검사한다."""
         day = mission.get("day")
@@ -191,14 +198,15 @@ class BalanceRuleAgent:
         if fault_manager and fault_manager.should_inject(FaultType.MCP_TIMEOUT_ONCE):
             raise MCPTimeoutError("get_game_rules")
 
-        try:
+        async def primary_operation():
             if fault_manager and fault_manager.should_inject(FaultType.PRIMARY_TOOL_ERROR_ONCE):
                 raise MCPToolError("get_game_rules")
             primary = await self._mcp_client.get_game_rules(self.AGENT_NAME, content_id)
             return self._evaluate_content(
                 primary, content_id, target_user, day, "get_game_rules", "primary"
             )
-        except MCPToolError:
+
+        async def fallback_operation():
             fallback = await self._mcp_client.get_game_rules_fallback(
                 self.AGENT_NAME, content_id, primary_failed=True
             )
@@ -211,6 +219,24 @@ class BalanceRuleAgent:
                 "fallback_snapshot",
             )
 
+        from backend.app.services.recovery_execution import (
+            MCPRecoveryUnavailable,
+            _run_mcp_read_async,
+        )
+
+        try:
+            result, _ = await _run_mcp_read_async(
+                self.AGENT_NAME,
+                "get_game_rules",
+                primary_operation,
+                fallback_tool="get_game_rules_fallback",
+                fallback_operation=fallback_operation,
+                recovery_decider=recovery_decider,
+            )
+            return result
+        except MCPRecoveryUnavailable as exc:
+            raise MCPRecoveryStopped(exc.tool_name, exc.error_type, str(exc)) from exc
+
     def _evaluate_content(
         self,
         result: Mapping[str, object],
@@ -222,29 +248,29 @@ class BalanceRuleAgent:
     ) -> EvaluatedEntry:
         """Tool 결과의 필수 필드를 확인한 뒤 규칙 엔진에 전달한다."""
         if result.get("content_id") != content_id:
-            raise MCPToolError(tool_name)
+            raise MCPContractError(tool_name)
         version = result.get("game_data_version")
         if not isinstance(version, str) or not version.strip():
-            raise MCPToolError(tool_name)
+            raise MCPContractError(tool_name)
         if "source" in result and result["source"] != source:
-            raise MCPToolError(tool_name)
+            raise MCPContractError(tool_name)
 
         exists = result.get("exists", True)
         if type(exists) is not bool:
-            raise MCPToolError(tool_name)
+            raise MCPContractError(tool_name)
         if exists:
             name = result.get("content_name")
             level = result.get("required_level")
             if not isinstance(name, str) or not name.strip():
-                raise MCPToolError(tool_name)
+                raise MCPContractError(tool_name)
             if type(level) is not int or level < 1:
-                raise MCPToolError(tool_name)
+                raise MCPContractError(tool_name)
         else:
             name = None
 
         segments = result.get("user_segments", self._user_segments)
         if exists and not isinstance(segments, Mapping):
-            raise MCPToolError(tool_name)
+            raise MCPContractError(tool_name)
         try:
             check = GameRuleEngine.validate_content_access(
                 content_id,
@@ -254,7 +280,7 @@ class BalanceRuleAgent:
                 segments if isinstance(segments, Mapping) else {},
             )
         except GameDataError as exc:
-            raise MCPToolError(tool_name) from exc
+            raise MCPContractError(tool_name) from exc
         return EvaluatedEntry(check, version, source, name)
 
     async def validate_reward(
@@ -272,19 +298,19 @@ class BalanceRuleAgent:
 
         result = await self._mcp_client.get_item_info(self.AGENT_NAME, item_id)
         if result.get("item_id") != item_id or type(result.get("exists")) is not bool:
-            raise MCPToolError("get_item_info")
+            raise MCPContractError("get_item_info")
         if "source" in result and result["source"] != "primary":
-            raise MCPToolError("get_item_info")
+            raise MCPContractError("get_item_info")
 
         version = result.get("game_data_version")
         if not isinstance(version, str) or not version.strip():
-            raise MCPToolError("get_item_info")
+            raise MCPContractError("get_item_info")
         name = result.get("item_name")
         if result["exists"] and (not isinstance(name, str) or not name.strip()):
-            raise MCPToolError("get_item_info")
+            raise MCPContractError("get_item_info")
 
         try:
             check = GameRuleEngine.validate_item(item_id, result)
         except GameDataError as exc:
-            raise MCPToolError("get_item_info") from exc
+            raise MCPContractError("get_item_info") from exc
         return EvaluatedEntry(check, version, "primary", name if check.is_valid else None)

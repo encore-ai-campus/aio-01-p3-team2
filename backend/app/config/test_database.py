@@ -20,7 +20,9 @@ def _database_target(url: str, variable_name: str) -> tuple[str, int | None, str
         raise UnsafeTestDatabaseError(f"{variable_name} must use a loopback database host.")
 
     database = parsed.path.removeprefix("/").lower()
-    if not database or not re.search(r"(^|[_-])test([_-]|$)", database):
+    if not database or (
+        database != "eventquest_verify" and not re.search(r"(^|[_-])test([_-]|$)", database)
+    ):
         raise UnsafeTestDatabaseError(f"{variable_name} database name must identify a test DB.")
 
     return host, parsed.port, parsed.username or "", database

@@ -51,11 +51,17 @@ def get_event_planning_context(
                     "max_target": data["progression"]["max_level"],
                 },
                 {
-                    "action_type": "special_dungeon_floor_clear",
+                    "action_type": (
+                        "special_dungeon_space_clear"
+                        if any(
+                            "spaces" in template for template in data["special_dungeon_templates"]
+                        )
+                        else "special_dungeon_floor_clear"
+                    ),
                     "content_ids": [
-                        floor["id"]
+                        item["id"]
                         for template in data["special_dungeon_templates"]
-                        for floor in template["floors"]
+                        for item in template.get("spaces", template.get("floors", []))
                     ],
                 },
             ],

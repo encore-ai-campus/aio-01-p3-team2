@@ -14,9 +14,33 @@ from .retry import (
 
 RecoveryAction = Literal["RUN_AGENT", "RETRY", "TOOL_FALLBACK", "SAFE_STOP"]
 
-_PLANNING_ERRORS = frozenset({"mission_unreachable", "item_not_found", "event_brief_mismatch"})
-_AGENT_RETRY_ERRORS = frozenset({"agent_failure", "validation_error", "llm_timeout"})
-_AGENT_NAMES = frozenset({"event_planner_agent", "balance_rule_agent", "critic_agent"})
+_PLANNING_ERRORS = frozenset(
+    {
+        "mission_unreachable",
+        "item_not_found",
+        "event_brief_mismatch",
+        "planner_explanation_mismatch",
+    }
+)
+_AGENT_RETRY_ERRORS = frozenset(
+    {
+        "agent_failure",
+        "validation_error",
+        "planner_output_invalid",
+        "critic_output_invalid",
+        "llm_timeout",
+        "llm_transient_error",
+    }
+)
+_AGENT_NAMES = frozenset(
+    {
+        "event_planner_agent",
+        "balance_rule_agent",
+        "critic_agent",
+        "canonical_event_planner_agent",
+        "canonical_event_critic_agent",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -112,7 +136,11 @@ def _decide_recovery_base(
             return _safe_stop("자동 기획 수정 한도를 초과했습니다.", retry_count, revision_count)
         return RecoveryRoute(
             action="RUN_AGENT",
-            next_agent="event_planner_agent",
+            next_agent=(
+                "canonical_event_planner_agent"
+                if current_agent == "canonical_event_planner_agent"
+                else "event_planner_agent"
+            ),
             reason="원래 Event Brief를 기준으로 기획안을 수정하고 전체 재검증합니다.",
             retry_count=retry_count,
             revision_count=next_count,
@@ -123,24 +151,34 @@ def _decide_recovery_base(
             return _safe_stop("재실행할 Agent를 확인할 수 없습니다.", retry_count, revision_count)
         return _retry(current_agent, retry_count, revision_count, max_retries)
 
-    if error_type == "mcp_tool_error":
+    if error_type in {"mcp_tool_error", "mcp_game_rules_error"}:
         if failed_tool == "get_game_rules":
+            next_count = next_retry_count(retry_count, max_retries)
+            if next_count is None:
+                return _safe_stop(
+                    "도구 대체 시도 한도를 초과했습니다.", retry_count, revision_count
+                )
             return RecoveryRoute(
                 action="TOOL_FALLBACK",
                 next_agent=None,
                 reason="Primary Tool 오류로 검증된 Fallback Tool을 사용합니다.",
-                retry_count=retry_count,
+                retry_count=next_count,
                 revision_count=revision_count,
                 target_tool="get_game_rules_fallback",
             )
         if failed_tool == "get_item_info":
             return _retry(None, retry_count, revision_count, max_retries, "get_item_info")
-        if failed_tool == "get_event_planning_context":
+        if failed_tool in {
+            "get_event_capabilities",
+            "get_event_planning_context",
+            "get_game_rules_fallback",
+        }:
             return _retry(None, retry_count, revision_count, max_retries, failed_tool)
         return _safe_stop("사용 가능한 Tool 대체 경로가 없습니다.", retry_count, revision_count)
 
     if error_type == "mcp_timeout":
         if failed_tool not in {
+            "get_event_capabilities",
             "get_event_planning_context",
             "get_game_rules",
             "get_game_rules_fallback",

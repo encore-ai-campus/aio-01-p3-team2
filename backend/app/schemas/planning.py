@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -148,7 +148,7 @@ class VenueReference(StrictContract):
 
 
 class ActionSpec(StrictContract):
-    action_id: str = Field(min_length=1, max_length=120)
+    action_id: str | None = Field(default=None, min_length=1, max_length=120)
     action_type: str = Field(min_length=1, max_length=120)
     filters: dict[str, Any] = Field(default_factory=dict)
     content_scope: dict[str, Any] | None = None
@@ -156,7 +156,7 @@ class ActionSpec(StrictContract):
 
 
 class RewardSpec(StrictContract):
-    reward_id: str = Field(min_length=1, max_length=120)
+    reward_id: str | None = Field(default=None, min_length=1, max_length=120)
     item_id: str = Field(min_length=1, max_length=120)
     quantity: int = Field(strict=True, ge=1)
     grant_policy: GrantPolicy = GrantPolicy.ONCE_PER_USER
@@ -166,12 +166,24 @@ class RewardSpec(StrictContract):
 class MissionRewardLink(StrictContract):
     action_id: str | None = None
     mission_id: str | None = None
-    reward_id: str = Field(min_length=1, max_length=120)
+    reward_id: str | None = Field(default=None, min_length=1, max_length=120)
+    action_index: int | None = Field(default=None, strict=True, ge=0)
+    reward_index: int | None = Field(default=None, strict=True, ge=0)
 
     @model_validator(mode="after")
     def exactly_one_mission_reference(self) -> MissionRewardLink:
-        if (self.action_id is None) == (self.mission_id is None):
-            raise ValueError("provide exactly one of action_id or mission_id")
+        has_positional = self.action_index is not None or self.reward_index is not None
+        if has_positional:
+            if (
+                self.action_index is None
+                or self.reward_index is None
+                or self.action_id is not None
+                or self.mission_id is not None
+                or self.reward_id is not None
+            ):
+                raise ValueError("provide exactly action_index and reward_index")
+        elif (self.action_id is None) == (self.mission_id is None) or self.reward_id is None:
+            raise ValueError("provide one action/mission ID and one reward ID")
         return self
 
 
@@ -186,7 +198,7 @@ class ImpactTarget(StrictContract):
 class EventBriefInput(StrictContract):
     """User-authored request without server-issued identity/version fields."""
 
-    contract_version: str = "event-brief.v1"
+    contract_version: Literal["event-brief.v1"] = "event-brief.v1"
     objective: str = Field(min_length=1, max_length=500)
     target_segments: list[str] = Field(min_length=1)
     event_type: EventType
@@ -205,8 +217,24 @@ class EventBriefInput(StrictContract):
     def validate_references(self) -> EventBriefInput:
         if len(self.target_segments) != len(set(self.target_segments)):
             raise ValueError("target_segments must not contain duplicates")
-        action_ids = {action.action_id for action in self.actions}
-        reward_ids = {reward.reward_id for reward in self.rewards}
+        action_ids = {action.action_id for action in self.actions if action.action_id is not None}
+        reward_ids = {reward.reward_id for reward in self.rewards if reward.reward_id is not None}
+        ids_absent = not action_ids and not reward_ids
+        ids_complete = len(action_ids) == len(self.actions) and len(reward_ids) == len(self.rewards)
+        if not ids_absent and not ids_complete:
+            raise ValueError("action_id and reward_id must be either all present or all absent")
+        if ids_absent:
+            for link in self.mission_reward_links:
+                if link.action_index is None or link.reward_index is None:
+                    raise ValueError("ID-free Brief links must use action_index and reward_index")
+                if link.action_index >= len(self.actions) or link.reward_index >= len(self.rewards):
+                    raise ValueError("mission_reward_links index is out of range")
+            linked_reward_indexes = [link.reward_index for link in self.mission_reward_links]
+            if len(linked_reward_indexes) != len(set(linked_reward_indexes)):
+                raise ValueError("each reward must have exactly one action link")
+            if set(linked_reward_indexes) != set(range(len(self.rewards))):
+                raise ValueError("every reward must have an explicit action link")
+            return self
         if len(action_ids) != len(self.actions):
             raise ValueError("action_id values must be unique")
         if len(reward_ids) != len(self.rewards):
@@ -216,6 +244,9 @@ class EventBriefInput(StrictContract):
                 raise ValueError("brief mission_reward_links must reference an action_id")
             if link.reward_id not in reward_ids:
                 raise ValueError("mission_reward_links must reference an existing reward_id")
+        linked_reward_ids = [link.reward_id for link in self.mission_reward_links]
+        if len(linked_reward_ids) != len(set(linked_reward_ids)):
+            raise ValueError("each reward must have exactly one action link")
         if self.rewards and not self.mission_reward_links:
             raise ValueError("every reward must be linked to an action")
         if {link.reward_id for link in self.mission_reward_links} != reward_ids:
@@ -228,6 +259,18 @@ class EventBriefInput(StrictContract):
 class EventBrief(EventBriefInput):
     brief_id: str = Field(min_length=1, max_length=120)
     brief_version: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def require_server_assigned_ids(self) -> EventBrief:
+        if any(action.action_id is None for action in self.actions):
+            raise ValueError("EventBrief requires Supervisor-assigned action IDs")
+        if any(reward.reward_id is None for reward in self.rewards):
+            raise ValueError("EventBrief requires Supervisor-assigned reward IDs")
+        if any(
+            link.action_id is None or link.reward_id is None for link in self.mission_reward_links
+        ):
+            raise ValueError("EventBrief requires Supervisor-resolved mission/reward links")
+        return self
 
 
 class GameContext(StrictContract):
@@ -258,7 +301,7 @@ class CapabilityRecord(StrictContract):
 
 
 class CapabilityCatalog(StrictContract):
-    contract_version: str = "capability-catalog.v1"
+    contract_version: Literal["capability-catalog.v1"] = "capability-catalog.v1"
     capability_catalog_version: str = Field(min_length=1, max_length=120)
     game_context: GameContext
     operation_modes: list[OperationMode] = Field(min_length=1)
@@ -353,6 +396,7 @@ class VenuePlan(StrictContract):
 
 class ImpactAssessment(StrictContract):
     metric: str = Field(min_length=1, max_length=120)
+    display_label: str | None = Field(default=None, max_length=160)
     status: ImpactStatus
     value: float | None = None
     unit: str = Field(min_length=1, max_length=40)
@@ -363,8 +407,10 @@ class ImpactAssessment(StrictContract):
     def validate_basis(self) -> ImpactAssessment:
         if self.status == ImpactStatus.UNKNOWN and self.value is not None:
             raise ValueError("unknown impact values must be null")
-        if self.status == ImpactStatus.CALCULATED and not self.method_ref:
-            raise ValueError("calculated impact requires method_ref")
+        if self.status == ImpactStatus.CALCULATED and (
+            not self.method_ref or not self.evidence_refs
+        ):
+            raise ValueError("calculated impact requires method_ref and evidence_refs")
         if (
             self.status in {ImpactStatus.MEASURED, ImpactStatus.ESTIMATED}
             and not self.evidence_refs
@@ -392,7 +438,7 @@ class ValidationSummary(StrictContract):
 
 
 class EventPlan(StrictContract):
-    contract_version: str = "event-plan.v1"
+    contract_version: Literal["event-plan.v1"] = "event-plan.v1"
     plan_id: str = Field(min_length=1, max_length=120)
     result_version: int = Field(strict=True, ge=1)
     brief_ref: BriefReference
@@ -455,5 +501,5 @@ class EventPlan(StrictContract):
 
 
 class CanonicalEventPlanEnvelope(StrictContract):
-    schema_version: str = "event-plan.v1"
+    schema_version: Literal["event-plan.v1"] = "event-plan.v1"
     plan: EventPlan

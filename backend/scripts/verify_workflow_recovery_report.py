@@ -1,7 +1,7 @@
 """서버 재시작 후 기존 Workflow 복구 평가 보고서를 API와 대조한다.
 
 실행 예: python -m backend.scripts.verify_workflow_recovery_report
---base-url http://127.0.0.1:8000 --report /tmp/backend_b_recovery_report.json
+--base-url http://127.0.0.1:8000 --report /tmp/agent_recovery_report.json
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from backend.evaluation.recovery import verify_persisted_suite
 
 def main() -> int:
     """기존 보고서의 모든 실행이 재시작한 서버에서도 동일한지 판정한다."""
-    parser = argparse.ArgumentParser(description="Backend B Workflow 재시작 보존 검증")
+    parser = argparse.ArgumentParser(description="Workflow 재시작 보존 검증")
     parser.add_argument("--base-url", required=True, help="재시작한 Backend API 주소")
     parser.add_argument("--report", required=True, type=Path, help="이전 반복 평가 JSON 파일")
     args = parser.parse_args()

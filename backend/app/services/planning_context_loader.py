@@ -3,15 +3,15 @@
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 
-from backend.app.services.mcp_client import MCPTimeoutError, MCPToolError
+from backend.app.services.mcp_client import MCPContractError, MCPTimeoutError, MCPToolError
 
 PlanningContextTransport = Callable[[str, dict[str, object]], Awaitable[Mapping[str, object]]]
 
 
 class PlanningContextLoader:
-    """Load the verified envelope before Backend B asks Planner for a plan.
+    """Load the verified envelope before the agent Workflow asks Planner for a plan.
 
-    Backend B owns retries, fallback selection, detailed game-data validation,
+    The Supervisor-controlled Workflow owns retries, fallback selection, detailed game-data validation,
     and Trace emission. This boundary only calls the fixed MCP tool and rejects
     an unusable response before passing it to the workflow.
     """
@@ -37,19 +37,21 @@ class PlanningContextLoader:
             )
         except (TimeoutError, ConnectionError) as exc:
             raise MCPTimeoutError(self.TOOL_NAME) from exc
+        except MCPContractError:
+            raise
         except Exception as exc:
             raise MCPToolError(self.TOOL_NAME) from exc
 
         if not isinstance(result, Mapping):
-            raise MCPToolError(self.TOOL_NAME)
+            raise MCPContractError(self.TOOL_NAME)
         context = dict(result)
         if not all(key in context for key in ("contents", "items", "user_segments")):
-            raise MCPToolError(self.TOOL_NAME)
+            raise MCPContractError(self.TOOL_NAME)
         if (
             not isinstance(context.get("game_data_version"), str)
             or not context["game_data_version"].strip()
         ):
-            raise MCPToolError(self.TOOL_NAME)
+            raise MCPContractError(self.TOOL_NAME)
         if context.get("source") not in {"primary", "fallback_snapshot"}:
-            raise MCPToolError(self.TOOL_NAME)
+            raise MCPContractError(self.TOOL_NAME)
         return context

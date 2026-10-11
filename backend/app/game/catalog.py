@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-CATALOG_PATH = Path(__file__).resolve().parents[2] / "data" / "virtual_game_v1.json"
+CATALOG_PATH = Path(__file__).resolve().parents[2] / "data" / "virtual_game_v1_5_0.json"
 
 
 @lru_cache(maxsize=1)
@@ -127,16 +127,20 @@ def get_catalog() -> dict[str, Any]:
                 if reward["item_id"] not in item_ids or reward["quantity"] < 1:
                     raise ValueError(f"{content['id']} 보상 참조가 올바르지 않습니다.")
     for template in catalog["special_dungeon_templates"]:
-        orders = [floor["order"] for floor in template["floors"]]
+        spaces = template.get("spaces", template.get("floors", []))
+        orders = [space.get("space_order", space.get("order")) for space in spaces]
         if orders != list(range(1, len(orders) + 1)):
-            raise ValueError(f"{template['template_id']} 층 순서가 연속적이지 않습니다.")
-        for floor in template["floors"]:
-            combat = floor.get("combat", {})
+            raise ValueError(f"{template['template_id']} 공간 순서가 연속적이지 않습니다.")
+        space_ids = [space["id"] for space in spaces]
+        if len(space_ids) != len(set(space_ids)) or not spaces:
+            raise ValueError(f"{template['template_id']} 공간 ID 또는 구성이 올바르지 않습니다.")
+        for space in spaces:
+            combat = space.get("combat", {})
             if any(int(combat.get(key, 0)) < 1 for key in ("monster_hp", "monster_attack")):
-                raise ValueError(f"{floor['id']} 전투 스탯이 올바르지 않습니다.")
-            for reward in floor["rewards"]:
+                raise ValueError(f"{space['id']} 전투 스탯이 올바르지 않습니다.")
+            for reward in space["rewards"]:
                 if reward["item_id"] not in item_ids or reward["quantity"] < 1:
-                    raise ValueError(f"{floor['id']} 보상 참조가 올바르지 않습니다.")
+                    raise ValueError(f"{space['id']} 보상 참조가 올바르지 않습니다.")
     return catalog
 
 
@@ -152,6 +156,11 @@ def mission_mapping(mission: dict[str, Any]) -> dict[str, Any]:
         "special_dungeon_floor_clear": {
             "action_type": "special_dungeon_progressed",
             "progress_type": "floor_cleared",
+            "metric": "count",
+        },
+        "special_dungeon_space_clear": {
+            "action_type": "special_dungeon_progressed",
+            "progress_type": "space_cleared",
             "metric": "count",
         },
         "dungeon_clear": {
@@ -182,5 +191,7 @@ def mission_mapping(mission: dict[str, Any]) -> dict[str, Any]:
         "target": target,
         "name": str(mission.get("mission_name") or "이벤트 미션"),
         "day": int(mission.get("day", 1)),
+        "active_during_event": mission.get("active_during_event") is True,
+        "source_mission_id": mission.get("source_mission_id"),
         "source_content_id": mission.get("content_id"),
     }

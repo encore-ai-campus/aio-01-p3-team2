@@ -53,3 +53,5 @@ Thumbs.db
 !/local-workspaces/backend-2/.gitkeep
 /local-workspaces/mcp/**
 !/local-workspaces/mcp/.gitkeep
+# Isolated fault laboratory journals (never contain provider raw text).
+backend/test-results/fault-lab/

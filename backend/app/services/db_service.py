@@ -7,7 +7,12 @@ from copy import deepcopy
 from threading import RLock
 
 from backend.app.repositories.interface import WorkflowRepository
-from backend.app.schemas.workflow_state import TaskRecord, ToolLogEntry, TraceEntry
+from backend.app.schemas.workflow_state import (
+    SupervisorStateConflict,
+    TaskRecord,
+    ToolLogEntry,
+    TraceEntry,
+)
 
 
 class InMemoryRepository:
@@ -19,6 +24,16 @@ class InMemoryRepository:
         self._creation_order: dict[str, int] = {}
         self._next_creation_order = 0
         self._lock = RLock()
+
+    @contextmanager
+    def atomic(self) -> Iterator[None]:
+        with self._lock:
+            snapshot = deepcopy((self._tasks, self._traces, self._idempotency))
+            try:
+                yield
+            except Exception:
+                self._tasks, self._traces, self._idempotency = snapshot
+                raise
 
     def reset(self) -> None:
         with self._lock:
@@ -57,6 +72,16 @@ class InMemoryRepository:
             )
             return deepcopy(tasks[:limit])
 
+    def list_running_tasks(self) -> list[TaskRecord]:
+        with self._lock:
+            return deepcopy(
+                [
+                    task
+                    for task in self._tasks.values()
+                    if task.workflow_status in {"RUNNING", "RETRYING"}
+                ]
+            )
+
     def delete_task(self, task_id: str) -> bool:
         with self._lock:
             if task_id not in self._tasks:
@@ -71,11 +96,50 @@ class InMemoryRepository:
             return True
 
     def append_trace(self, task_id: str, trace: TraceEntry) -> None:
+        from backend.app.schemas.workflow_state import expand_supervisor_decisions
+
         with self._lock:
             if task_id not in self._tasks:
                 raise KeyError(task_id)
             traces = self._traces.setdefault(task_id, [])
-            traces.append(trace.model_copy(update={"sequence": len(traces) + 1}, deep=True))
+            latest_state_version = next(
+                (item.state_version for item in reversed(traces) if item.state_version is not None),
+                0,
+            )
+            additions = []
+            for entry in expand_supervisor_decisions(trace):
+                prior = next(
+                    (
+                        row
+                        for row in traces
+                        if (entry.decision_id and row.decision_id == entry.decision_id)
+                        or (entry.event_id and row.event_id == entry.event_id)
+                    ),
+                    None,
+                )
+                if prior is not None:
+                    if prior.model_dump(
+                        exclude={"sequence", "supervisor_decisions"}
+                    ) != entry.model_dump(exclude={"sequence", "supervisor_decisions"}):
+                        raise SupervisorStateConflict(
+                            "Decision ID was reused with different content"
+                        )
+                    continue
+                if entry.state_version is not None and (
+                    entry.expected_state_version != latest_state_version
+                    or entry.state_version != latest_state_version + 1
+                ):
+                    raise SupervisorStateConflict(
+                        "Supervisor Task state version changed before trace commit"
+                    )
+                if entry.state_version is not None:
+                    latest_state_version = entry.state_version
+                additions.append(
+                    entry.model_copy(
+                        update={"sequence": len(traces) + len(additions) + 1}, deep=True
+                    )
+                )
+            traces.extend(additions)
 
     def get_traces(self, task_id: str) -> list[TraceEntry] | None:
         with self._lock:

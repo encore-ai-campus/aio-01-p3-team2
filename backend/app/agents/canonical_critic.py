@@ -1,10 +1,12 @@
 """Canonical Plan semantic review agent; deterministic validators remain authoritative."""
 
+import json
 from collections.abc import Mapping
 from typing import Literal
 
+from backend.app.guards.response_guard import validate_response
 from backend.app.schemas.planning import StrictContract
-from backend.app.services.llm_service import LLMExecutionError, LLMService
+from backend.app.services.llm_service import LLMOutputContractError, LLMService
 from pydantic import Field
 
 
@@ -12,6 +14,7 @@ class CanonicalCriticOutput(StrictContract):
     status: Literal["PASS", "REVIEW"]
     reason: str = Field(min_length=1, max_length=1000)
     review_note: str = Field(min_length=1, max_length=1000)
+    repairability: Literal["HUMAN_REVIEW", "PLANNER_EXPLANATION"] = "HUMAN_REVIEW"
 
 
 class CanonicalCritic:
@@ -38,9 +41,18 @@ class CanonicalCritic:
             },
         )
         try:
+            try:
+                validate_response(json.dumps(result))
+            except ValueError as exc:
+                raise LLMOutputContractError(
+                    "Critic response blocked", error_type="response_guard_blocked"
+                ) from exc
             return CanonicalCriticOutput.model_validate(result).model_dump(mode="json")
         except (TypeError, ValueError) as exc:
-            raise LLMExecutionError("Canonical Critic output contract validation failed") from exc
+            raise LLMOutputContractError(
+                "Canonical Critic output contract validation failed",
+                error_type="critic_output_invalid",
+            ) from exc
 
 
 def canonical_critic_response(agent_name: str, context: dict[str, object]) -> Mapping[str, object]:
@@ -60,8 +72,16 @@ def canonical_critic_response(agent_name: str, context: dict[str, object]) -> Ma
     }
     requested_rewards = {row["reward_id"] for row in brief.get("rewards", [])}
     planned_rewards = {row["reward_id"] for row in plan.get("rewards", [])}
+    expected_links = {
+        (f"MISSION-{row['action_id']}", row["reward_id"])
+        for row in brief.get("mission_reward_links", [])
+    }
+    planned_links = {
+        (row["mission_id"], row["reward_id"]) for row in plan.get("mission_reward_links", [])
+    }
+    reward_links = {(row["mission_id"], row["reward_id"]) for row in plan.get("rewards", [])}
     links_match = requested_actions == planned_actions and requested_rewards == planned_rewards
-    links_match = links_match and bool(plan.get("mission_reward_links")) == bool(requested_rewards)
+    links_match = links_match and expected_links == planned_links == reward_links
     return {
         "status": "PASS" if links_match else "REVIEW",
         "reason": (

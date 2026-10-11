@@ -26,6 +26,7 @@ def _run(client, monkeypatch, *, fault_type=None, transport=None):
     path = "/api/events/generate"
     if fault_type is not None:
         monkeypatch.setenv("ENABLE_FAULT_INJECTION", "true")
+        monkeypatch.setenv("FAULT_LAB_MODE", "isolated")
         request["fault_type"] = fault_type
         path = "/api/test/events/generate"
     response = client.post(path, json=request)

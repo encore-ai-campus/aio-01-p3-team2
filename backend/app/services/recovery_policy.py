@@ -7,12 +7,16 @@ import json
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
+from copy import deepcopy
+from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.faults.error_catalog import ERROR_CATALOG
+from backend.app.services.settings import configured_operator_actor_id
 
 POLICY_ID = "planning.default"
 HARD_MAX_ATTEMPTS = 4
@@ -22,6 +26,10 @@ _PINNED_POLICY: ContextVar[dict[str, Any] | None] = ContextVar(
     "pinned_recovery_policy", default=None
 )
 _ENGINES: dict[str, Any] = {}
+
+
+class RecoveryPolicyError(RuntimeError):
+    """Execution is blocked because the active policy contract is unavailable."""
 
 
 def _engine() -> Any:
@@ -44,7 +52,9 @@ def _default_policy() -> dict[str, Any]:
             "AGENT": "RETRY_AGENT",
             "PLAN": "REVISE_PLAN",
         }.get(definition.retry_class, "SAFE_STOP")
-        if definition.code.startswith("ERR-SEC-") or definition.code.startswith("ERR-CONTRACT-"):
+        if definition.code.startswith("ERR-SEC-") or definition.code.startswith(
+            "ERR-CONTRACT-HANDOFF-"
+        ):
             action = "SAFE_STOP"
         routes[definition.code] = {
             "action": action,
@@ -116,14 +126,39 @@ def pin_active_policy():
             {"id": POLICY_ID},
         ).first()
         if row is None:
-            raise RuntimeError("활성 복구 정책이 없습니다. 오류 복구를 fail-closed 처리합니다.")
+            raise RecoveryPolicyError("활성 복구 정책이 없습니다. 정책을 검증·활성화하세요.")
         policy = json.loads(row.policy) if isinstance(row.policy, str) else row.policy
-        pinned = {"version": row.version, **policy}
+        # A reviewed compatibility mapping preserves immutable historical policies.
+        # Only the split MCP rule inherits its former shared rule; all other missing codes fail closed.
+        effective, compatibility = effective_stored_policy(policy)
+        errors = validate_policy(effective)
+        if errors:
+            raise RecoveryPolicyError(
+                "활성 정책이 현재 오류 계약을 충족하지 않습니다. 새 초안을 검증·활성화하세요."
+            )
+        pinned = {
+            "version": row.version,
+            **effective,
+            **policy_fingerprint(policy),
+            "compatibility_mappings": compatibility,
+            "effective_policy_hash": policy_fingerprint(effective)["policy_hash"],
+        }
     token = _PINNED_POLICY.set(pinned)
     try:
         yield pinned
     finally:
         _PINNED_POLICY.reset(token)
+
+
+def effective_stored_policy(policy: dict[str, Any]) -> tuple[dict, dict]:
+    """Read-only compatibility for the one explicitly split historical rule."""
+    effective = deepcopy(policy)
+    mappings = {}
+    routes = effective.get("routes", {})
+    if isinstance(routes, dict) and "ERR-DEP-MCP-003" not in routes and "ERR-DEP-MCP-002" in routes:
+        routes["ERR-DEP-MCP-003"] = deepcopy(routes["ERR-DEP-MCP-002"])
+        mappings = {"ERR-DEP-MCP-003": "ERR-DEP-MCP-002"}
+    return effective, mappings
 
 
 def pinned_route(error_code: str) -> dict[str, Any] | None:
@@ -140,15 +175,67 @@ def pinned_policy_version() -> int | None:
     return policy.get("version") if policy else None
 
 
+def policy_fingerprint(policy: dict[str, Any]) -> dict[str, str]:
+    def digest(value: object) -> str:
+        return hashlib.sha256(
+            json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+
+    return {
+        "policy_hash": digest(policy),
+        "error_catalog_version": digest({name: asdict(row) for name, row in ERROR_CATALOG.items()}),
+        "hard_limit_version": digest(
+            {
+                "operation_attempts": HARD_MAX_ATTEMPTS,
+                "plan_attempts": 3,
+                "workflow_seconds": 180,
+                "llm_calls": 8,
+                "llm_limits": {
+                    name: os.getenv(name, "").strip()
+                    for name in (
+                        "LLM_MAX_INPUT_TOKENS",
+                        "LLM_MAX_OUTPUT_TOKENS",
+                        "LLM_MAX_COST_USD",
+                        "LLM_INPUT_USD_PER_MILLION",
+                        "LLM_OUTPUT_USD_PER_MILLION",
+                        "LLM_PRICING_VERSION",
+                        "LLM_COST_CURRENCY",
+                    )
+                },
+            }
+        ),
+    }
+
+
+def pinned_policy_reference() -> dict[str, Any] | None:
+    policy = _PINNED_POLICY.get()
+    if policy is None:
+        return None
+    return {
+        key: policy[key]
+        for key in (
+            "policy_id",
+            "version",
+            "policy_hash",
+            "error_catalog_version",
+            "hard_limit_version",
+            "compatibility_mappings",
+            "effective_policy_hash",
+        )
+        if key in policy
+    }
+
+
 def _audit(connection: Any, version: int, action: str, details: dict[str, Any]) -> None:
     connection.execute(
         text("""INSERT INTO recovery_policy_audit
         (policy_id, version, action, actor, details, created_at)
-        VALUES (:policy_id, :version, :action, 'local-operator', :details, :created_at)"""),
+        VALUES (:policy_id, :version, :action, :actor, :details, :created_at)"""),
         {
             "policy_id": POLICY_ID,
             "version": version,
             "action": action,
+            "actor": configured_operator_actor_id(),
             "details": json.dumps(details),
             "created_at": datetime.now(UTC),
         },
@@ -199,15 +286,32 @@ def list_policies() -> dict[str, Any]:
             {"id": POLICY_ID},
         ).fetchall()
     versions = [_row(row) for row in rows]
-    default_routes = _default_policy()["routes"]
     for version in versions:
-        routes = version["policy"].setdefault("routes", {})
-        for code, route in default_routes.items():
-            routes.setdefault(code, route)
+        version["effective_reference"] = {
+            "version": version["version"],
+            **policy_fingerprint(version["policy"]),
+        }
+        effective, compatibility = (
+            effective_stored_policy(version["policy"])
+            if version["status"] != "DRAFT"
+            else (version["policy"], {})
+        )
+        version["compatibility_mappings"] = compatibility
+        version["current_contract_errors"] = validate_policy(effective)
     return {
         "versions": versions,
+        "suggested_draft": _default_policy(),
         "audit": [dict(row._mapping) for row in audit],
         "hard_max_attempts": HARD_MAX_ATTEMPTS,
+        "error_catalog": {
+            definition.code: {
+                "category": definition.category,
+                "location": definition.location,
+                "retry_class": definition.retry_class,
+                "safe_message": definition.safe_message,
+            }
+            for definition in ERROR_CATALOG.values()
+        },
     }
 
 
@@ -304,9 +408,6 @@ def preview_version(version: int) -> dict[str, Any]:
         if not rows:
             raise LookupError("정책 버전을 찾을 수 없습니다.")
         candidate = json.loads(rows.policy) if isinstance(rows.policy, str) else rows.policy
-        if rows.status == "RETIRED":
-            for code, route in _default_policy()["routes"].items():
-                candidate["routes"].setdefault(code, route)
         active_row = connection.execute(
             text(
                 "SELECT policy FROM recovery_policy_versions WHERE policy_id=:id AND status='ACTIVE'"
@@ -322,7 +423,10 @@ def preview_version(version: int) -> dict[str, Any]:
             if active_row
             else _default_policy()
         )
-        validation = validate_policy(candidate)
+        validation_candidate, compatibility = (
+            effective_stored_policy(candidate) if rows.status != "DRAFT" else (candidate, {})
+        )
+        validation = validate_policy(validation_candidate)
         changes = [
             {"error_code": code, "before": active["routes"].get(code), "after": route}
             for code, route in candidate.get("routes", {}).items()
@@ -333,54 +437,127 @@ def preview_version(version: int) -> dict[str, Any]:
             "errors": validation,
             "runtime_mutated": False,
             "changed_routes": changes,
+            "compatibility_mappings": compatibility,
         }
         _audit(connection, version, "PREVIEW", result)
     return result
 
 
-def activate_version(version: int, *, rollback: bool = False) -> dict[str, Any]:
+def _policy_operation_result(
+    actor: str, operation: str, idempotency_key: str, request_hash: str
+) -> dict[str, Any] | None:
+    with _engine().connect() as connection:
+        row = connection.execute(
+            text("""SELECT request_hash, response FROM recovery_policy_operations
+            WHERE actor=:actor AND operation=:operation AND idempotency_key=:key"""),
+            {"actor": actor, "operation": operation, "key": idempotency_key},
+        ).first()
+    if row is None:
+        return None
+    if row.request_hash != request_hash:
+        raise ValueError("Idempotency-Key was already used for a different policy operation")
+    response = row.response
+    return json.loads(response) if isinstance(response, str) else response
+
+
+def activate_version(
+    version: int, *, idempotency_key: str, rollback: bool = False
+) -> dict[str, Any]:
+    operation = "ROLLBACK" if rollback else "ACTIVATE"
+    actor = configured_operator_actor_id()
+    request_hash = hashlib.sha256(
+        json.dumps(
+            {"policy_id": POLICY_ID, "version": version, "operation": operation},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    prior = _policy_operation_result(actor, operation, idempotency_key, request_hash)
+    if prior is not None:
+        return prior
     preview = preview_version(version)
     if not preview["valid"]:
         raise ValueError("검증되지 않았거나 안전 조건을 위반한 정책입니다.")
-    with _engine().begin() as connection:
-        row = connection.execute(
-            text(
-                "SELECT status FROM recovery_policy_versions WHERE policy_id=:id AND version=:version FOR UPDATE"
-            ),
-            {"id": POLICY_ID, "version": version},
-        ).first()
-        if not row:
-            raise LookupError("정책 버전을 찾을 수 없습니다.")
-        expected_status = "RETIRED" if rollback else "DRAFT"
-        if row.status != expected_status:
-            raise ValueError(f"{expected_status} 상태의 정책 버전만 이 작업을 할 수 있습니다.")
-        previous = connection.execute(
-            text(
-                "SELECT version FROM recovery_policy_versions WHERE policy_id=:id AND status='ACTIVE' FOR UPDATE"
-            ),
-            {"id": POLICY_ID},
-        ).first()
-        connection.execute(
-            text(
-                "UPDATE recovery_policy_versions SET status='RETIRED' WHERE policy_id=:id AND status='ACTIVE'"
-            ),
-            {"id": POLICY_ID},
-        )
-        connection.execute(
-            text(
-                "UPDATE recovery_policy_versions SET status='ACTIVE' WHERE policy_id=:id AND version=:version"
-            ),
-            {"id": POLICY_ID, "version": version},
-        )
-        _audit(
-            connection,
-            version,
-            "ROLLBACK" if rollback else "ACTIVATE",
-            {"previous_version": previous.version if previous else None},
-        )
-    return {
+    response = {
         "policy_id": POLICY_ID,
         "version": version,
         "status": "ACTIVE",
-        "action": "ROLLBACK" if rollback else "ACTIVATE",
+        "action": operation,
     }
+    try:
+        with _engine().begin() as connection:
+            lock_key = f"{actor}:{operation}:{idempotency_key}"
+            connection.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+                {"key": lock_key},
+            )
+            row = connection.execute(
+                text("""SELECT request_hash, response FROM recovery_policy_operations
+                WHERE actor=:actor AND operation=:operation AND idempotency_key=:key"""),
+                {"actor": actor, "operation": operation, "key": idempotency_key},
+            ).first()
+            if row:
+                if row.request_hash != request_hash:
+                    raise ValueError(
+                        "Idempotency-Key was already used for a different policy operation"
+                    )
+                return json.loads(row.response) if isinstance(row.response, str) else row.response
+
+            row = connection.execute(
+                text("""SELECT status FROM recovery_policy_versions
+                WHERE policy_id=:id AND version=:version FOR UPDATE"""),
+                {"id": POLICY_ID, "version": version},
+            ).first()
+            if not row:
+                raise LookupError("정책 버전을 찾을 수 없습니다.")
+            expected_status = "RETIRED" if rollback else "DRAFT"
+            if row.status != expected_status:
+                raise ValueError(f"{expected_status} 상태의 정책 버전만 이 작업을 할 수 있습니다.")
+            previous = connection.execute(
+                text(
+                    "SELECT version FROM recovery_policy_versions WHERE policy_id=:id AND status='ACTIVE' FOR UPDATE"
+                ),
+                {"id": POLICY_ID},
+            ).first()
+            connection.execute(
+                text(
+                    "UPDATE recovery_policy_versions SET status='RETIRED' WHERE policy_id=:id AND status='ACTIVE'"
+                ),
+                {"id": POLICY_ID},
+            )
+            connection.execute(
+                text(
+                    "UPDATE recovery_policy_versions SET status='ACTIVE' WHERE policy_id=:id AND version=:version"
+                ),
+                {"id": POLICY_ID, "version": version},
+            )
+            _audit(
+                connection,
+                version,
+                operation,
+                {"previous_version": previous.version if previous else None},
+            )
+            connection.execute(
+                text("""INSERT INTO recovery_policy_operations
+                (actor, operation, idempotency_key, policy_id, version, request_hash, response, created_at)
+                VALUES (:actor, :operation, :key, :policy_id, :version, :hash, CAST(:response AS JSONB), :created)"""),
+                {
+                    "actor": actor,
+                    "operation": operation,
+                    "key": idempotency_key,
+                    "policy_id": POLICY_ID,
+                    "version": version,
+                    "hash": request_hash,
+                    "response": json.dumps(response),
+                    "created": datetime.now(UTC),
+                },
+            )
+    except SQLAlchemyError as exc:
+        try:
+            committed = _policy_operation_result(actor, operation, idempotency_key, request_hash)
+        except (SQLAlchemyError, RuntimeError):
+            committed = None
+        if committed is not None:
+            return committed
+        raise RuntimeError("복구 정책 변경 결과를 확인할 수 없습니다.") from exc
+    return response

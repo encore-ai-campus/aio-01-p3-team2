@@ -132,5 +132,6 @@ def test_expired_record_is_deleted_and_access_is_audited(
 
 def test_unapproved_actor_cannot_read_raw_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
     record_id, _, _ = _store_record(monkeypatch)
+    monkeypatch.setenv("APPROVED_ACTOR_IDS", "liveops01,operator02")
     with pytest.raises(PermissionError):
-        read_llm_record(record_id, "unapproved-operator")
+        read_llm_record(record_id, "operator02")

@@ -21,12 +21,26 @@ class LLMExecutionError(RuntimeError):
     """LLM 호출이나 응답 형식 확인에 실패한 상태다."""
 
 
+class LLMTransientError(LLMExecutionError):
+    """A provider connection, throttling or server failure permits policy review."""
+
+    error_type = "llm_transient_error"
+
+
 class LLMBudgetExceeded(LLMExecutionError):
     """Workflow가 허용된 LLM 호출 수를 모두 사용한 상태다."""
 
     def __init__(self, message: str, *, usage: dict[str, object] | None = None) -> None:
         super().__init__(message)
         self.usage = usage
+
+
+class LLMOutputContractError(LLMExecutionError):
+    """An Agent response failed its role-specific output schema."""
+
+    def __init__(self, message: str, *, error_type: str) -> None:
+        super().__init__(message)
+        self.error_type = error_type
 
 
 def _positive_int_env(name: str) -> int:
@@ -153,10 +167,12 @@ def workflow_llm_call_budget(max_calls: int = 8):
     """Apply a hard, per-Workflow cap before any provider request is sent."""
     if type(max_calls) is not int or max_calls < 1:
         raise ValueError("LLM 호출 한도는 양의 정수여야 합니다.")
-    live = (
-        os.getenv("CANONICAL_PLANNING_MODE", "deterministic").strip().casefold() == "live"
-        or os.getenv("WORKFLOW_ENGINE", "mock").strip().casefold() == "backend_b_live"
-    )
+    live = os.getenv(
+        "CANONICAL_PLANNING_MODE", "deterministic"
+    ).strip().casefold() == "live" or os.getenv("WORKFLOW_ENGINE", "mock").strip().casefold() in {
+        "agent_live",
+        "backend_b_live",
+    }
     settings: dict[str, object] = {}
     if live:
         currency = os.getenv("LLM_COST_CURRENCY", "USD").strip().upper()
@@ -221,15 +237,30 @@ class LLMService:
             budget.consume()
 
         try:
+            from backend.app.fault_injection.injector import perturb
+
+            boundary = "critic" if agent_name == "canonical_event_critic_agent" else "planner"
+            perturb(f"{boundary}.call")
             response = await asyncio.wait_for(
                 self._transport(agent_name, dict(context)),
                 timeout=self._timeout_seconds,
             )
+            response = perturb(f"{boundary}.response", response)
+            if agent_name == "event_planner_agent":
+                response = perturb("legacy.planner.response", response)
         except TimeoutError as exc:
             raise LLMTimeoutError("LLM 응답 시간이 초과되었습니다.") from exc
         except LLMBudgetExceeded:
             raise
         except Exception as exc:
+            status = getattr(exc, "status_code", None)
+            if (
+                isinstance(exc, (LLMTransientError, ConnectionError))
+                or (type(status) is int and (status in {408, 409, 429} or 500 <= status <= 599))
+                or type(exc).__name__
+                in {"APIConnectionError", "RateLimitError", "InternalServerError"}
+            ):
+                raise LLMTransientError("LLM 일시 장애로 호출을 완료하지 못했습니다.") from exc
             raise LLMExecutionError("LLM 호출에 실패했습니다.") from exc
 
         if not isinstance(response, Mapping):
@@ -279,7 +310,8 @@ def create_openai_transport(model: str, agents_config: Mapping[str, object]) -> 
         if not isinstance(instructions, str) or not instructions.strip():
             raise ValueError("Agent 지시문이 없습니다.")
 
-        client = AsyncOpenAI()
+        # Supervisor owns retry counts and budgets; disable hidden SDK retries.
+        client = AsyncOpenAI(max_retries=0)
         try:
             response = await client.responses.create(
                 model=model,
@@ -350,9 +382,8 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
-                    "required": ["action_id", "rationale"],
+                    "required": ["rationale"],
                     "properties": {
-                        "action_id": {"type": "string", "minLength": 1},
                         "rationale": {"type": "string", "minLength": 1, "maxLength": 500},
                     },
                 },
@@ -362,9 +393,8 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
                 "items": {
                     "type": "object",
                     "additionalProperties": False,
-                    "required": ["reward_id", "rationale"],
+                    "required": ["rationale"],
                     "properties": {
-                        "reward_id": {"type": "string", "minLength": 1},
                         "rationale": {"type": "string", "minLength": 1, "maxLength": 500},
                     },
                 },
@@ -374,11 +404,12 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
     "canonical_event_critic_agent": {
         "type": "object",
         "additionalProperties": False,
-        "required": ["status", "reason", "review_note"],
+        "required": ["status", "reason", "review_note", "repairability"],
         "properties": {
             "status": {"type": "string", "enum": ["PASS", "REVIEW"]},
             "reason": {"type": "string", "minLength": 1, "maxLength": 1000},
             "review_note": {"type": "string", "minLength": 1, "maxLength": 1000},
+            "repairability": {"type": "string", "enum": ["HUMAN_REVIEW", "PLANNER_EXPLANATION"]},
         },
     },
     "balance_rule_agent": {

@@ -53,6 +53,7 @@ from backend.app.repositories.game_runtime import (
     SkinOwnershipRow,
     VirtualUserRow,
 )
+from backend.app.services.unit_of_work import session_scope
 
 
 class GameError(Exception):
@@ -98,6 +99,24 @@ def _event_day(event: RuntimeEventRow, now: datetime, timezone_name: str) -> int
 def _level_for_experience(total: int, catalog: dict[str, Any]) -> int:
     progression = catalog["progression"]
     return level_for_experience(total, progression["level_thresholds"], progression["max_level"])
+
+
+def _special_spaces(template: dict[str, Any]) -> list[dict[str, Any]]:
+    """Read current independent spaces and legacy floor snapshots through one boundary."""
+    return template.get("spaces", template.get("floors", []))
+
+
+def _special_space_for_content_id(
+    template: dict[str, Any], content_id: str
+) -> dict[str, Any] | None:
+    return next(
+        (
+            space
+            for space in _special_spaces(template)
+            if content_id == space["id"] or content_id in space.get("legacy_content_ids", [])
+        ),
+        None,
+    )
 
 
 def _growth_cost(action_id: str, rank: int, catalog: dict[str, Any]) -> tuple[int, int]:
@@ -398,12 +417,16 @@ class GameService:
     def activate_local_special_dungeon(self) -> dict[str, Any]:
         """Create or return a clearly labeled local-only event fixture for game play."""
         template = self.catalog["special_dungeon_templates"][0]
+        spaces = _special_spaces(template)
         source_task_id = f"LOCAL-FIXTURE-{self.catalog['game_data_snapshot_id']}"
         payload = {
             "event_name": "월광 균열 · 로컬 게임 fixture",
             "event_type": "special_dungeon",
             "target_user": "all_user",
-            "venue": {"template_id": template["template_id"]},
+            "venue": {
+                "template_id": template["template_id"],
+                "space_ids": [space["id"] for space in spaces],
+            },
             "missions": [],
             "rewards": [],
             "source": {"game_data_version": self.catalog["game_data_snapshot_id"]},
@@ -646,7 +669,8 @@ class GameService:
             "event_type": payload["event_type"],
             "target_user": payload["target_user"],
             "start_at": _aware(event.start_at).isoformat(),
-            "end_at": _aware(event.end_at).isoformat(),
+            "end_at": _aware(event.end_at).isoformat() if event.end_at else None,
+            "operation_mode": payload.get("operation_mode", "finite"),
             "status": event_status(event, current),
             "fixture": event.source_task_id.startswith("LOCAL-FIXTURE-"),
             "venue": payload.get("venue"),
@@ -662,6 +686,9 @@ class GameService:
         }
 
     def apply_event(self, request: ApplyEventRequest) -> dict[str, Any]:
+        from backend.app.fault_injection.injector import perturb
+
+        perturb("runtime.apply")
         previous = self._lookup_event_apply(request)
         if previous is not None:
             return previous
@@ -697,7 +724,7 @@ class GameService:
             }
         )
         try:
-            with self.repository.session() as session, session.begin():
+            with session_scope(self.repository.engine, write=True) as session:
                 user = self._required_user(session, lock=True)
                 if source_snapshot_digest is not None:
                     snapshot_row = session.get(CatalogSnapshotRow, source_game_data_version)
@@ -761,7 +788,11 @@ class GameService:
                 self._validate_reward_capacity(session, user.user_id, payload["rewards"])
                 now = _now()
                 event_id = str(uuid4())
-                end_at = now + timedelta(days=result["duration"])
+                end_at = (
+                    now + timedelta(days=int(result["duration"]))
+                    if result.get("operation_mode", "finite") == "finite"
+                    else None
+                )
                 event_row = RuntimeEventRow(
                     runtime_event_id=event_id,
                     source_task_id=request.task_id,
@@ -813,7 +844,7 @@ class GameService:
     def _lookup_event_apply(self, request: ApplyEventRequest) -> dict[str, Any] | None:
         """Resolve a prior apply request before reloading its possibly unavailable source."""
         try:
-            with self.repository.session() as session:
+            with session_scope(self.repository.engine) as session:
                 previous = session.get(GameRequestRow, ("event_apply", str(request.request_id)))
         except SQLAlchemyError as exc:
             raise GameError(
@@ -860,6 +891,28 @@ class GameService:
     ) -> dict[str, Any]:
         missions: list[dict[str, Any]] = []
         stage_content_ids = {row["id"] for row in self.catalog["stages"]}
+        source_mission_ids: dict[str, str] = {}
+        requested_template_id = (result.get("venue") or {}).get("template_id")
+        template = next(
+            (
+                row
+                for row in self.catalog["special_dungeon_templates"]
+                if row["template_id"] == requested_template_id
+            ),
+            None,
+        )
+        if requested_template_id and template is None:
+            raise GameError(
+                "unsupported_venue", "카탈로그에서 지원하지 않는 이벤트 던전입니다.", 422
+            )
+        if template is None:
+            template = self.catalog["special_dungeon_templates"][0]
+        special_spaces = _special_spaces(template)
+        special_space_ids = {space["id"] for space in special_spaces}
+        legacy_floor_ids = {
+            old_id for space in special_spaces for old_id in space.get("legacy_content_ids", [])
+        }
+        selected_space_ids: list[str] = []
         for index, source_mission in enumerate(result.get("missions") or [], start=1):
             try:
                 mapped = mission_mapping(source_mission)
@@ -872,11 +925,8 @@ class GameService:
                     "dungeon_clear": {"DUNGEON_001", "dungeon_01"},
                     "stage_clear": {"HUNT_001", *stage_content_ids},
                     "level_reach": {"HUNT_001", *stage_content_ids},
-                    "special_dungeon_floor_clear": {
-                        floor["id"]
-                        for template in self.catalog["special_dungeon_templates"]
-                        for floor in template["floors"]
-                    },
+                    "special_dungeon_floor_clear": legacy_floor_ids,
+                    "special_dungeon_space_clear": special_space_ids,
                 }.get(mapped["source_mission_type"], set())
                 if original_content not in allowed:
                     raise GameError(
@@ -886,6 +936,23 @@ class GameService:
                     )
             mission_id = f"mission-{int(mapped['day'])}-{index}"
             missions.append({"mission_id": mission_id, **mapped})
+            if mapped["source_mission_type"] in {
+                "special_dungeon_floor_clear",
+                "special_dungeon_space_clear",
+            }:
+                selected_space = _special_space_for_content_id(template, str(original_content))
+                if selected_space is None:
+                    raise GameError(
+                        "unsupported_content",
+                        "이벤트 기획안에 등록된 공간을 찾을 수 없습니다.",
+                        422,
+                    )
+                selected_space_ids.append(selected_space["id"])
+            source_mission_id = mapped.get("source_mission_id")
+            if source_mission_id:
+                if source_mission_id in source_mission_ids:
+                    raise GameError("duplicate_mission", "기획 미션 ID가 중복됐습니다.", 422)
+                source_mission_ids[str(source_mission_id)] = mission_id
 
         if not missions:
             raise GameError(
@@ -893,6 +960,8 @@ class GameService:
             )
         if len({mission["mission_id"] for mission in missions}) != len(missions):
             raise GameError("duplicate_mission", "이벤트 미션 식별자가 중복됐습니다.", 422)
+        if len(selected_space_ids) != len(set(selected_space_ids)):
+            raise GameError("duplicate_space_mission", "같은 이벤트 공간을 중복 기획했습니다.", 422)
 
         rewards: list[dict[str, Any]] = []
         for index, reward in enumerate(result.get("rewards") or [], start=1):
@@ -905,12 +974,24 @@ class GameService:
                 )
             if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity < 1:
                 raise GameError("invalid_reward_quantity", "보상 수량은 양의 정수여야 합니다.", 422)
-            day = int(reward.get("day", 1))
-            mission = next((item for item in missions if item["day"] == day), None)
-            if mission is None:
-                raise GameError(
-                    "reward_mission_missing", f"Day {day} 보상에 연결할 미션이 없습니다.", 422
+            source_mission_id = reward.get("mission_id")
+            mission = (
+                next(
+                    (
+                        item
+                        for item in missions
+                        if source_mission_ids.get(str(source_mission_id)) == item["mission_id"]
+                    ),
+                    None,
                 )
+                if source_mission_id
+                else None
+            )
+            day = int(reward.get("day", 1))
+            if mission is None and not source_mission_id:
+                mission = next((item for item in missions if item["day"] == day), None)
+            if mission is None:
+                raise GameError("reward_mission_missing", "보상에 연결할 미션이 없습니다.", 422)
             if quantity > item["max_balance"]:
                 raise GameError(
                     "reward_limit_exceeded", f"{item_id} 보상량이 보유 한도를 초과합니다.", 422
@@ -918,7 +999,7 @@ class GameService:
             rewards.append(
                 {
                     "reward_id": f"reward-{day}-{index}",
-                    "day": day,
+                    "day": mission["day"],
                     "mission_id": mission["mission_id"],
                     "item_id": item_id,
                     "item_name": item["name"],
@@ -929,6 +1010,13 @@ class GameService:
         is_special = any(
             mission["action_type"] == "special_dungeon_progressed" for mission in missions
         )
+        if is_special and not selected_space_ids:
+            if template.get("spaces"):
+                raise GameError(
+                    "event_spaces_required", "특별 던전 이벤트에는 선택 공간이 필요합니다.", 422
+                )
+            # Preserved floor-based catalogs predate explicit space selection.
+            selected_space_ids = [space["id"] for space in special_spaces]
         event_type = (
             "special_dungeon"
             if is_special
@@ -936,14 +1024,27 @@ class GameService:
             if any(m["action_type"] == "dungeon_cleared" for m in missions)
             else "growth_progression"
         )
+        operation_mode = str(result.get("operation_mode", "finite"))
+        duration = result.get("duration")
+        if operation_mode not in {"finite", "ongoing"}:
+            raise GameError("invalid_event_mode", "지원하지 않는 이벤트 운영 방식입니다.", 422)
+        if operation_mode == "finite" and (
+            not isinstance(duration, int) or isinstance(duration, bool) or not 1 <= duration <= 7
+        ):
+            raise GameError("invalid_event_period", "기간 한정 이벤트는 1~7일이어야 합니다.", 422)
+        if operation_mode == "ongoing" and duration is not None:
+            raise GameError(
+                "invalid_event_period", "상시 이벤트에는 종료 기간을 지정할 수 없습니다.", 422
+            )
         payload: dict[str, Any] = {
             "event_id": f"event-{task_id.lower()}-{version}",
             "event_schema_version": self.catalog["event_schema_version"],
             "event_type": event_type,
+            "operation_mode": operation_mode,
             "event_name": str(result.get("event_name") or "오퐁 히어로즈 이벤트"),
             "objective": str(result.get("objective") or ""),
             "target_user": str(result.get("target_user") or "all_user"),
-            "duration": int(result.get("duration") or 0),
+            "duration": duration,
             "missions": missions,
             "rewards": rewards,
             "source": {
@@ -954,16 +1055,21 @@ class GameService:
                 "game_data_digest": result.get("source_game_data_digest"),
             },
         }
-        if not 1 <= payload["duration"] <= 7:
-            raise GameError("invalid_event_period", "이벤트 기간은 1~7일이어야 합니다.", 422)
         if is_special:
-            template = self.catalog["special_dungeon_templates"][0]
             payload["venue"] = {
                 "template_id": template["template_id"],
                 "name": template["name"],
                 "theme_id": template["theme_id"],
                 "layout_id": template["layout_id"],
                 "difficulty_id": template["difficulty_id"],
+                "space_ids": sorted(
+                    selected_space_ids,
+                    key=lambda space_id: next(
+                        space.get("space_order", space.get("order", 0))
+                        for space in special_spaces
+                        if space["id"] == space_id
+                    ),
+                ),
             }
             payload["daily_attempt_limit"] = template["daily_attempt_limit"]
         return payload
@@ -988,6 +1094,17 @@ class GameService:
             if event is None:
                 raise GameError("event_not_found", "적용된 게임 이벤트를 찾을 수 없습니다.", 404)
             return {**self._event_view(event), "configuration": event.event_payload}
+
+    def event_for_source_task(self, task_id: str, result_version: int) -> dict[str, Any] | None:
+        """Look up a committed Runtime event when its Workflow lifecycle Trace is missing."""
+        with self.repository.session() as session:
+            event = session.scalar(
+                select(RuntimeEventRow).where(
+                    RuntimeEventRow.source_task_id == task_id,
+                    RuntimeEventRow.result_version == result_version,
+                )
+            )
+            return self._event_view(event) if event is not None else None
 
     def progress(self, event_id: str) -> dict[str, Any]:
         with self.repository.session() as session:
@@ -1041,6 +1158,14 @@ class GameService:
                         "status": (
                             "completed"
                             if row.completed
+                            else "active"
+                            if payload_missions[row.mission_id].get("active_during_event")
+                            and status == "active"
+                            else "upcoming"
+                            if payload_missions[row.mission_id].get("active_during_event")
+                            and status == "scheduled"
+                            else "missed"
+                            if payload_missions[row.mission_id].get("active_during_event")
                             else "upcoming"
                             if payload_missions[row.mission_id]["day"] > current_day
                             else "active"
@@ -1168,7 +1293,19 @@ class GameService:
                     payload = self._action_payload(request, content)
                     payload["combat"] = combat
                     if request.command_type == GameCommandType.SPECIAL_DUNGEON_CHALLENGE:
-                        payload["progress_type"] = "floor_cleared"
+                        is_legacy_floor_event = any(
+                            mission.get("source_mission_type")
+                            in {"special_dungeon_floor_clear", "monster_kill"}
+                            for mission in (event_payload or {}).get("missions", [])
+                        )
+                        payload["progress_type"] = (
+                            "floor_cleared" if is_legacy_floor_event else "space_cleared"
+                        )
+                        if is_legacy_floor_event and content.get("legacy_content_ids"):
+                            payload["floor_id"] = content["legacy_content_ids"][0]
+                            payload["floor_index"] = content.get(
+                                "space_order", content.get("order", 0)
+                            )
                         payload["monster_count"] = int(content.get("monster_count", 0))
                     primary = self._record_action(
                         session,
@@ -1176,7 +1313,7 @@ class GameService:
                         user,
                         event_id,
                         primary_action,
-                        "floor_cleared"
+                        payload["progress_type"]
                         if primary_action == "special_dungeon_progressed"
                         else "default",
                         now,
@@ -1660,24 +1797,30 @@ class GameService:
             raise GameError(
                 "catalog_version_unavailable", "특별 던전 템플릿 버전을 찾을 수 없습니다.", 409
             )
-        floors = template["floors"]
-        completed_actions = session.scalars(
-            select(ActionRecordRow).where(
-                ActionRecordRow.runtime_event_id == str(request.runtime_event_id),
-                ActionRecordRow.action_type == "special_dungeon_progressed",
-            )
-        )
-        done_ids = {
-            row.action_payload.get("floor_id")
-            for row in completed_actions
-            if row.action_payload.get("progress_type") == "floor_cleared"
-        }
-        next_floor = next((floor for floor in floors if floor["id"] not in done_ids), None)
-        if next_floor is None or next_floor["id"] != request.content_id:
-            raise GameError(
-                "content_locked", "특별 던전은 현재 진행 중인 층만 도전할 수 있습니다.", 409
-            )
-        if level < next_floor["entry_level"]:
+        spaces = _special_spaces(template)
+        configured_space_ids = event_payload.get("venue", {}).get("space_ids")
+        if configured_space_ids is None:
+            # Existing schema 1.1 events retain their historical all-template availability.
+            allowed_spaces = spaces
+        else:
+            if (
+                not isinstance(configured_space_ids, list)
+                or not configured_space_ids
+                or any(not isinstance(space_id, str) for space_id in configured_space_ids)
+                or len(configured_space_ids) != len(set(configured_space_ids))
+            ):
+                raise GameError(
+                    "invalid_event_spaces", "이벤트 공간 구성이 올바르지 않습니다.", 409
+                )
+            allowed_spaces = [space for space in spaces if space["id"] in configured_space_ids]
+            if len(allowed_spaces) != len(configured_space_ids):
+                raise GameError(
+                    "invalid_event_spaces", "이벤트 공간 버전을 확인할 수 없습니다.", 409
+                )
+        selected_space = _special_space_for_content_id(template, request.content_id)
+        if selected_space is None or selected_space not in allowed_spaces:
+            raise GameError("content_locked", "이 이벤트에 선택되지 않은 공간입니다.", 409)
+        if level < selected_space["entry_level"]:
             raise GameError("content_locked", "특별 던전 입장 레벨을 달성하지 못했습니다.", 409)
         self._check_daily_limit(
             session,
@@ -1688,7 +1831,7 @@ class GameService:
             now,
             event_id=str(request.runtime_event_id),
         )
-        return next_floor
+        return selected_space
 
     def _check_daily_limit(
         self,
@@ -1742,7 +1885,8 @@ class GameService:
                 }
             )
         else:
-            payload.update({"floor_id": content["id"], "floor_index": content["order"]})
+            space_order = content.get("space_order", content.get("order", 0))
+            payload.update({"space_id": content["id"], "space_order": space_order})
         return payload
 
     def _record_action(
@@ -1791,7 +1935,7 @@ class GameService:
         changes: list[dict[str, Any]] = []
         current_day = _event_day(event, now, self.catalog["game_day_timezone"])
         for mission in event.event_payload["missions"]:
-            if mission["day"] != current_day:
+            if not mission.get("active_during_event") and mission["day"] != current_day:
                 continue
             if mission["action_type"] != action["action_type"]:
                 continue
@@ -1809,6 +1953,7 @@ class GameService:
             actual_content_ids = {
                 action.get("stage_id"),
                 action.get("dungeon_id"),
+                action.get("space_id"),
                 action.get("floor_id"),
                 action.get("content_id"),
             }

@@ -1,6 +1,7 @@
 import unittest
 from collections.abc import Mapping
 from copy import deepcopy
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from backend.app.agents.balance_rule import BalanceRuleAgent
@@ -590,6 +591,12 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.current_result["rewards"][0]["item_name"], "성장 상자")
         self.assertEqual(result.rule_validation["game_data_version"], "tinyheroes-1.0.0")
         self.assertEqual(result.retry_count, 0)
+        transitions = [event for event in self.trace_events if event.get("decision_id")]
+        self.assertEqual(
+            [event["to_state"] for event in transitions],
+            ["PLANNING", "VALIDATING", "CRITIC_REVIEW", "WAITING_APPROVAL"],
+        )
+        self.assertEqual([event["state_version"] for event in transitions], [1, 2, 3, 4])
 
     async def test_unreachable_mission_replans(self) -> None:
         """첫 기획 오류 뒤 원래 Brief로 Planner를 다시 실행한다."""
@@ -673,7 +680,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         result = await self._engine().run("task-no-item-version", self.brief)
         self.assertEqual(result.workflow_status, "FAILED")
         self.assertIsNone(result.current_result)
-        self.assertEqual(result.error["error_type"], "mcp_tool_error")
+        self.assertEqual(result.error["error_type"], "mcp_response_invalid")
         self.assertFalse(any(event["actor"] == "critic_agent" for event in self.trace_events))
 
     async def test_missing_item_stops_after_revision_limit(self) -> None:
@@ -746,6 +753,44 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result.retry_count, 0)
 
+    async def test_recovery_with_real_repository_and_trace_adapter(self) -> None:
+        """Recovery decisions must participate in the repository's version fence."""
+        from unittest.mock import patch
+
+        from backend.app.repositories.postgres import SqlAlchemyRepository
+        from backend.app.schemas.event import EventBrief
+        from backend.app.schemas.workflow_state import TaskRecord, WorkflowStatus
+        from backend.app.services.workflow_service import AgentWorkflowAdapter
+
+        for fault in (None, "agent_failure_once", "db_connection_error_once"):
+            with self.subTest(fault=fault):
+                self.setUp()
+                repo = SqlAlchemyRepository("sqlite://")
+                now = datetime.now(UTC)
+                repo.create_task(
+                    TaskRecord(
+                        task_id="recovery-persistence",
+                        actor_id="liveops01",
+                        brief=EventBrief(**self.brief),
+                        workflow_status=WorkflowStatus.RUNNING,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                )
+                adapter = AgentWorkflowAdapter()
+                self._trace = adapter._save_trace
+                with patch("backend.app.services.workflow_service.repository", repo):
+                    result = await self._engine().run("recovery-persistence", self.brief, fault)
+                self.assertEqual(result.workflow_status, "WAITING_APPROVAL")
+                traces = repo.get_traces("recovery-persistence")
+                versions = [row.state_version for row in traces if row.state_version is not None]
+                self.assertEqual(versions, list(range(1, len(versions) + 1)))
+                self.assertEqual(
+                    next(row for row in reversed(traces) if row.workflow_state).workflow_state,
+                    "WAITING_APPROVAL",
+                )
+                repo.engine.dispose()
+
     async def test_validation_error_once_recovers(self) -> None:
         """첫 출력 검증 실패는 같은 Planner만 다시 호출한다."""
         result = await self._engine().run("task-8", self.brief, "validation_error_once")
@@ -804,7 +849,7 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         result = await self._engine().run("task-12", self.brief, "primary_tool_error_once")
         self.assertEqual(result.workflow_status, "FAILED")
         self.assertIsNone(result.current_result)
-        self.assertEqual(result.error["error_type"], "mcp_tool_error")
+        self.assertEqual(result.error["error_type"], "mcp_game_rules_error")
 
     def test_rejected_handoff_retains_owner(self) -> None:
         """거절한 Handoff에서는 다음 Agent로 소유권이 넘어가지 않는다."""

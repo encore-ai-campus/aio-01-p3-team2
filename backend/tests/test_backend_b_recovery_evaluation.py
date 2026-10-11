@@ -16,6 +16,7 @@ from backend.evaluation.recovery import (
 def test_repeated_api_scenarios_report_recovery_and_safe_stop(client, monkeypatch):
     """정상·기획 수정·Tool 복구·Safe Stop을 세 번씩 실행해 집계를 확인한다."""
     monkeypatch.setenv("ENABLE_FAULT_INJECTION", "true")
+    monkeypatch.setenv("FAULT_LAB_MODE", "isolated")
     monkeypatch.setattr(task_service, "workflow_engine", BackendBWorkflowAdapter("mock"))
 
     report = run_suite(client, SCENARIOS, 3)
@@ -37,6 +38,7 @@ def test_repeated_api_scenarios_report_recovery_and_safe_stop(client, monkeypatc
 def test_trace_gap_and_missing_time_cannot_pass_evaluation(client, monkeypatch):
     """필수 행 누락과 복구 시간 결손을 성공으로 집계하지 않는다."""
     monkeypatch.setenv("ENABLE_FAULT_INJECTION", "true")
+    monkeypatch.setenv("FAULT_LAB_MODE", "isolated")
     monkeypatch.setattr(task_service, "workflow_engine", BackendBWorkflowAdapter("mock"))
     scenario = next(item for item in SCENARIOS if item.name == "planning_revision")
     result = run_suite(client, (scenario,), 1)["runs"][0]
@@ -62,6 +64,7 @@ def test_trace_gap_and_missing_time_cannot_pass_evaluation(client, monkeypatch):
 def test_persisted_suite_detects_missing_or_changed_trace(client, monkeypatch):
     """기존 보고서와 재조회한 Task·Trace가 달라지면 보존 실패로 판정한다."""
     monkeypatch.setenv("ENABLE_FAULT_INJECTION", "true")
+    monkeypatch.setenv("FAULT_LAB_MODE", "isolated")
     monkeypatch.setattr(task_service, "workflow_engine", BackendBWorkflowAdapter("mock"))
     scenario = next(item for item in SCENARIOS if item.name == "planning_revision")
     report = run_suite(client, (scenario,), 1)

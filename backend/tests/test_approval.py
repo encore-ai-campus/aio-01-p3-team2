@@ -6,11 +6,11 @@ from backend.app.services.db_service import repository
 from backend.app.services.workflow_service import now
 
 
-def create_task(client):
+def create_task(client, actor_id="liveops01"):
     response = client.post(
         "/api/events/generate",
         json={
-            "actor_id": "liveops01",
+            "actor_id": actor_id,
             "event_name": "승인 테스트",
             "target_user": "all_user",
             "duration": 2,
@@ -77,18 +77,44 @@ def test_duplicate_approval_returns_original_result(client):
 
 def test_approved_actor_ids_come_from_environment(client, monkeypatch):
     monkeypatch.setenv("APPROVED_ACTOR_IDS", "operator02,operator03")
-    task = create_task(client)
+    monkeypatch.setenv("OPERATOR_ACTOR_ID", "operator02")
+    task = create_task(client, actor_id="operator02")
     denied = client.post(
         f"/api/tasks/{task['task_id']}/approval",
         json={"actor_id": "liveops01", "result_version": 1, "action": "APPROVE"},
     )
     assert denied.status_code == 403
 
+    forged_allowlisted_actor = client.post(
+        f"/api/tasks/{task['task_id']}/approval",
+        json={"actor_id": "operator03", "result_version": 1, "action": "APPROVE"},
+    )
+    assert forged_allowlisted_actor.status_code == 403
+
     allowed = client.post(
         f"/api/tasks/{task['task_id']}/approval",
         json={"actor_id": "operator02", "result_version": 1, "action": "APPROVE"},
     )
     assert allowed.status_code == 200
+    traces = client.get(f"/api/tasks/{task['task_id']}/trace").json()["traces"]
+    assert next(item for item in traces if item["action"] == "APPROVE")["actor_id"] == "operator02"
+
+
+def test_generation_rejects_actor_id_spoofing(client):
+    response = client.post(
+        "/api/events/generate",
+        json={
+            "actor_id": "operator02",
+            "event_name": "위조 ID 시험",
+            "target_user": "all_user",
+            "duration": 2,
+            "objective": "서버 운영자 ID 대조",
+            "idempotency_key": str(uuid4()),
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "INVALID_ACTOR"
 
 
 def test_delete_task_removes_saved_result_and_related_api_records(client):

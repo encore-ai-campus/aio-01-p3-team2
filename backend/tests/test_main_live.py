@@ -22,7 +22,7 @@ def test_main_loads_env_without_replacing_process_values(tmp_path, monkeypatch):
 
     configure_live_environment(env_path)
 
-    assert os.environ["WORKFLOW_ENGINE"] == "backend_b_live"
+    assert os.environ["WORKFLOW_ENGINE"] == "agent_live"
     assert os.environ["OPENAI_MODEL"] == "model-from-shell"
     assert os.environ["MCP_URL"] == "http://127.0.0.1:8010/mcp"
     assert os.environ["OPENAI_API_KEY"] == "key-from-file"
@@ -35,6 +35,8 @@ def test_main_rejects_missing_key(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("MCP_URL", raising=False)
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
 
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
         configure_live_environment(env_path)

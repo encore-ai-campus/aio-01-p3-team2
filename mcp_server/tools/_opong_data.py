@@ -9,8 +9,14 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from backend.app.game.rules import endless_dungeon_floor, endless_stage
 
-SEED_PATH = Path(__file__).resolve().parents[2] / "backend" / "data" / "virtual_game_v1.json"
+DATA_DIR = Path(__file__).resolve().parents[2] / "backend" / "data"
+SEED_PATH = DATA_DIR / "virtual_game_v1_5_0.json"
+LEGACY_SEED_PATHS = {
+    "opong-data-1.3.0": DATA_DIR / "virtual_game_v1.json",
+    "opong-data-1.4.0": DATA_DIR / "virtual_game_v1_4_0.json",
+}
 GAME_ID = "opong_heroes"
 
 
@@ -32,6 +38,14 @@ def _database_url() -> str:
     if value.startswith("postgresql+psycopg://"):
         return "postgresql://" + value.removeprefix("postgresql+psycopg://")
     return value
+
+
+def _seed_payload(snapshot_id: str) -> dict[str, Any]:
+    path = LEGACY_SEED_PATHS.get(snapshot_id, SEED_PATH)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("game_data_snapshot_id") != snapshot_id:
+        raise LookupError("Requested Runtime snapshot was not found")
+    return payload
 
 
 def load_opong_snapshot(snapshot_id: str) -> dict[str, Any]:
@@ -56,9 +70,7 @@ def load_opong_snapshot(snapshot_id: str) -> dict[str, Any]:
         expected_digest, payload = row
         source = "runtime_postgresql"
     else:
-        payload = json.loads(SEED_PATH.read_text(encoding="utf-8"))
-        if payload.get("game_data_snapshot_id") != snapshot_id:
-            raise LookupError("Requested Runtime snapshot was not found")
+        payload = _seed_payload(snapshot_id)
         expected_digest = _digest(payload)
         source = "versioned_seed_snapshot"
 
@@ -68,6 +80,7 @@ def load_opong_snapshot(snapshot_id: str) -> dict[str, Any]:
         raise OpongDataError("Runtime snapshot ID does not match its payload")
     if _digest(payload) != expected_digest:
         raise OpongDataError("Runtime snapshot digest does not match its payload")
+    capability_version = payload.get("capability_catalog_version", "opong-capabilities-1.0.2")
     return {
         "catalog": payload,
         "snapshot_id": snapshot_id,
@@ -79,7 +92,7 @@ def load_opong_snapshot(snapshot_id: str) -> dict[str, Any]:
             "event_schema_version": payload["event_schema_version"],
             "game_data_snapshot_id": snapshot_id,
             "game_ruleset_version": payload["game_ruleset_version"],
-            "capability_catalog_version": "opong-capabilities-1.0.0",
+            "capability_catalog_version": capability_version,
             "balance_policy_version": "opong-balance-1.0.0",
         },
     }
@@ -89,10 +102,11 @@ def load_opong_fallback(snapshot_id: str, expected_digest: str) -> dict[str, Any
     """Load the checked-in fallback only when its snapshot ID and digest are exact."""
     if not isinstance(expected_digest, str) or not expected_digest.strip():
         raise ValueError("expected_snapshot_digest is required for fallback")
-    payload = json.loads(SEED_PATH.read_text(encoding="utf-8"))
+    payload = _seed_payload(snapshot_id)
     digest = _digest(payload)
     if payload.get("game_data_snapshot_id") != snapshot_id or digest != expected_digest:
         raise LookupError("Fallback snapshot does not match the required version and digest")
+    capability_version = payload.get("capability_catalog_version", "opong-capabilities-1.0.2")
     return {
         "catalog": payload,
         "snapshot_id": snapshot_id,
@@ -104,7 +118,7 @@ def load_opong_fallback(snapshot_id: str, expected_digest: str) -> dict[str, Any
             "event_schema_version": payload["event_schema_version"],
             "game_data_snapshot_id": snapshot_id,
             "game_ruleset_version": payload["game_ruleset_version"],
-            "capability_catalog_version": "opong-capabilities-1.0.0",
+            "capability_catalog_version": capability_version,
             "balance_policy_version": "opong-balance-1.0.0",
         },
     }
@@ -112,20 +126,39 @@ def load_opong_fallback(snapshot_id: str, expected_digest: str) -> dict[str, Any
 
 def find_content(catalog: dict[str, Any], content_id: str) -> tuple[str, dict[str, Any]] | None:
     """Find a stable Runtime content ID without accepting legacy aliases."""
+    if content_id.startswith("stage_") and content_id.removeprefix("stage_").isdigit():
+        order = int(content_id.removeprefix("stage_"))
+        if order > len(catalog["stages"]):
+            return "stage", endless_stage(order, catalog)
+    if content_id.startswith("dungeon_floor_"):
+        suffix = content_id.removeprefix("dungeon_floor_")
+        if suffix.isdigit():
+            return "dungeon", endless_dungeon_floor(int(suffix), catalog)
+
     for collection, kind in (
         (catalog["stages"], "stage"),
         (catalog["dungeons"], "dungeon"),
         (
             [
+                space
+                for template in catalog["special_dungeon_templates"]
+                for space in template.get("spaces", [])
+            ],
+            "special_dungeon_space",
+        ),
+        (
+            [
                 floor
                 for template in catalog["special_dungeon_templates"]
-                for floor in template["floors"]
+                for floor in template.get("floors", [])
             ],
             "special_dungeon_floor",
         ),
     ):
         for content in collection:
-            if content.get("id") == content_id:
+            if content.get("id") == content_id or content_id in content.get(
+                "legacy_content_ids", []
+            ):
                 return kind, content
     for template in catalog["special_dungeon_templates"]:
         if template.get("template_id") == content_id:

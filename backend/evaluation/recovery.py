@@ -78,7 +78,7 @@ SCENARIOS = (
         "primary_fallback",
         "primary_tool_error_once",
         "WAITING_APPROVAL",
-        "mcp_tool_error",
+        "mcp_game_rules_error",
         "fallback_snapshot",
         (
             TraceStep("mcp", "get_game_rules", "ERROR"),

@@ -63,6 +63,7 @@ context_access:
   canonical_event_planner_agent:
     - brief
     - capabilities
+    - runtime_evidence
 
   canonical_event_critic_agent:
     - brief

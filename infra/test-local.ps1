@@ -1,12 +1,14 @@
 param(
     [switch]$RestartPostgres,
     [string]$TestPath,
-    [string]$TestName
+    [string]$TestName,
+    [string]$McpUrl,
+    [ValidateSet("eventquest_auto_test")]
+    [string]$TestDatabase = "eventquest_auto_test"
 )
 
 $ErrorActionPreference = "Stop"
 $containerName = "ikonly-test-postgres-1"
-$testDatabase = "eventquest_test"
 $testUser = "eventquest_test"
 $runnerImage = "eventquest-test-runner:local"
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -23,14 +25,32 @@ try {
     $database = ($postgresEnv | Where-Object { $_ -like "POSTGRES_DB=*" } | Select-Object -First 1).Substring("POSTGRES_DB=".Length)
     $user = ($postgresEnv | Where-Object { $_ -like "POSTGRES_USER=*" } | Select-Object -First 1).Substring("POSTGRES_USER=".Length)
     $password = ($postgresEnv | Where-Object { $_ -like "POSTGRES_PASSWORD=*" } | Select-Object -First 1).Substring("POSTGRES_PASSWORD=".Length)
-    if ($database -ne $testDatabase -or $user -ne $testUser -or -not $password) {
+    if ($database -ne "eventquest_test" -or $user -ne $testUser -or -not $password) {
         throw "Refusing to run destructive tests: container is not the expected isolated test database."
     }
     if ($postgres.Config.Labels.'com.docker.compose.project' -ne "ikonly-test") {
         throw "Refusing to run destructive tests: PostgreSQL is not owned by the ikonly-test Compose project."
     }
 
+    $targetExists = docker exec $containerName psql -U $testUser -d $database -Atqc "SELECT 1 FROM pg_database WHERE datname = '$TestDatabase'"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not inspect the isolated test database catalog."
+    }
+    if (-not $targetExists) {
+        docker exec $containerName createdb -U $testUser --owner=$testUser $TestDatabase
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not create the isolated automation test database."
+        }
+    }
+    $databaseOwner = docker exec $containerName psql -U $testUser -d $database -Atqc "SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = '$TestDatabase'"
+    if ($LASTEXITCODE -ne 0 -or $databaseOwner -ne $testUser) {
+        throw "Refusing to run tests: target database must exist and be owned by $testUser."
+    }
     if ($RestartPostgres) {
+        $edgeReview = docker inspect ikonly-edge-review-api 2>$null | ConvertFrom-Json
+        if ($edgeReview -and $edgeReview[0].State.Running) {
+            throw "Do not restart the shared PostgreSQL service while the Edge review API is using it."
+        }
         docker restart $containerName | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw "Could not restart dedicated test PostgreSQL."
@@ -43,12 +63,17 @@ try {
     }
 
     $encodedPassword = [uri]::EscapeDataString($password)
-    $databaseUrl = "postgresql+psycopg://${testUser}:${encodedPassword}@127.0.0.1:5432/${testDatabase}"
-    @(
+    $databaseUrl = "postgresql+psycopg://${testUser}:${encodedPassword}@127.0.0.1:5432/${TestDatabase}"
+    $runnerEnvironment = @(
         "DATABASE_URL=$databaseUrl"
         "POSTGRES_TEST_URL=$databaseUrl"
         "MCP_TEST_DATABASE_URL=$databaseUrl"
-    ) | Set-Content -LiteralPath $envFile.FullName -Encoding ascii
+        "MCP_DATABASE_URL=$databaseUrl"
+    )
+    if ($McpUrl) {
+        $runnerEnvironment += "MCP_TEST_URL=$McpUrl"
+    }
+    $runnerEnvironment | Set-Content -LiteralPath $envFile.FullName -Encoding ascii
 
     $dockerArgs = @(
         "run", "--rm", "--network", "container:$containerName",

@@ -66,17 +66,31 @@ def _approved_canonical_event(task_id: str, result_version: int) -> dict[str, An
     catalog = snapshot["catalog"]
     audience = plan["audience"].get("segments", "new_user").split(",")
     target_user = audience[0] if len(audience) == 1 else "all_user"
-    duration = plan["schedule"].get("duration_days")
-    if duration is None:
+    operation_mode = plan.get("operation_mode", "finite")
+    evaluation_horizon = plan["schedule"].get("duration_days")
+    duration = evaluation_horizon if operation_mode == "finite" else None
+    if operation_mode == "finite" and duration is None:
         from datetime import datetime
 
         start = datetime.fromisoformat(plan["schedule"]["start_at"])
         end = datetime.fromisoformat(plan["schedule"]["end_at"])
         duration = max(1, (end - start).days)
     missions = []
-    mission_days: dict[str, int] = {}
-    for day, mission in enumerate(plan["missions"], start=1):
+    for mission in plan["missions"]:
         scope_ids = (mission.get("content_scope") or {}).get("content_ids") or []
+        if (
+            mission["action_type"]
+            in {
+                "special_dungeon_floor_clear",
+                "special_dungeon_space_clear",
+            }
+            and len(scope_ids) != 1
+        ):
+            raise EventSourceError(
+                "invalid_special_dungeon_mission",
+                "이벤트 던전 미션은 카탈로그의 공간 하나를 지정해야 합니다.",
+                422,
+            )
         content_id = scope_ids[0] if scope_ids else None
         content_name = "게임 규칙에서 확인된 행동"
         if content_id:
@@ -87,26 +101,34 @@ def _approved_canonical_event(task_id: str, result_version: int) -> dict[str, An
                     break
             for template in catalog["special_dungeon_templates"]:
                 match = next(
-                    (item for item in template["floors"] if item["id"] == content_id), None
+                    (
+                        item
+                        for item in template.get("spaces", template.get("floors", []))
+                        if item["id"] == content_id
+                        or content_id in item.get("legacy_content_ids", [])
+                    ),
+                    None,
                 )
                 if match:
                     content_name = match["name"]
                     break
-        mission_days[mission["mission_id"]] = day
         missions.append(
             {
-                "day": day,
+                "day": 1,
+                "active_during_event": True,
+                "source_mission_id": mission["mission_id"],
                 "content_id": content_id,
                 "content_name": content_name,
                 "mission_type": mission["action_type"],
                 "target_count": mission["goal"]["target"],
-                "mission_name": f"{content_name} {mission['goal']['target']}회 완료",
+                "mission_name": f"{content_name} 클리어",
                 "planning_reason": "canonical plan의 명시된 행동·목표를 Runtime 계약으로 변환했습니다.",
             }
         )
     rewards = [
         {
-            "day": mission_days[reward["mission_id"]],
+            "day": 1,
+            "mission_id": reward["mission_id"],
             "item_id": reward["item_id"],
             "item_name": catalog["items"][reward["item_id"]]["name"],
             "quantity": reward["quantity"],
@@ -116,7 +138,9 @@ def _approved_canonical_event(task_id: str, result_version: int) -> dict[str, An
     result = {
         "event_name": plan["objective"][:100],
         "target_user": target_user,
-        "duration": min(7, int(duration)),
+        "duration": duration,
+        "operation_mode": operation_mode,
+        "evaluation_horizon_days": evaluation_horizon,
         "objective": plan["objective"],
         "game_source": "opong",
         "source_game_data_digest": snapshot["snapshot_digest"],
@@ -133,6 +157,10 @@ def _approved_canonical_event(task_id: str, result_version: int) -> dict[str, An
         },
         "missions": missions,
         "rewards": rewards,
+        "venue": {
+            "template_id": (plan.get("venue") or {}).get("template_id")
+            or catalog["special_dungeon_templates"][0]["template_id"]
+        },
     }
     source = {
         "task_id": task_id,

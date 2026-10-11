@@ -345,6 +345,19 @@
     "ImpactAssessment": {
       "additionalProperties": false,
       "properties": {
+        "display_label": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Label"
+        },
         "evidence_refs": {
           "items": {
             "type": "string"
@@ -774,6 +787,7 @@
       "$ref": "#/$defs/BriefReference"
     },
     "contract_version": {
+      "const": "event-plan.v1",
       "default": "event-plan.v1",
       "title": "Contract Version",
       "type": "string"

@@ -321,15 +321,15 @@ def eligible(segment_id: str, target_user: str) -> bool:
     return target_user == "all_user" or segment_id == target_user
 
 
-def event_status_at(now: datetime, start_at: datetime, end_at: datetime) -> str:
+def event_status_at(now: datetime, start_at: datetime, end_at: datetime | None) -> str:
     current = _utc(now)
     start = _utc(start_at)
-    end = _utc(end_at)
-    if start >= end:
+    end = _utc(end_at) if end_at is not None else None
+    if end is not None and start >= end:
         raise ValueError("이벤트 종료는 시작보다 뒤여야 합니다.")
     if current < start:
         return "scheduled"
-    if current >= end:
+    if end is not None and current >= end:
         return "ended"
     return "active"
 

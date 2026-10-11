@@ -85,7 +85,7 @@ class RuntimeEventRow(GameBase):
     game_data_snapshot_id: Mapped[str] = mapped_column(String(64), nullable=False)
     event_payload: Mapped[dict[str, Any]] = mapped_column(JsonType, nullable=False)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

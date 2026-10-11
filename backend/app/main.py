@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ def configure_live_environment(env_path: Path | None = None) -> None:
     if not path.is_file():
         raise FileNotFoundError(f"환경 설정 파일이 없습니다: {path}")
     load_dotenv(path, override=False)
-    os.environ["WORKFLOW_ENGINE"] = "backend_b_live"
+    os.environ["WORKFLOW_ENGINE"] = "agent_live"
     for name in ("MCP_URL", "OPENAI_MODEL", "OPENAI_API_KEY"):
         if not os.getenv(name, "").strip():
             raise ValueError(f"실제 AI 실행에 {name} 설정이 필요합니다.")
@@ -36,15 +37,39 @@ def create_app() -> FastAPI:
     from backend.app.api.planning import router as planning_router
     from backend.app.game.service import GameError
     from backend.app.services.task_service import ServiceError
+    from backend.app.services.unit_of_work import DatabaseOutcomeUnknown
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        from backend.app.fault_injection.injector import enabled
+
+        if enabled():
+            from backend.app.services.fault_lab_service import recover_interrupted
+
+            await asyncio.to_thread(recover_interrupted)
         cleanup_task = None
         if os.getenv("DATABASE_URL", "").strip():
             cleanup_task = asyncio.create_task(_llm_record_retention_loop())
+
+        async def reconcile_loop():
+            from backend.app.services.task_service import reconcile_expired_tasks
+            from backend.app.services.workflow_execution import reconcile_expired
+
+            while True:
+                try:
+                    await asyncio.to_thread(reconcile_expired)
+                    await asyncio.to_thread(reconcile_expired_tasks)
+                except Exception:  # noqa: BLE001 - keep the reconciliation loop alive during DB outages
+                    logger.warning("Workflow interruption reconciliation unavailable")
+                await asyncio.sleep(15)
+
+        workflow_cleanup = asyncio.create_task(reconcile_loop())
         try:
             yield
         finally:
+            workflow_cleanup.cancel()
+            with suppress(asyncio.CancelledError):
+                await workflow_cleanup
             if cleanup_task is not None:
                 cleanup_task.cancel()
                 with suppress(asyncio.CancelledError):
@@ -58,10 +83,32 @@ def create_app() -> FastAPI:
     application.include_router(health_router)
     application.include_router(planning_router, prefix="/api")
     application.include_router(policy_router, prefix="/api")
+    from backend.app.fault_injection.injector import enabled as fault_lab_enabled
+
+    if fault_lab_enabled():
+        from backend.app.api.fault_lab import router as fault_lab_router
+
+        application.include_router(fault_lab_router, prefix="/api")
 
     @application.middleware("http")
     async def enforce_mutation_origin(request: Request, call_next):
         """Reject cross-origin browser mutations before they reach application routes."""
+        if request.url.path.startswith("/api/"):
+            import ipaddress
+
+            host = request.client.host if request.client else ""
+            try:
+                local = host == "testclient" or ipaddress.ip_address(host).is_loopback
+            except ValueError:
+                local = False
+            if not local:
+                return JSONResponse(
+                    status_code=403,
+                    content={
+                        "error_code": "LOCAL_ACCESS_REQUIRED",
+                        "message": "로컬 클라이언트만 접근할 수 있습니다.",
+                    },
+                )
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             origin = request.headers.get("origin")
             # Originless clients remain usable because this MVP has no cookie/session auth.
@@ -87,6 +134,25 @@ def create_app() -> FastAPI:
                         },
                     )
         return await call_next(request)
+
+    @application.exception_handler(SQLAlchemyError)
+    @application.exception_handler(DatabaseOutcomeUnknown)
+    async def database_error_handler(request: Request, _: Exception) -> JSONResponse:
+        from backend.app.faults.error_catalog import error_definition
+
+        mutation = request.method not in {"GET", "HEAD", "OPTIONS"}
+        definition = error_definition(
+            "db_write_outcome_unknown" if mutation else "db_connection_error"
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error_code": definition.code,
+                "message": definition.safe_message,
+                "operation_status": "UNKNOWN" if mutation else "UNAVAILABLE",
+                "retry_with_same_idempotency_key": mutation,
+            },
+        )
 
     @application.exception_handler(ServiceError)
     async def service_error_handler(_: Request, exc: ServiceError) -> JSONResponse:

@@ -182,6 +182,7 @@
       "type": "string"
     },
     "contract_version": {
+      "const": "capability-catalog.v1",
       "default": "capability-catalog.v1",
       "title": "Contract Version",
       "type": "string"

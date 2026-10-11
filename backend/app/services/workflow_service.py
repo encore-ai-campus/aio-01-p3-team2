@@ -1,4 +1,4 @@
-"""Backend A service boundary for Mock and Backend B Workflow engines."""
+"""Application service boundary for deterministic and agent Workflow engines."""
 
 import asyncio
 import os
@@ -17,7 +17,7 @@ from backend.app.agents.event_planner import EventPlanner
 from backend.app.agents.supervisor import Supervisor
 from backend.app.faults.error_catalog import error_definition
 from backend.app.guards.tool_guard import ToolGuard
-from backend.app.orchestration.engine import WorkflowEngine as BackendBEngine
+from backend.app.orchestration.engine import WorkflowEngine
 from backend.app.schemas.event import (
     AutoHealingEvent,
     EventBrief,
@@ -142,8 +142,8 @@ class MockWorkflowEngine:
         )
 
 
-class BackendBWorkflowAdapter:
-    """Run Backend B's async workflow behind Backend A's synchronous service boundary."""
+class AgentWorkflowAdapter:
+    """Run the agent Workflow inside the same backend application service."""
 
     def __init__(self, mode: str = "mock") -> None:
         config_dir = Path(__file__).resolve().parents[1] / "config"
@@ -153,13 +153,13 @@ class BackendBWorkflowAdapter:
             security_policy = yaml.safe_load(file)
 
         if mode not in {"mock", "mcp", "live"}:
-            raise ValueError(f"지원하지 않는 Backend B 실행 모드: {mode}")
+            raise ValueError(f"지원하지 않는 agent Workflow 실행 모드: {mode}")
         self._mode = mode
         llm_transport = self._llm_transport
         if mode == "live":
             model = os.getenv("OPENAI_MODEL", "").strip()
             if not model or not os.getenv("OPENAI_API_KEY"):
-                raise ValueError("backend_b_live에는 OPENAI_MODEL과 OPENAI_API_KEY가 필요합니다.")
+                raise ValueError("agent_live에는 OPENAI_MODEL과 OPENAI_API_KEY가 필요합니다.")
             llm_transport = create_openai_transport(model, agents_config)
         self._real_mcp_transport = None
         mcp_transport = self._mcp_transport
@@ -176,7 +176,7 @@ class BackendBWorkflowAdapter:
         )
         mcp = MCPClient(mcp_transport, ToolGuard(agents_config), 5)
         self.planning_context_loader = PlanningContextLoader(mcp_transport).load
-        self._engine = BackendBEngine(
+        self._engine = WorkflowEngine(
             Supervisor(security_policy),
             EventPlanner(llm),
             BalanceRuleAgent(mcp, llm_service=llm),
@@ -270,25 +270,12 @@ class BackendBWorkflowAdapter:
         except LLMTimeoutError:
             self._persist_llm_failure(task_id, usage, "llm_timeout")
             return self._failed_llm_result("llm_timeout")
-        except LLMExecutionError:
-            self._persist_llm_failure(task_id, usage, "llm_execution_error")
-            return self._failed_llm_result("llm_execution_error")
+        except LLMExecutionError as exc:
+            error_type = getattr(exc, "error_type", "llm_execution_error")
+            self._persist_llm_failure(task_id, usage, error_type)
+            return self._failed_llm_result(error_type)
         except TimeoutError:
-            asyncio.run(
-                self._save_trace(
-                    {
-                        "task_id": task_id,
-                        "time": datetime.now(UTC).isoformat(),
-                        "actor": "supervisor",
-                        "action": "workflow.deadline_exceeded",
-                        "status": "FAILED",
-                        "phase": "routing",
-                        "error_type": "workflow_deadline_exceeded",
-                        "error_code": error_definition("workflow_deadline_exceeded").code,
-                        "reason": "Workflow 전체 실행 제한 시간 180초를 초과해 안전 종료했습니다.",
-                    }
-                )
-            )
+            self._persist_llm_failure(task_id, usage, "workflow_deadline_exceeded")
             return WorkflowResult(
                 workflow_status=WorkflowStatus.FAILED,
                 critic_status=CriticStatus.FAIL,
@@ -304,13 +291,44 @@ class BackendBWorkflowAdapter:
         self, task_id: str, usage: dict[str, object] | None, error_type: str
     ) -> None:
         definition = error_definition(error_type)
+        from backend.app.agents.supervisor import Supervisor, SupervisorWorkflowState
+
+        traces = repository.get_traces(task_id) or []
+        latest = next(
+            (
+                row
+                for row in reversed(traces)
+                if row.workflow_state and row.state_version is not None
+            ),
+            None,
+        )
+        supervisor = Supervisor({"context_access": {}})
+        state = (
+            SupervisorWorkflowState(
+                workflow_id=task_id,
+                status=latest.workflow_state,
+                state_version=latest.state_version,
+                retry_count=latest.retry_count,
+                revision_count=latest.revision_count,
+            )
+            if latest
+            else supervisor.start_workflow(task_id)
+        )
+        transition = {}
+        if state.status not in supervisor._TERMINAL_STATES:
+            transition = supervisor.decide_state_transition(
+                state,
+                "safe_stop",
+                error_code=definition.code,
+                payload={"reason": definition.safe_message},
+                policy_version=latest.policy_version if latest else None,
+            ).to_trace()
         asyncio.run(
             self._save_trace(
                 {
                     "task_id": task_id,
                     "time": datetime.now(UTC).isoformat(),
                     "actor": "supervisor",
-                    "action": "workflow.safe_stopped",
                     "status": "FAILED",
                     "phase": "routing",
                     "error_type": error_type,
@@ -318,6 +336,15 @@ class BackendBWorkflowAdapter:
                     "usage": usage,
                     "reason": definition.safe_message,
                     "policy_decision": "SAFE_STOP",
+                    "recovery_policy_ref": latest.recovery_policy_ref if latest else None,
+                    **{
+                        key: value
+                        for key, value in transition.items()
+                        if key not in {"event", "status", "action"}
+                    },
+                    "action": "workflow.deadline_exceeded"
+                    if error_type == "workflow_deadline_exceeded"
+                    else "workflow.safe_stopped",
                 }
             )
         )
@@ -361,13 +388,51 @@ class BackendBWorkflowAdapter:
         task = repository.get_task(task_id)
         if task is None or task.current_result is None:
             raise LookupError(task_id)
+        traces = repository.get_traces(task_id) or []
+        latest_state = next(
+            (
+                row
+                for row in reversed(traces)
+                if row.workflow_state and row.state_version is not None
+            ),
+            None,
+        )
+        supervisor_state = (
+            {
+                "workflow_id": task_id,
+                "status": latest_state.workflow_state,
+                "state_version": latest_state.state_version,
+                "retry_count": latest_state.retry_count,
+                "revision_count": latest_state.revision_count,
+            }
+            if latest_state is not None
+            else None
+        )
         return {
             "user_request": task.brief.model_dump(mode="json", exclude={"game_source"}),
             "current_result": task.current_result.model_dump(mode="json"),
             "revision_count": task.revision_count,
+            "supervisor_state": supervisor_state,
         }
 
     async def _save_trace(self, event: dict[str, object]) -> None:
+        from sqlalchemy.exc import SQLAlchemyError
+
+        from backend.app.services.unit_of_work import DatabaseOutcomeUnknown
+
+        try:
+            await self._save_trace_once(event)
+        except SQLAlchemyError:
+            # The same event ID makes commit-ACK recovery safe without repeating work.
+            try:
+                rows = repository.get_traces(str(event["task_id"])) or []
+                if any(event.get("event_id") and row.event_id == event["event_id"] for row in rows):
+                    return
+            except SQLAlchemyError as retry_exc:
+                raise DatabaseOutcomeUnknown("Trace storage unavailable") from retry_exc
+            raise ConnectionError("Trace was not committed") from None
+
+    async def _save_trace_once(self, event: dict[str, object]) -> None:
         task_id = str(event["task_id"])
         task = repository.get_task(task_id)
         if task is None:
@@ -387,6 +452,7 @@ class BackendBWorkflowAdapter:
                 sequence=0,
                 time=datetime.fromisoformat(str(event["time"])),
                 actor=str(event.get("actor") or "supervisor"),
+                event_id=self._optional_string(event.get("event_id")),
                 actor_id=None,
                 action=str(event.get("action") or event.get("event_type")),
                 status=status,
@@ -398,6 +464,34 @@ class BackendBWorkflowAdapter:
                 reason_code=self._optional_string(event.get("reason_code")),
                 reason=self._optional_string(event.get("reason")),
                 policy_decision=self._optional_string(event.get("policy_decision")),
+                supervisor_action=self._optional_string(event.get("supervisor_action")),
+                decision_id=self._optional_string(event.get("decision_id")),
+                workflow_state=self._optional_string(event.get("to_state")),
+                state_version=(
+                    int(event["state_version"]) if type(event.get("state_version")) is int else None
+                ),
+                expected_state_version=(
+                    int(event["expected_state_version"])
+                    if type(event.get("expected_state_version")) is int
+                    else None
+                ),
+                matched_rule_id=self._optional_string(event.get("matched_rule_id")),
+                policy_version=(
+                    int(event["policy_version"])
+                    if type(event.get("policy_version")) is int
+                    else None
+                ),
+                recovery_policy_ref=event.get("recovery_policy_ref"),
+                evidence_refs=(
+                    [str(ref) for ref in event["evidence_refs"]]
+                    if isinstance(event.get("evidence_refs"), list)
+                    else []
+                ),
+                supervisor_decisions=(
+                    [row for row in event["supervisor_decisions"] if isinstance(row, dict)]
+                    if isinstance(event.get("supervisor_decisions"), list)
+                    else []
+                ),
                 retry_count=int(event.get("retry_count") or 0),
                 revision_count=int(event.get("revision_count") or 0),
                 result_version=task.result_version,
@@ -477,7 +571,7 @@ class BackendBWorkflowAdapter:
                     if content_id == "HUNT_001"
                     else "일반 던전 1회 완료",
                     "day_title": f"{day}일차 성장",
-                    "planning_reason": "Backend A/B 통합 Mock 기획",
+                    "planning_reason": "Agent Workflow 통합 Mock 기획",
                 }
             )
             rewards.append({"day": day, "item_id": "ITEM_001", "quantity": 1})
@@ -590,9 +684,9 @@ class BackendBWorkflowAdapter:
                     "objective": brief.objective,
                     "event_concept": f"{brief.duration}일 AI 이벤트",
                     "operation_summary": (
-                        "Backend B Workflow 통합 결과입니다."
+                        "Agent Workflow 통합 결과입니다."
                         if self._mode == "live"
-                        else "Backend B Workflow 통합 Mock 기획 결과입니다."
+                        else "Agent Workflow 통합 Mock 기획 결과입니다."
                     ),
                 }
             )
@@ -634,7 +728,7 @@ class BackendBWorkflowAdapter:
                 AutoHealingEvent(
                     sequence=sequence,
                     error_type=error_type,
-                    reason=f"Backend B Workflow 복구 동작: {action}",
+                    reason=f"Agent Workflow 복구 동작: {action}",
                     recovery_action=recovery_action,
                     target=str(target) if target is not None else "event_planner_agent",
                     revalidation_status=(
@@ -649,18 +743,27 @@ class BackendBWorkflowAdapter:
         return str(value) if value is not None else None
 
 
-def build_workflow_engine() -> MockWorkflowEngine | BackendBWorkflowAdapter:
+def build_workflow_engine() -> MockWorkflowEngine | AgentWorkflowAdapter:
     mode = os.getenv("WORKFLOW_ENGINE", "mock").strip().casefold()
     if mode == "mock":
         return MockWorkflowEngine()
-    backend_b_modes = {
+    agent_modes = {
+        "agent_mock": "mock",
+        "agent_mcp": "mcp",
+        "agent_live": "live",
+        # Keep the former team-split mode names as configuration aliases.
         "backend_b_mock": "mock",
         "backend_b_mcp": "mcp",
         "backend_b_live": "live",
     }
-    if mode not in backend_b_modes:
+    if mode not in agent_modes:
         raise ValueError(f"지원하지 않는 WORKFLOW_ENGINE: {mode}")
-    return BackendBWorkflowAdapter(backend_b_modes[mode])
+    return AgentWorkflowAdapter(agent_modes[mode])
+
+
+# Compatibility import for existing integrations and tests. This is not a
+# separate backend; both names refer to the same application service.
+BackendBWorkflowAdapter = AgentWorkflowAdapter
 
 
 workflow_engine = build_workflow_engine()

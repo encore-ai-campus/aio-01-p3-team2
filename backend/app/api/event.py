@@ -37,7 +37,7 @@ def generate_event(request: EventCreateRequest, response: Response) -> TaskRespo
 @router.post("/test/events/generate", response_model=TaskResponse)
 def generate_test_event(request: TestEventCreateRequest, response: Response) -> TaskResponse:
     enabled = os.getenv("ENABLE_FAULT_INJECTION", "false").casefold() in {"1", "true", "yes", "on"}
-    if not enabled:
+    if not enabled or os.getenv("FAULT_LAB_MODE") != "isolated":
         from backend.app.services.task_service import ServiceError
 
         raise ServiceError(

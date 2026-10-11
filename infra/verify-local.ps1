@@ -1,7 +1,9 @@
 param(
     [switch]$RestartPostgres,
     [int]$ApiPort = 8004,
-    [int]$UiPort = 5177
+    [int]$UiPort = 5177,
+    [ValidateSet("eventquest_auto_test")]
+    [string]$TestDatabase = "eventquest_auto_test"
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,6 +13,7 @@ $testArgs = @("-NoProfile", "-File", (Join-Path $scriptRoot "test-local.ps1"))
 if ($RestartPostgres) {
     $testArgs += "-RestartPostgres"
 }
+$testArgs += @("-TestDatabase", $TestDatabase)
 & pwsh @testArgs
 if ($LASTEXITCODE -ne 0) {
     throw "Backend tests, schema check, compile check, or Ruff gate failed."
@@ -28,7 +31,9 @@ $e2eArgs = @(
     "-ApiPort",
     "$ApiPort",
     "-UiPort",
-    "$UiPort"
+    "$UiPort",
+    "-TestDatabase",
+    $TestDatabase
 )
 & pwsh @e2eArgs
 if ($LASTEXITCODE -ne 0) {

@@ -16,7 +16,13 @@ from uuid import uuid4
 import pytest
 from backend.app.repositories.postgres import SqlAlchemyRepository
 from backend.app.schemas.event import EventBrief
-from backend.app.schemas.workflow_state import TaskRecord, ToolLogEntry, TraceEntry, WorkflowStatus
+from backend.app.schemas.workflow_state import (
+    SupervisorStateConflict,
+    TaskRecord,
+    ToolLogEntry,
+    TraceEntry,
+    WorkflowStatus,
+)
 from backend.scripts.apply_game_data_catalog import apply_catalog
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
@@ -196,6 +202,7 @@ def test_postgres_persists_after_process_restart():
     database_url = os.environ["POSTGRES_TEST_URL"]
     repository = SqlAlchemyRepository(database_url)
     repository.reset()
+
     timestamp = datetime.now().astimezone()
     task = TaskRecord(
         task_id="TASK-PROCESS-RESTART-1",
@@ -252,6 +259,61 @@ def test_postgres_persists_after_process_restart():
         f"{WorkflowStatus.WAITING_APPROVAL}|clash-sample-storage-test|candidate_saved"
     )
     repository.reset()
+
+
+@pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")
+def test_postgres_supervisor_state_cas_rejects_stale_worker_and_accepts_refresh():
+    database_url = os.environ["POSTGRES_TEST_URL"]
+    first = SqlAlchemyRepository(database_url)
+    second = SqlAlchemyRepository(database_url)
+    first.reset()
+    timestamp = datetime.now().astimezone()
+    task_id = f"TASK-SUPERVISOR-CAS-{uuid4().hex[:10]}"
+    first.create_task(
+        TaskRecord(
+            task_id=task_id,
+            actor_id="liveops01",
+            brief=EventBrief(
+                event_name="다중 worker 상태 CAS",
+                target_user="new_user",
+                duration=1,
+                objective="낡은 Supervisor 상태 덮어쓰기 차단",
+            ),
+            workflow_status=WorkflowStatus.RUNNING,
+            created_at=timestamp,
+            updated_at=timestamp,
+        )
+    )
+
+    def transition(version: int, expected_version: int, status: str) -> TraceEntry:
+        return TraceEntry(
+            sequence=0,
+            time=timestamp,
+            actor="supervisor",
+            action="supervisor.transition_decided",
+            status="SUCCESS",
+            workflow_state=status,
+            state_version=version,
+            expected_state_version=expected_version,
+        )
+
+    try:
+        first.append_trace(task_id, transition(1, 0, "PLANNING"))
+        with pytest.raises(SupervisorStateConflict):
+            second.append_trace(task_id, transition(1, 0, "VALIDATING"))
+
+        refreshed = second.get_traces(task_id)
+        assert refreshed is not None
+        assert refreshed[-1].state_version == 1
+        second.append_trace(task_id, transition(2, 1, "VALIDATING"))
+        traces = first.get_traces(task_id)
+        assert traces is not None
+        assert [(row.state_version, row.workflow_state) for row in traces] == [
+            (1, "PLANNING"),
+            (2, "VALIDATING"),
+        ]
+    finally:
+        first.reset()
 
 
 @pytest.mark.skipif(not os.getenv("POSTGRES_TEST_URL"), reason="POSTGRES_TEST_URL is not set")

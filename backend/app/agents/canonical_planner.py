@@ -1,20 +1,20 @@
 """Canonical Brief planner agent with a strict, non-authoritative narrative contract."""
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
-from backend.app.schemas.planning import CapabilityCatalog, EventBriefInput, StrictContract
-from backend.app.services.llm_service import LLMExecutionError, LLMService
+from backend.app.guards.response_guard import validate_response
+from backend.app.schemas.planning import StrictContract
+from backend.app.services.llm_service import LLMOutputContractError, LLMService
 from pydantic import Field
 
 
 class ActionRationale(StrictContract):
-    action_id: str = Field(min_length=1)
     rationale: str = Field(min_length=1, max_length=500)
 
 
 class RewardRationale(StrictContract):
-    reward_id: str = Field(min_length=1)
     rationale: str = Field(min_length=1, max_length=500)
 
 
@@ -32,22 +32,26 @@ class CanonicalPlanner:
     def __init__(self, llm_service: LLMService) -> None:
         self._llm_service = llm_service
 
-    async def plan(self, brief: EventBriefInput, capabilities: CapabilityCatalog) -> dict[str, Any]:
-        context = {
-            "brief": brief.model_dump(mode="json"),
-            "capabilities": capabilities.model_dump(mode="json"),
-        }
+    async def plan(
+        self,
+        context: Mapping[str, object],
+    ) -> dict[str, Any]:
         try:
-            result = await self._llm_service.generate(self.AGENT_NAME, context)
+            if context.get("input_contract_version") != "canonical-planner-input.v2":
+                raise ValueError("Planner input contract version is invalid")
+            result = await self._llm_service.generate(self.AGENT_NAME, dict(context))
+            try:
+                validate_response(json.dumps(result))
+            except ValueError as exc:
+                raise LLMOutputContractError(
+                    "Planner response blocked", error_type="response_guard_blocked"
+                ) from exc
             output = CanonicalPlannerOutput.model_validate(result)
-            expected_actions = [action.action_id for action in brief.actions]
-            expected_rewards = [reward.reward_id for reward in brief.rewards]
-            if [row.action_id for row in output.action_rationales] != expected_actions:
-                raise ValueError("Planner action references do not exactly match the Brief")
-            if [row.reward_id for row in output.reward_rationales] != expected_rewards:
-                raise ValueError("Planner reward references do not exactly match the Brief")
         except (TypeError, ValueError) as exc:
-            raise LLMExecutionError("Canonical Planner output contract validation failed") from exc
+            raise LLMOutputContractError(
+                "Canonical Planner output contract validation failed",
+                error_type="planner_output_invalid",
+            ) from exc
         return output.model_dump(mode="json")
 
 
@@ -67,7 +71,6 @@ def canonical_planner_response(agent_name: str, context: dict[str, object]) -> M
         "summary": f"{objective} 목표에 맞춰 입력한 미션과 보상 연결을 유지합니다.",
         "action_rationales": [
             {
-                "action_id": row["action_id"],
                 "rationale": (
                     f"{row['action_type']} 행동에서 {row['goal']['target']}회 목표를 달성하도록 구성합니다."
                 ),
@@ -76,7 +79,6 @@ def canonical_planner_response(agent_name: str, context: dict[str, object]) -> M
         ],
         "reward_rationales": [
             {
-                "reward_id": row["reward_id"],
                 "rationale": f"검증할 보상 {row['item_id']} x{row['quantity']}를 요청 연결에 따라 지급합니다.",
             }
             for row in rewards

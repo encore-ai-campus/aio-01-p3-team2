@@ -31,6 +31,7 @@ def test_catalog_seed_is_idempotent_and_mcp_readable(monkeypatch):
     assert row[0] == row[1]["game_data_version"]
     assert row[1]["contents"]["HUNT_001"]["required_level"] == 1
     monkeypatch.setenv("MCP_DATABASE_URL", url)
+    monkeypatch.setenv("MCP_GAME_ID", "tiny_heroes")
     assert load_game_data_from_db() == row[1]
 
 

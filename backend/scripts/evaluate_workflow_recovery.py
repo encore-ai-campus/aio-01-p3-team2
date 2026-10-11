@@ -1,7 +1,7 @@
 """실행 중인 Backend API의 장애 복구를 반복 평가하고 JSON 보고서를 저장한다.
 
 실행 예: python -m backend.scripts.evaluate_workflow_recovery --base-url
-http://127.0.0.1:8000 --mode backend_b_mock --runs 3 --output /tmp/b-eval.json
+http://127.0.0.1:8000 --mode agent_mock --runs 3 --output /tmp/agent-eval.json
 장애 사례에는 Backend의 ENABLE_FAULT_INJECTION=true 설정이 필요하다.
 """
 
@@ -18,12 +18,19 @@ from backend.evaluation.recovery import SCENARIOS, run_suite
 
 def main() -> int:
     """명시한 서버·횟수·모델로 실행하고 실패 여부를 종료 코드에 반영한다."""
-    parser = argparse.ArgumentParser(description="Backend B Workflow 복구 반복 평가")
+    parser = argparse.ArgumentParser(description="Agent Workflow 복구 반복 평가")
     parser.add_argument("--base-url", required=True, help="시험용 Backend API 주소")
     parser.add_argument(
         "--mode",
         required=True,
-        choices=("backend_b_mock", "backend_b_mcp", "backend_b_live"),
+        choices=(
+            "agent_mock",
+            "agent_mcp",
+            "agent_live",
+            "backend_b_mock",
+            "backend_b_mcp",
+            "backend_b_live",
+        ),
         help="서버에 설정한 WORKFLOW_ENGINE 값",
     )
     parser.add_argument("--runs", required=True, type=int, help="시나리오별 반복 횟수")
@@ -34,7 +41,7 @@ def main() -> int:
         choices=tuple(item.name for item in SCENARIOS),
         help="선택한 사례만 실행한다. 생략하면 전체 사례를 실행한다.",
     )
-    parser.add_argument("--model", help="backend_b_live 실행에 사용한 OPENAI_MODEL 이름")
+    parser.add_argument("--model", help="agent_live 실행에 사용한 OPENAI_MODEL 이름")
     parser.add_argument(
         "--allow-live-llm",
         action="store_true",
@@ -43,10 +50,12 @@ def main() -> int:
     args = parser.parse_args()
     if args.runs < 1:
         parser.error("--runs는 1 이상이어야 합니다.")
-    if args.mode == "backend_b_live" and (not args.allow_live_llm or not args.model):
-        parser.error("backend_b_live에는 --model과 --allow-live-llm이 필요합니다.")
-    if args.mode != "backend_b_live" and args.model:
-        parser.error("--model은 backend_b_live에서만 사용합니다.")
+    if args.mode in {"agent_live", "backend_b_live"} and (
+        not args.allow_live_llm or not args.model
+    ):
+        parser.error("agent_live에는 --model과 --allow-live-llm이 필요합니다.")
+    if args.mode not in {"agent_live", "backend_b_live"} and args.model:
+        parser.error("--model은 agent_live에서만 사용합니다.")
     if args.output.exists():
         parser.error("보고서 파일이 이미 있습니다. 기존 평가 결과를 덮어쓰지 않습니다.")
 

@@ -68,7 +68,7 @@ def eligible_plan_payload() -> dict[str, object]:
             "event_schema_version": "1.0.0",
             "game_data_snapshot_id": "opong-data-1.3.0",
             "game_ruleset_version": "opong-rules-1.3.0",
-            "capability_catalog_version": "opong-capabilities-1.0.0",
+            "capability_catalog_version": "opong-capabilities-1.0.1",
             "balance_policy_version": "opong-balance-1.0.0",
         },
         "plan_status": "VALIDATED",
@@ -132,11 +132,49 @@ def test_brief_preserves_all_required_fields_and_timezone() -> None:
     assert brief.mission_reward_links[0].action_id == "action-stage-clear"
 
 
+def test_brief_accepts_server_issued_ids_with_positional_links() -> None:
+    payload = brief_payload()
+    payload["actions"][0].pop("action_id")
+    payload["rewards"][0].pop("reward_id")
+    payload["mission_reward_links"] = [{"action_index": 0, "reward_index": 0}]
+
+    brief = EventBriefInput.model_validate(payload)
+
+    assert brief.actions[0].action_id is None
+    assert brief.rewards[0].reward_id is None
+    assert brief.mission_reward_links[0].action_index == 0
+
+
+def test_brief_rejects_unsupported_contract_version() -> None:
+    payload = brief_payload()
+    payload["contract_version"] = "event-brief.v0"
+
+    with pytest.raises(ValidationError, match="event-brief.v1"):
+        EventBriefInput.model_validate(payload)
+
+
 def test_brief_rejects_unlinked_reward() -> None:
     payload = brief_payload()
     payload["mission_reward_links"] = []
 
     with pytest.raises(ValidationError, match="every reward must be linked to an action"):
+        EventBriefInput.model_validate(payload)
+
+
+def test_brief_rejects_reward_linked_to_multiple_actions() -> None:
+    payload = brief_payload()
+    payload["actions"].append(
+        {
+            **payload["actions"][0],
+            "action_id": "action-dungeon-clear",
+            "action_type": "dungeon_clear",
+        }
+    )
+    payload["mission_reward_links"].append(
+        {"action_id": "action-dungeon-clear", "reward_id": "reward-gold"}
+    )
+
+    with pytest.raises(ValidationError, match="exactly one action link"):
         EventBriefInput.model_validate(payload)
 
 
@@ -163,11 +201,24 @@ def test_plan_eligibility_is_derived_from_full_validation_and_support() -> None:
     with pytest.raises(ValidationError, match="runtime_eligible must be derived"):
         EventPlan.model_validate(payload)
 
+    payload = eligible_plan_payload()
+    payload["contract_version"] = "event-plan.v0"
+    with pytest.raises(ValidationError, match="event-plan.v1"):
+        EventPlan.model_validate(payload)
+
 
 def test_plan_rejects_reward_link_mismatch_and_unsupported_eligibility() -> None:
     payload = eligible_plan_payload()
     payload["mission_reward_links"] = []
     with pytest.raises(ValidationError, match="mission_reward_links"):
+        EventPlan.model_validate(payload)
+
+    payload = eligible_plan_payload()
+    other_mission = dict(payload["missions"][0])
+    other_mission["mission_id"] = "MISSION-other"
+    payload["missions"].append(other_mission)
+    payload["rewards"][0]["mission_id"] = "MISSION-other"
+    with pytest.raises(ValidationError, match="mission_reward_links must exactly match"):
         EventPlan.model_validate(payload)
 
     payload = eligible_plan_payload()

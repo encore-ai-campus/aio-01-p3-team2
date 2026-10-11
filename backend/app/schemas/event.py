@@ -26,7 +26,7 @@ class FaultType(StrEnum):
 class EventCreateRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    actor_id: str = Field(min_length=1, max_length=50)
+    actor_id: str | None = Field(default=None, min_length=1, max_length=50)
     event_name: str = Field(min_length=1, max_length=100)
     target_user: TargetUser
     duration: int = Field(ge=1, le=7)
@@ -36,8 +36,8 @@ class EventCreateRequest(BaseModel):
 
     @field_validator("actor_id", "event_name", "objective")
     @classmethod
-    def reject_blank(cls, value: str) -> str:
-        if not value.strip():
+    def reject_blank(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
             raise ValueError("공백만 입력할 수 없습니다.")
         return value
 

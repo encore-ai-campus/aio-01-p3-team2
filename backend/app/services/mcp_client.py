@@ -24,7 +24,28 @@ class MCPToolError(RuntimeError):
     def __init__(self, tool_name: str) -> None:
         """실패한 Tool 이름만 보관하고 내부 예외 원문은 노출하지 않는다."""
         self.tool_name = tool_name
+        if type(self) is MCPToolError:
+            self.error_type = (
+                "mcp_game_rules_error"
+                if tool_name in {"get_game_rules", "get_game_rules_fallback"}
+                else "mcp_tool_error"
+            )
         super().__init__(f"MCP Tool 실행에 실패했습니다: {tool_name}")
+
+
+class MCPContractError(MCPToolError):
+    """Invalid response data must never trigger retry or fallback."""
+
+    error_type = "mcp_response_invalid"
+
+
+class MCPRecoveryStopped(MCPToolError):
+    """The policy loop already exhausted or prohibited recovery; do not restart primary."""
+
+    def __init__(self, tool_name: str, error_type: str, reason: str):
+        super().__init__(tool_name)
+        self.error_type = error_type
+        self.reason = reason
 
 
 class MCPClient:
@@ -64,20 +85,29 @@ class MCPClient:
         실패는 ``mcp_timeout``, 나머지 Tool 오류는 ``mcp_tool_error``로
         Workflow Engine에서 매핑할 수 있도록 별도 예외로 반환한다.
         """
+        from backend.app.fault_injection.injector import perturb
+
+        arguments = perturb("tool.validate", dict(arguments))
         self._tool_guard.validate_call(
             agent_name, tool_name, arguments, primary_failed=primary_failed
         )
         try:
+            from backend.app.fault_injection.injector import perturb
+
+            perturb(f"mcp.{tool_name}.call")
             result = await asyncio.wait_for(
                 self._transport(tool_name, dict(arguments)), timeout=self._timeout_seconds
             )
+            result = perturb(f"mcp.{tool_name}.response", result)
         except (TimeoutError, ConnectionError) as exc:
             raise MCPTimeoutError(tool_name) from exc
+        except MCPContractError:
+            raise
         except Exception as exc:
             raise MCPToolError(tool_name) from exc
 
         if not isinstance(result, Mapping):
-            raise MCPToolError(tool_name)
+            raise MCPContractError(tool_name)
         return dict(result)
 
     async def get_event_capabilities(
@@ -200,9 +230,12 @@ def create_streamable_http_transport(url: str) -> ToolTransport:
         if structured is None and len(result.content) == 1:
             block = result.content[0]
             if block.type == "text":
-                structured = json.loads(block.text)
+                try:
+                    structured = json.loads(block.text)
+                except (TypeError, ValueError) as exc:
+                    raise MCPContractError(tool_name) from exc
         if not isinstance(structured, Mapping):
-            raise TypeError("MCP Tool 결과는 객체여야 합니다.")
+            raise MCPContractError(tool_name)
         return dict(structured)
 
     return transport

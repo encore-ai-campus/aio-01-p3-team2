@@ -24,6 +24,7 @@ def get_game_rules(content_id: str, game_data_snapshot_id: str | None = None) ->
             "content_name": content["name"],
             "entry_level": content.get("unlock_level", content.get("entry_level")),
             "combat": content.get("combat"),
+            "enemies": content.get("enemies", []),
             "rewards": content.get("rewards", []),
             "exists": True,
             "game_context": snapshot["game_context"],

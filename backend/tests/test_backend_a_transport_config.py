@@ -6,7 +6,11 @@ import pytest
 from backend.app.api import health
 from backend.app.schemas.workflow_state import WorkflowError, WorkflowResult, WorkflowStatus
 from backend.app.services import task_service, workflow_service
-from backend.app.services.workflow_service import BackendBWorkflowAdapter, MockWorkflowEngine
+from backend.app.services.workflow_service import (
+    AgentWorkflowAdapter,
+    BackendBWorkflowAdapter,
+    MockWorkflowEngine,
+)
 
 
 def test_workflow_modes_require_explicit_real_transport_settings(monkeypatch):
@@ -15,6 +19,8 @@ def test_workflow_modes_require_explicit_real_transport_settings(monkeypatch):
 
     monkeypatch.setenv("WORKFLOW_ENGINE", "backend_b_mock")
     assert isinstance(workflow_service.build_workflow_engine(), BackendBWorkflowAdapter)
+    monkeypatch.setenv("WORKFLOW_ENGINE", "agent_mock")
+    assert type(workflow_service.build_workflow_engine()) is AgentWorkflowAdapter
 
     monkeypatch.setenv("WORKFLOW_ENGINE", "backend_b_mcp")
     monkeypatch.delenv("MCP_URL", raising=False)

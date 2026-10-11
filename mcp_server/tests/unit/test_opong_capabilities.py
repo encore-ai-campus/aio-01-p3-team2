@@ -22,6 +22,8 @@ def test_capabilities_are_derived_from_runtime_snapshot() -> None:
 
     assert catalog["game_context"]["game_data_snapshot_id"] == SNAPSHOT_ID
     assert catalog["game_context"]["game_ruleset_version"] == "opong-rules-1.3.0"
+    assert catalog["capability_catalog_version"] == "opong-capabilities-1.0.2"
+    assert catalog["operation_modes"] == ["finite", "ongoing"]
     assert catalog["source"] == "versioned_seed_snapshot"
     actions = {item["capability_id"]: item for item in catalog["mission_actions"]}
     assert actions["action.special_dungeon_floor_clear"]["status"] == "SUPPORTED"
@@ -31,6 +33,41 @@ def test_capabilities_are_derived_from_runtime_snapshot() -> None:
     )
     rewards = {item["capability_id"]: item for item in catalog["rewards"]}
     assert rewards["reward.SKIN_MOON_BUNNY"]["status"] == "NEEDS_DEVELOPMENT"
+    assert rewards["reward.GOLD"]["input_constraints"]["grant_policies"] == ["once_per_user"]
+    assert rewards["reward.GOLD"]["input_constraints"]["max_grants_per_user"] == 1
+
+
+def test_legacy_capability_version_keeps_finite_only_contract() -> None:
+    catalog = get_event_capabilities(GAME_ID, SNAPSHOT_ID, "opong-capabilities-1.0.1")
+
+    assert catalog["capability_catalog_version"] == "opong-capabilities-1.0.1"
+    assert catalog["operation_modes"] == ["finite"]
+
+
+def test_space_capability_uses_independent_spaces_in_current_snapshot() -> None:
+    snapshot_id = "opong-data-1.5.0"
+    catalog = get_event_capabilities(GAME_ID, snapshot_id)
+
+    actions = {item["capability_id"]: item for item in catalog["mission_actions"]}
+    assert catalog["game_context"]["capability_catalog_version"] == "opong-capabilities-1.0.3"
+    assert (
+        actions["action.special_dungeon_space_clear"]["input_constraints"]["progress_type"]
+        == "space_cleared"
+    )
+    assert actions["action.special_dungeon_space_clear"]["input_constraints"]["content_ids"] == [
+        "rift_space_01",
+        "rift_space_02",
+        "rift_space_03",
+    ]
+    assert "action.special_dungeon_floor_clear" not in actions
+    venue = next(
+        item for item in catalog["venues"] if item["capability_id"] == "venue.moon_rift_v1"
+    )
+    assert venue["input_constraints"]["space_ids"] == [
+        "rift_space_01",
+        "rift_space_02",
+        "rift_space_03",
+    ]
 
 
 def test_planning_context_contains_exact_data_versions_and_no_fake_player_aggregates() -> None:
@@ -57,6 +94,19 @@ def test_game_rules_and_item_info_are_versioned() -> None:
     assert item["exists"] is True
     assert item["event_grant_eligible"] is True
     assert item["item_kind"] == "currency"
+
+
+def test_dynamic_stage_and_party_dungeon_rules_match_runtime_generation() -> None:
+    stage = get_game_rules("stage_0019", SNAPSHOT_ID)
+    floor = get_game_rules("dungeon_floor_0005", SNAPSHOT_ID)
+
+    assert stage["content_type"] == "stage"
+    assert stage["combat"]["monster_hp"] > 0
+    assert stage["game_context"]["game_data_snapshot_id"] == SNAPSHOT_ID
+    assert floor["content_type"] == "dungeon"
+    assert floor["combat"]["party_size"] == 3
+    assert len(floor["enemies"]) == 3
+    assert floor["enemies"][-1]["role"] == "boss"
 
 
 def test_fallback_requires_same_snapshot_digest() -> None:
