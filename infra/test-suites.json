@@ -804,7 +804,8 @@
       "test_functions": [
         "test_fresh_migration_reapply_identity_and_checksum",
         "test_migration_failure_rolls_back_and_concurrent_calls_serialize",
-        "test_untracked_database_is_preserved"
+        "test_untracked_database_is_preserved",
+        "test_tracked_previous_baseline_upgrades_without_reset"
       ]
     },
     {
@@ -831,7 +832,20 @@
         "test_cloud_policy_query_does_not_bootstrap_missing_policy",
         "test_live_privilege_and_marker_mismatch_are_rejected",
         "test_provision_without_superuser_and_safe_reapply",
-        "test_bootstrap_rejects_changed_catalog_and_invalid_policy"
+        "test_bootstrap_rejects_changed_catalog_and_invalid_policy",
+        "test_maintenance_ownership_admission_and_drain",
+        "test_maintenance_waits_for_inflight_request_and_fault_evidence"
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_maintenance.py",
+      "suite": "core",
+      "reason": "Cloud mutation admission, response lifecycle and safe local compatibility.",
+      "test_functions": [
+        "test_maintenance_middleware_mutations_and_reads",
+        "test_maintenance_gate_released_when_handler_raises",
+        "test_maintenance_gate_released_on_cancellation",
+        "test_maintenance_database_failure_does_not_claim_active_deployment"
       ]
     }
   ],

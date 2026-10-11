@@ -210,6 +210,115 @@ def _engine(cluster, spec, role):
     )
 
 
+@pytest.mark.parametrize("purpose", ["main", "fault"])
+def test_maintenance_ownership_admission_and_drain(tls_cluster, purpose):
+    from backend.app.deployment.maintenance import (
+        MaintenanceUnavailable,
+        admission,
+        change,
+        drain,
+        status,
+    )
+
+    owner = tls_cluster["owners"][purpose]
+    runtime = _engine(tls_cluster, DATABASES[purpose], DATABASES[purpose].runtime)
+    common = {"environment": "cloud-test", "purpose": purpose}
+    release = "release-maintenance-test"
+    try:
+        with admission(runtime):
+            assert not status(owner, **common)["requests_idle"]
+        enabled = change(owner, **common, release_id=release, enabled=True)
+        assert enabled["drained"]
+        assert change(owner, **common, release_id=release, enabled=True)["enabled"]
+        with pytest.raises(ValueError, match="Another release"):
+            change(owner, **common, release_id="other-release", enabled=False)
+        with pytest.raises(MaintenanceUnavailable), admission(runtime):
+            pytest.fail("A mutation was admitted during deployment")
+        with runtime.begin() as connection:
+            # Already admitted background work may finish while new requests are blocked.
+            connection.execute(
+                text(
+                    "INSERT INTO workflow_operations VALUES ('maintenance-test','WF-MAINTENANCE','hash','owner','RUNNING',now()+interval '1 minute','{}')"
+                )
+            )
+        with pytest.raises(MaintenanceUnavailable, match="timed out"):
+            drain(owner, **common, release_id=release, timeout=0)
+        assert status(owner, **common)["enabled"]
+        with pytest.raises(ValueError, match="fully drained"):
+            change(owner, **common, release_id=release, enabled=False)
+        with runtime.begin() as connection:
+            connection.execute(
+                text("DELETE FROM workflow_operations WHERE idempotency_key='maintenance-test'")
+            )
+        assert drain(owner, **common, release_id=release, timeout=0)["drained"]
+        change(owner, **common, release_id=release, enabled=False)
+        with admission(runtime):
+            pass
+        with pytest.raises(ValueError, match="identity mismatch"):
+            status(owner, environment="wrong-environment", purpose=purpose)
+    finally:
+        with owner.begin() as connection:
+            connection.execute(
+                text("DELETE FROM workflow_operations WHERE idempotency_key='maintenance-test'")
+            )
+            connection.execute(
+                text("UPDATE deployment_maintenance SET enabled=false,release_id=NULL WHERE id=1")
+            )
+        runtime.dispose()
+
+
+def test_maintenance_waits_for_inflight_request_and_fault_evidence(tls_cluster):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    from backend.app.deployment.maintenance import admission, change, drain, status
+
+    owner = tls_cluster["owners"]["fault"]
+    runtime = _engine(tls_cluster, DATABASES["fault"], DATABASES["fault"].runtime)
+    common = {"environment": "cloud-test", "purpose": "fault"}
+    started = Event()
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            with admission(runtime):
+
+                def enable():
+                    started.set()
+                    return change(owner, **common, release_id="concurrent-release", enabled=True)
+
+                pending = pool.submit(enable)
+                assert started.wait(2)
+                assert not pending.done()
+            assert pending.result(timeout=8)["drained"]
+        with owner.begin() as connection:
+            connection.execute(text("UPDATE fault_lab_environment SET state='DIRTY' WHERE id=1"))
+        assert not status(owner, **common)["drained"]
+        with pytest.raises(RuntimeError, match="timed out"):
+            drain(owner, **common, release_id="concurrent-release", timeout=0)
+        with owner.begin() as connection:
+            connection.execute(text("UPDATE fault_lab_environment SET state='CLEAN' WHERE id=1"))
+            connection.execute(
+                text(
+                    "INSERT INTO fault_lab_records VALUES ('11111111-1111-1111-1111-111111111111','run','test','maintenance-test','hash','{\"lifecycle\":\"QUEUED\"}',now())"
+                )
+            )
+        assert status(owner, **common)["active_fault_runs"] == 1
+        with owner.begin() as connection:
+            connection.execute(
+                text("DELETE FROM fault_lab_records WHERE idempotency_key='maintenance-test'")
+            )
+        change(owner, **common, release_id="concurrent-release", enabled=False)
+    finally:
+        with owner.begin() as connection:
+            connection.execute(text("UPDATE fault_lab_environment SET state='CLEAN' WHERE id=1"))
+            connection.execute(
+                text("DELETE FROM fault_lab_records WHERE idempotency_key='maintenance-test'")
+            )
+            connection.execute(
+                text("UPDATE deployment_maintenance SET enabled=false,release_id=NULL WHERE id=1")
+            )
+        runtime.dispose()
+
+
 @pytest.mark.parametrize(
     "purpose,reader", [("main", False), ("fault", False), ("main", True), ("fault", True)]
 )
@@ -223,6 +332,7 @@ def test_authenticated_tls_database_and_runtime_privileges(tls_cluster, purpose,
         for statement in [
             "CREATE TABLE forbidden (id INTEGER)",
             "UPDATE deployment_identity SET environment_id='wrong'",
+            "UPDATE deployment_maintenance SET enabled=true,release_id='forbidden'",
             "TRUNCATE workflow_runs",
             "DELETE FROM game_runtime_catalog_snapshots",
         ]:

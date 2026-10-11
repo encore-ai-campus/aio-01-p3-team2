@@ -90,6 +90,9 @@ def create_app() -> FastAPI:
     application.include_router(health_router)
     application.include_router(planning_router, prefix="/api")
     application.include_router(policy_router, prefix="/api")
+    from backend.app.guards.maintenance import MaintenanceMiddleware
+
+    application.add_middleware(MaintenanceMiddleware)
     from backend.app.fault_injection.injector import enabled as fault_lab_enabled
 
     if fault_lab_enabled():

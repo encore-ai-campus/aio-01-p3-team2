@@ -51,7 +51,7 @@ SERVICE_PURPOSE = {
     "fault-mcp": "fault",
 }
 CATALOG_TABLES = {"game_data_catalog", "game_runtime_catalog_snapshots"}
-CONTROL_TABLES = {"deployment_identity", "deployment_migrations"}
+CONTROL_TABLES = {"deployment_identity", "deployment_migrations", "deployment_maintenance"}
 
 
 def validate_rds_url(value: str, *, endpoint: str, database: str, user: str):

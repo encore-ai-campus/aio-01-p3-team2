@@ -1,5 +1,7 @@
 # Infra·네트워크·운영 설계
 
+2026-10-12 최신 후속: cloud 공유 maintenance/drain과 owner-only 보호 table을 구현했다. core 489 PASS/1 SKIP, Python inventory 68개(core 50, postgres 13, external 3, compatibility 2). 현재 결과와 한계는 [구현 계획 24 §13](24_AWS_배포_CICD_구현계획.md#13-공유-유지보수drain-구현-2026-10-12)을 따른다. 아래 이전 검증·설계 기록은 보존한다. 실제 AWS 수용·배포는 아직 수행하지 않았다.
+
 > 2026-10-12 배포 계획 보충: 로컬 구현 경계는 유지하며 AWS 시연용 container/ingress/DB 격리·CI/CD·migration/rollback을 [배포 계획 23](23_AWS_배포_CICD_계획.md)로 구체화했다. 최신 권장안은 EC2 6대·private RDS·Parameter Store, 웹만 공개하고 내부 서버 outbound는 NAT 1개로 처리하는 구조다. §4에 시간당 비용, §12에 생성·최종 종료·데이터 보존 후 정리 계약을 둔다. cloud proxy 인증과 RDS DB 정체·권한/TLS 검증·초기화 기반은 구현 후 로컬 검증했다. 최신 범위는 [구현 계획 24 §12](24_AWS_배포_CICD_구현계획.md#12-rds-tlsdb-권한초기-데이터-준비-구현-2026-10-12)를 따른다. 이미지 package·Linux CI·AWS 수용·생성/삭제는 남아 있다. 아래 로컬 실행 계약을 AWS에서 그대로 충족했다고 해석하지 않는다.
 
 > 2026-10-11 실행 경계 보완: loopback bind와 전체 업무 API의 로컬 클라이언트 검사를 함께 적용한다. 로컬 실행 worker는 DB operation owner/lease/deadline으로 중단을 추적하고 재기동 시 만료 실행을 정리한다. 자동 재개·외부 queue·Redis는 이번 필수 범위가 아니다. 상세는 [Workflow 수정 계획 §3.3~3.6](14_Workflow_검사결과_설계보완_수정계획.md)를 따른다.

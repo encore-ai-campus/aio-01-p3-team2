@@ -34,7 +34,7 @@ def migration_database():
         admin.dispose()
 
 
-@pytest.mark.parametrize("purpose,count", [("main", 17), ("fault", 18)])
+@pytest.mark.parametrize("purpose,count", [("main", 18), ("fault", 19)])
 def test_fresh_migration_reapply_identity_and_checksum(migration_database, purpose, count):
     engine = migration_database
     assert len(apply_migrations(engine, "migration-test", purpose)) == count
@@ -87,7 +87,7 @@ def test_migration_failure_rolls_back_and_concurrent_calls_serialize(
         results = list(
             pool.map(lambda _: apply_migrations(engine, "migration-test", "main"), range(2))
         )
-    assert sorted(len(result) for result in results) == [0, 17]
+    assert sorted(len(result) for result in results) == [0, 18]
 
 
 def test_untracked_database_is_preserved(migration_database):
@@ -102,3 +102,29 @@ def test_untracked_database_is_preserved(migration_database):
         assert (
             connection.execute(text("SELECT value FROM existing_data")).scalar_one() == "preserve"
         )
+
+
+def test_tracked_previous_baseline_upgrades_without_reset(migration_database, monkeypatch):
+    from backend.app.deployment import migrate
+
+    plan = migrate.migration_plan("main")
+    monkeypatch.setattr(migrate, "migration_plan", lambda _: plan[:-1])
+    assert len(apply_migrations(migration_database, "migration-test", "main")) == 17
+    with migration_database.begin() as connection:
+        connection.exec_driver_sql(
+            "INSERT INTO workflow_runs VALUES ('before-upgrade','{}',now(),now())"
+        )
+    monkeypatch.setattr(migrate, "migration_plan", lambda _: plan)
+    assert apply_migrations(migration_database, "migration-test", "main") == [
+        "017_deployment_maintenance.sql"
+    ]
+    with migration_database.connect() as connection:
+        assert (
+            connection.execute(text("SELECT task_id FROM workflow_runs")).scalar_one()
+            == "before-upgrade"
+        )
+        assert (
+            connection.execute(text("SELECT enabled FROM deployment_maintenance")).scalar_one()
+            is False
+        )
+    assert apply_migrations(migration_database, "migration-test", "main") == []

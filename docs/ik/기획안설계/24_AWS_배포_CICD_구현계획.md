@@ -1,6 +1,6 @@
 # AWS 배포·CI/CD 구현 계획
 
-작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **영향 판별·manifest·CI 기반·cloud proxy ingress 구현, 전체 배포는 미구현**. 실제 진행 범위와 결과는 §10을 따른다.
+작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **영향 판별·manifest·CI 기반·cloud ingress·RDS 경계·신규 DB 초기화·공유 maintenance/drain 구현, 전체 배포는 미구현**. 최신 진행 범위와 결과는 §13, 이전 단계 기록은 §10~12를 따른다.
 
 구조·비용·종료 원칙은 [배포 설계 23](23_AWS_배포_CICD_계획.md), 테스트 선택은 [CI 분류 22](22_CI_테스트분류_정리.md), 구현 사실은 [현재 구현 상태](../현재_구현상태.md)를 따른다. 가이드의 필수 산출물은 [보존 가이드](../pre/멀티_에이전트_협업_및_서비스_운영_가이드.md)로 확인한다. 구현 담당은 팀장이다.
 
@@ -349,3 +349,48 @@ provision은 DEPLOYMENT_MODE=cloud와 RDS_BOOTSTRAP_DATABASE_URL/RDS_BOOTSTRAP_U
 A1 DB 경계와 A2 신규 DB 초기화 기반은 로컬에서 구현·검증했다. 기존 미추적 DB의 baseline 채택, 공유 maintenance/drain, production image·MCP Host/Origin·live entry 검증, Linux CI/production E2E·IaC·CD/복원/정리는 남아 있다. AWS 인증이 필요한 단계에는 사용자 로그인 세션을 연다. 아직 계정 인증이나 AWS 자원 생성은 수행하지 않았다.
 
 TLS 설정은 [AWS RDS PostgreSQL SSL](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html), 권한과 SET 복귀는 [PostgreSQL 16 권한 함수](https://www.postgresql.org/docs/16/functions-info.html), [Role membership](https://www.postgresql.org/docs/16/role-membership.html), [Default privileges](https://www.postgresql.org/docs/16/sql-alterdefaultprivileges.html)를 확인했다.
+
+
+## 13. 공유 유지보수·drain 구현 (2026-10-12)
+
+### 동작과 권한
+
+`backend/sql/017_deployment_maintenance.sql`을 추가했다. 기존 baseline/001~016/checksum은 수정하지 않았으며 현재 ledger는 일반 18개·시험 19개다. 이미 ledger로 추적한 직전 버전은 017만 추가 적용할 수 있고, 기존 업무 데이터와 초기화 여부를 보존한다. **ledger 없는 기존 DB의 명시적 baseline 채택은 아직 미구현**이다. 신규 RDS를 준비하는 데 이 채택 절차는 필요하지 않다.
+
+`deployment_maintenance`의 enabled/release_id/changed_at은 DB owner만 변경한다. runtime과 MCP는 SELECT만 가능하며 bootstrap의 보호 table grant와 실제 cloud 권한 검사에 포함했다. API 프로세스별 메모리가 아니라 대응 DB의 동일 행과 advisory lock을 사용한다. 일반·시험 DB는 독립된 행을 가진다.
+
+`backend/app/guards/maintenance.py`는 cloud의 `/api/*` POST/PUT/PATCH/DELETE 등 변경 요청을 업무 handler 실행 전에 검사한다. 인증 peer/Origin 검사 뒤에 실행되며, 전체 응답·요청 background task 완료까지 shared transaction advisory lock을 유지한다. 유지보수 enable은 exclusive lock을 확보한 뒤 flag를 commit하므로 이미 처리 중인 요청과 경합해도 새 요청을 잘못 통과시키지 않는다. 읽기·liveness/readiness는 유지하고, 기존 작업의 결과 저장·중단 reconciliation은 계속 진행한다. 조회 중 기존 작업 상태를 정리하는 동작까지 모두 SQL 읽기 전용으로 바꾼 것은 아니다.
+
+- 유지보수 중 변경 요청: 503 `DEPLOYMENT_MAINTENANCE`, Retry-After 5초. 동일 멱등 키로 재시도한다.
+- 접수 상태 DB 확인 실패: 503 `DEPLOYMENT_ADMISSION_UNAVAILABLE`. 실제 유지보수 중이라고 단정하지 않고 handler를 실행하지 않는다.
+- 오류 코드는 배포 접수 경계용이다. 기획 Workflow의 28개 오류 정책 카탈로그에 주입/복구 오류로 추가하지 않았다.
+- handler 예외·요청 취소 시에도 lock/connection을 반환한다. DB gate 연결은 NullPool이며 다음 요청에 상태를 새로 확인한다. local 기본 경로에는 gate를 적용하지 않는다.
+
+`backend/app/deployment/maintenance.py`의 owner CLI는 status/enable/drain/disable을 제공한다. release_id 소유권이 다르면 변경/해제를 거부한다. drain은 실제 실행 중 HTTP mutation lock, ACCEPTED/RUNNING 기획 예약, RUNNING/RETRYING 과거 Task, QUEUED/RUNNING 시험 기록과 시험 환경 CLEAN 여부를 함께 확인한다. lease/deadline이 지났다는 이유만으로 작업이 끝났다고 계산하지 않는다. 기존 reconciliation 또는 운영자 확인 후 실제 terminal 상태가 저장되어야 한다. DIRTY 시험 환경을 자동 정리하거나 증빙을 삭제하지 않는다.
+
+기본 drain 대기는 60초, 허용 범위는 0~600초다. 각 상태 조회와 DB 연결도 timeout을 둔다. drain timeout·배포 실패 시 enabled 상태를 자동 해제하지 않는다. disable은 동일 release_id와 완전한 drain을 요구한다. 앱 배포·smoke 성공 여부는 후속 CD가 확인한 뒤 해제 명령을 호출해야 하며, 이 CLI만으로 앱 교체 성공을 보증하지 않는다.
+
+### 운영 명령과 배포 연결
+
+실제 RDS에서는 아직 실행하지 않았다. cloud/TLS owner 환경을 구성한 후 저장소 루트에서 실행한다. 비밀값을 인자에 넣지 않는다.
+
+```powershell
+backend/.venv/Scripts/python.exe -m backend.app.deployment.maintenance status --purpose main --environment ikonly-demo
+backend/.venv/Scripts/python.exe -m backend.app.deployment.maintenance enable --purpose main --environment ikonly-demo --release-id release-001
+backend/.venv/Scripts/python.exe -m backend.app.deployment.maintenance drain --purpose main --environment ikonly-demo --release-id release-001 --timeout 60
+backend/.venv/Scripts/python.exe -m backend.app.deployment.maintenance disable --purpose main --environment ikonly-demo --release-id release-001
+```
+
+DEPLOYMENT_MODE=cloud, MIGRATION_DATABASE_URL(대응 DB owner), RDS_EXPECTED_ENDPOINT를 사용한다. DB marker가 --environment/--purpose와 일치해야 한다. CLI는 owner의 환경/접속 대상 검증을 수행하며 app role에 owner credential을 주입하지 않는다. 실제 배포 흐름은 **양쪽 DB enable → 양쪽 drain → backup/migration/bootstrap/교체/smoke → 양쪽 disable** 순서로 연결한다. 한쪽 enable/drain/교체가 실패해도 먼저 활성화한 다른 DB를 자동 해제하지 않는다. 아직 CD/SSM 경로에 연결한 상태는 아니다. 최초 017 적용 전에는 대응 runtime 서버를 시작하지 않고 owner migration/bootstrap을 먼저 완료한다.
+
+### 로컬 검증과 실험 기록
+
+- core 전체 **489 PASS / 1 SKIP, 24.76초**. 유지보수 단위 검사 6 PASS: local 호환, 정상 요청, 유지보수 차단, handler 예외, 요청 취소, DB 실패의 안전한 오류 표시.
+- 실제 자체 CA/TLS PostgreSQL에서 기존 경계·초기화와 유지보수·migration 회귀를 수행했다. 최종 **18 PASS, 18.28초**(TLS/권한/bootstrap/maintenance 13개 + migration 5개)를 확인했다. 일반/시험 API와 MCP의 maintenance row 쓰기 거부, 진행 중 shared lock과 enable의 경합, release 소유권, timeout 후 enabled 보존, queued 시험·DIRTY 환경의 drain 거부, 직전 추적 baseline의 017 추가 적용을 포함한다.
+- 처음 PG 명령은 explicit isolated POSTGRES_TEST_URL이 없어 실행 전 차단됐다. 기존 검증된 실행 wrapper로 자동 시험 DB 환경을 구성해 실행했다. 첫 core 실행 도중 새 검사 함수를 보충해 inventory 로딩 시점 차이로 1 FAIL/486 PASS/1 SKIP이 발생했다. 코드·inventory 저장을 마친 뒤 전량 재실행해 위 결과를 확인했다. 중간 실패 기록을 삭제하거나 검사를 제외하지 않았다.
+- 사용자 서버와 일반/시험 DB는 변경하지 않았다. 자동 시험 DB를 출발점으로 만든 임시 migration DB와 소유권 label이 있는 TLS container/volume은 fixture finally에서 제거한다. AWS 인증·자원 생성·배포·유료 LLM 호출·push는 수행하지 않았다.
+- Python inventory는 68개 파일(core 50, postgres 13, external 3, compatibility 2), JavaScript 7개다. Ruff와 inventory/diff를 확인한다.
+
+### 다음 단계
+
+A2의 신규 DB migration/bootstrap와 공유 maintenance/drain 기반을 구현했다. A2 전체 완료 조건 중 미추적 기존 DB 채택은 남아 있다. 다음은 A3 production application/web 이미지·역할별 entry·MCP Host/Origin·live 설정 검증이며, 이어 A4 Linux/실제 이미지 gate를 구성한다. 계정이 필요한 A5 AWS preflight/IaC 단계에서 사용자 인증 세션을 연다. 현재 로컬 결과를 실제 RDS/IAM/AWS 배포 성공으로 표현하지 않는다.
