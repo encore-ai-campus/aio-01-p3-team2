@@ -36,6 +36,7 @@ function fixedGraph(topology, observed, result) {
   return `<div class="fault-graph-scroll" tabindex="0" aria-label="고정 Workflow 그래프 · 작은 화면에서는 좌우로 탐색"><svg class="fault-topology" viewBox="0 0 ${layout.width} ${layout.height}" width="${layout.width}" height="${layout.height}" aria-label="전체 고정 Workflow"><defs>${["flow","control","stop"].map(k=>`<marker id="lab-arrow-${k}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="${k==="stop"?"#ee968c":k==="flow"?"#8ecbb8":"#bb9cff"}"/></marker>`).join("")}</defs>${layout.lanes.map(l=>`<text x="${l.x}" y="30" class="lab-lane-title">${escape(l.label)}</text>`).join("")}${paths}${cards}</svg></div>`;
 }
 let catalog = null;
+let labStatus = null;
 let selectedTopology = "canonical_planning";
 let selectedNode = "planner";
 let selectedTarget = "planner.response";
@@ -117,10 +118,21 @@ export function renderFaultLab() {
 export async function mountFaultLab() {
   const host = document.querySelector("#fault-lab");
   if (!host) return;
+  try {
+    const statusResponse = await fetch("/api/test/fault-status");
+    if (!statusResponse.ok) throw new Error("시험 백엔드 연결 또는 격리 설정을 확인하세요. 일반 기능은 별도 백엔드에서 계속 사용할 수 있습니다.");
+    labStatus = await statusResponse.json();
+    if (labStatus.environment !== "isolated") throw new Error("격리 시험 환경을 확인할 수 없어 시험을 차단했습니다.");
+  } catch (failure) {
+    catalog = null;
+    host.innerHTML = `<section class="panel warning-note"><h3>격리 시험실 연결 필요</h3><p>${escape(failure.message)}</p><code>powershell -File infra/fault-lab-local.ps1</code><p>시험 백엔드와 MCP를 실행한 뒤 이 화면에서 다시 연결하세요.</p><button class="secondary-button" id="lab-reconnect">시험 연결 다시 확인</button></section>`;
+    host.querySelector("#lab-reconnect").addEventListener("click", mountFaultLab);
+    return;
+  }
   if (!catalog) {
     try {
       const response = await fetch("/api/test/fault-catalog");
-      if (!response.ok) throw new Error(response.status === 404 ? "일반 사용자 서버입니다. 격리 시험실을 실행한 뒤 http://127.0.0.1:5183에서 접속하세요." : "시험 DB 설정·소유권을 확인하세요.");
+      if (!response.ok) throw new Error(response.status === 404 ? "시험 API가 비활성화되어 있습니다. 시험 백엔드의 격리 설정을 확인하세요." : "시험 DB 설정·소유권을 확인하세요.");
       catalog = await response.json();
     } catch (failure) {
       host.innerHTML = `<section class="panel warning-note"><h3>격리 시험실 연결 필요</h3><p>${escape(failure.message)}</p><code>powershell -File infra/fault-lab-local.ps1</code></section>`;
@@ -151,7 +163,7 @@ function draw(host) {
   const graphResult = showExecutionPath && result?.scenario?.route===topology.route ? result : null;
   const trace = graphResult?.trace ?? [];
   const observed = new Set(topology.nodes.filter((n) => trace.some((e) => n.observed_events.includes(e.event ?? e.action))).map((n) => n.node_id));
-  host.innerHTML = `<section class="panel"><div class="panel-heading"><h3>전체 Workflow · 위치 선택</h3><span class="link-badge">${escape(topology.version)}</span></div>
+  host.innerHTML = `<section class="panel" aria-label="격리 시험 환경"><h3>격리 시험 환경 · 연결됨</h3><p>시험 DB: ${escape(labStatus.database)} · 환경 상태: ${escape(labStatus.state)} · 시험 정책 버전: ${escape(labStatus.active_policy_version ?? "미등록")}</p><p>정책 관리 탭은 일반 정책을 관리합니다. 이 화면의 시험 정책과 실행 기록은 별도 DB에 보관됩니다.</p></section><section class="panel"><div class="panel-heading"><h3>전체 Workflow · 위치 선택</h3><span class="link-badge">${escape(topology.version)}</span></div>
     <p>${selectedTopology === "canonical_planning" ? "기획안 작성 흐름" : "고급 시험 · 기존 Task 흐름"}${showExecutionPath ? " · 선택한 결과의 실제 실행 기록 보기" : " · 시험 위치를 선택하세요"}</p>
     <details id="lab-advanced" ${advancedOpen ? "open" : ""}><summary>고급 설정 · 기존 Task 오류 시험</summary><label>시험 흐름<select id="lab-topology">${catalog.topologies.filter(t=>["canonical_planning","legacy_task"].includes(t.topology_id)).map(t=>`<option value="${escape(t.topology_id)}" ${t.topology_id===selectedTopology ? "selected" : ""}>${t.topology_id==="canonical_planning" ? "기획안 작성 흐름 (기본)" : "기존 Task 흐름 · 업무 검증 오류 3개"}</option>`).join("")}</select></label><p>승인 후 런타임 쓰기 오류는 전용 시험 실행이 지원되지 않아 이 화면의 선택 대상에서 제외됩니다.</p></details>${topology.note ? `<p class="warning-note">${escape(topology.note)}</p>` : ""}${fixedGraph(topology,observed,graphResult)}
     ${showExecutionPath ? `<button class="secondary-button" id="lab-back-result">시험 결과로 돌아가기</button>` : ""}

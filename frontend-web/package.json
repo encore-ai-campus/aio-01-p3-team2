@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "test:proxy": "node --test tests/proxy-routing.test.js",
+    "test:unified": "playwright test --config=playwright.unified.config.js",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "test:e2e": "playwright test --config=playwright.config.js",

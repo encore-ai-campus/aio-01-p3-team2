@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Response
+from sqlalchemy import text
 
 from backend.app.fault_injection.catalog import catalog, validate_registry
 from backend.app.repositories import fault_lab as store
@@ -15,6 +16,24 @@ router = APIRouter(prefix="/test", tags=["isolated-fault-lab"])
 @router.get("/fault-environment")
 def environment():
     return store.environment()
+
+
+@router.get("/fault-status")
+def status():
+    """Read isolation and active policy metadata without changing the policy."""
+    with store.connection_scope() as connection:
+        version = connection.execute(
+            text(
+                "SELECT version FROM recovery_policy_versions "
+                "WHERE policy_id='planning.default' AND status='ACTIVE'"
+            )
+        ).scalar_one_or_none()
+    return {
+        "environment": "isolated",
+        "database": "eventquest_fault_test",
+        "state": store.environment()["state"],
+        "active_policy_version": version,
+    }
 
 
 @router.get("/fault-catalog")

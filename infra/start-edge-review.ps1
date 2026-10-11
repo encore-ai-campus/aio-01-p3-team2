@@ -102,6 +102,7 @@ try {
 
     New-Item -ItemType Directory -Path $testResults -Force | Out-Null
     $env:EVENTQUEST_API_TARGET = "http://127.0.0.1:${apiPort}"
+    $env:EVENTQUEST_FAULT_API_TARGET = "http://127.0.0.1:8013"
     $viteProcess = Start-Process -FilePath "pnpm.cmd" `
         -ArgumentList @("--dir", "frontend-web", "dev", "--host", "127.0.0.1", "--port", "$uiPort", "--strictPort") `
         -WorkingDirectory $repositoryRoot `
@@ -155,4 +156,5 @@ finally {
     Remove-Item -LiteralPath $envFile.FullName -Force -ErrorAction SilentlyContinue
     Remove-Variable password, encodedPassword, databaseUrl -ErrorAction SilentlyContinue
     Remove-Item Env:EVENTQUEST_API_TARGET -ErrorAction SilentlyContinue
+    Remove-Item Env:EVENTQUEST_FAULT_API_TARGET -ErrorAction SilentlyContinue
 }

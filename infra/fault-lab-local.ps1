@@ -1,4 +1,4 @@
-param([switch]$PrepareOnly, [switch]$Stop, [switch]$CleanupHistory, [int]$ApiPort=8013, [int]$UiPort=5183, [int]$McpPort=8014)
+param([switch]$PrepareOnly, [switch]$Stop, [switch]$CleanupHistory, [int]$ApiPort=8013, [int]$UiPort=5177, [int]$McpPort=8014)
 
 $ErrorActionPreference = "Stop"
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -42,6 +42,9 @@ if ($labTable) {
     $labState = docker exec $containerName psql -U $user -d eventquest_fault_test -Atqc "SELECT state FROM fault_lab_environment WHERE id=1"
     if ($labState -ne "CLEAN") { throw "Fault lab is BUSY/DIRTY; baseline preparation is blocked." }
 }
+$environmentNames = @('DATABASE_URL','POSTGRES_TEST_URL','MCP_DATABASE_URL','MCP_TEST_DATABASE_URL','MCP_GAME_ID','ENABLE_FAULT_INJECTION','FAULT_LAB_MODE','CANONICAL_PLANNING_MODE','WORKFLOW_ENGINE','MCP_HOST','MCP_PORT','MCP_URL','APP_ALLOWED_ORIGINS','PYTHONIOENCODING','PYTHONPATH')
+$previousEnvironment = @{}
+foreach ($name in $environmentNames) { $previousEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $databaseUrl = "postgresql+psycopg://${user}:$([uri]::EscapeDataString($password))@127.0.0.1:5434/eventquest_fault_test"
 $env:DATABASE_URL = $databaseUrl
 $env:POSTGRES_TEST_URL = $databaseUrl
@@ -55,7 +58,6 @@ $env:WORKFLOW_ENGINE = "agent_mock"
 $env:MCP_HOST = "127.0.0.1"
 $env:MCP_PORT = "$McpPort"
 $env:MCP_URL = "http://127.0.0.1:$McpPort/mcp"
-$env:EVENTQUEST_API_TARGET = "http://127.0.0.1:$ApiPort"
 $env:APP_ALLOWED_ORIGINS = "http://127.0.0.1:$UiPort,http://localhost:$UiPort"
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONPATH = $repositoryRoot
@@ -69,15 +71,17 @@ try {
         return
     }
     if ($PrepareOnly) { return }
-    foreach ($port in @($ApiPort,$UiPort,$McpPort)) {
+    foreach ($port in @($ApiPort,$McpPort)) {
         if (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue) { throw "Port $port is already in use; existing servers were preserved." }
     }
     $logs = Split-Path $statePath
     New-Item -ItemType Directory -Path $logs -Force | Out-Null
     $mcp = Start-Process $python -ArgumentList @('-m','mcp_server.server') -WorkingDirectory $repositoryRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput "$logs/mcp.out.log" -RedirectStandardError "$logs/mcp.err.log"
     $api = Start-Process $python -ArgumentList @('-m','uvicorn','backend.app.main:app','--host','127.0.0.1','--port',"$ApiPort") -WorkingDirectory $repositoryRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput "$logs/api.out.log" -RedirectStandardError "$logs/api.err.log"
-    $node = (Get-Command node.exe).Source
-    $ui = Start-Process $node -ArgumentList @('node_modules/vite/bin/vite.js','--host','127.0.0.1','--port',"$UiPort",'--strictPort') -WorkingDirectory "$repositoryRoot/frontend-web" -WindowStyle Hidden -PassThru -RedirectStandardOutput "$logs/ui.out.log" -RedirectStandardError "$logs/ui.err.log"
-    @{ processes=@(@{id=$mcp.Id;marker='mcp_server.server'},@{id=$api.Id;marker='--port '+$ApiPort},@{id=$ui.Id;marker='--port '+$UiPort}); api="http://127.0.0.1:$ApiPort"; ui="http://127.0.0.1:$UiPort" } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $statePath
-    Write-Output "Isolated fault lab: http://127.0.0.1:$UiPort (DB eventquest_fault_test, deterministic provider, real MCP/DB)"
-} finally { Pop-Location }
+    @{ processes=@(@{id=$mcp.Id;marker='mcp_server.server'},@{id=$api.Id;marker='--port '+$ApiPort}); api="http://127.0.0.1:$ApiPort"; ui="http://127.0.0.1:$UiPort" } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $statePath
+    Write-Output "Isolated fault API: http://127.0.0.1:$ApiPort (DB eventquest_fault_test, deterministic provider, real MCP/DB)"
+    Write-Output "Use the shared planning UI at http://127.0.0.1:$UiPort; this script does not start a frontend."
+} finally {
+    Pop-Location
+    foreach ($name in $environmentNames) { [Environment]::SetEnvironmentVariable($name, $previousEnvironment[$name], 'Process') }
+}
