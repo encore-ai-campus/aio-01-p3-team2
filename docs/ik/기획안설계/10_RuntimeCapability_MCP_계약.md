@@ -1,12 +1,20 @@
 # Runtime Capability·MCP 데이터 계약
 
+## 2026-10-11 오류 복구 연결
+
+capability/planning context/rules/item 조회는 pinned 정책으로 bounded retry를 판단한다. game rules 운영 오류에만 검증된 fallback을 선택하고 그 실패도 같은 정책 루프에 재진입한다. primary+fallback의 시도 예산은 공유한다. 응답 JSON/필드/버전/digest 불일치는 `ERR-CONTRACT-MCP-001`로 종료하며 fallback이나 반복 요청으로 신뢰 문제를 우회하지 않는다. [공통 복구 계약 §6](15_오류대응정책_Workflow_연결_재검사.md#6-정책-연결-보완-구현)을 따른다.
+
 ## 1. 목적과 현재 상태
 
 이 문서는 기획 Workflow가 가상 게임의 규칙·콘텐츠와 실제 적용 범위를 동일한 버전 기준으로 조회하는 계약을 정한다. MCP는 조회 transport이며, capability의 권위는 게임 Runtime의 버전 고정 카탈로그와 이벤트 적용 adapter다.
 
-현재 MCP primary는 `tiny_heroes` 데이터 카탈로그(`tinyheroes-1.0.0`)에서 콘텐츠 3종·아이템 3종·세그먼트 기준을 읽는다. Runtime은 `opong-data-1.3.0` 카탈로그 snapshot을 사용하며 스테이지, 던전, 특별 던전, 성장, 재화, 아이템과 무한 진행 규칙을 가진다. Runtime은 과거 Planner 버전 `tinyheroes-1.0.0`을 허용 출처 목록으로 연결하지만, 이 버전은 두 카탈로그의 동등성을 보증하지 않는다. MCP 결과만으로 현재 Runtime이 지원하는 이벤트를 모두 판정할 수 없는 상태다.
+2026-10-11 구현 기준으로 새 canonical planning은 Runtime의 Opong snapshot(`opong-data-1.3.0`)과 Capability(`opong-capabilities-1.0.1`)를 기준으로 한다. 1.0.1은 Runtime이 실제 보존하는 reward grant policy와 per-user 지급 횟수를 capability constraint로 명시한다. 기존 `tinyheroes-1.0.0` 자료는 legacy Task 처리에만 남아 있으며 두 카탈로그의 동등성을 뜻하지 않는다.
 
-또한 현재 MCP의 `get_game_rules`는 주로 이름·입장 레벨을, `get_item_info`는 이름·존재 여부를 반환한다. 이 출력만으로 전투·보상·성장·보상 한도·실제 이벤트 적용 가능성을 검증할 수 없다. 세그먼트별 예상 레벨은 데이터에 `mock_historical_aggregate`로 표시된 가정 자료이므로 실제 유저 통계로 취급하지 않는다.
+2026-10-11 구현 기준으로 canonical planning은 `MCP_URL` 설정 시 Streamable HTTP의 `get_event_capabilities`, 요청 세그먼트의 `get_event_planning_context`, 지정 콘텐츠의 `get_game_rules`, 지정 보상의 `get_item_info`를 호출한다. 미설정 시에는 같은 Opong snapshot 기반 local adapter를 사용한다. 모든 결과는 Runtime snapshot ID·digest를 대조한 뒤 versioned Planner Handoff와 Plan evidence에 전달한다. 미등록 세그먼트는 근거 누락으로 기록하고 결정적 검증이 `NEEDS_DATA`를 반환한다. MCP timeout은 고정 복구 정책으로 재시도하고, Primary 콘텐츠 규칙 Tool 오류는 digest가 고정된 fallback을 시도한다. 재시도·fallback 결정과 성공은 Workflow trace에 기록한다. 복구 한도 초과는 `SAFE_STOP` Workflow/Trace로 DB에 저장하고 표준 오류 코드를 기록한다. 실제 Opong MCP 프로세스에 연결한 canonical API 통합 smoke가 통과했다.
+
+이 연결은 Planner에게 조회 Tool 실행 권한을 주지 않는다. 결정적 Scope Checker와 Balance Rule 역할을 통해 Orchestrator가 read-only Tool을 호출하고, 검증된 반환 데이터만 Planner의 입력 계약으로 전달한다. 세그먼트 profile 및 콘텐츠/아이템 사실 조회는 연결됐지만, 모든 전투·성장·경제 영향 계산을 MCP 응답만으로 완료하는 것은 아니다. 해당 판단은 같은 snapshot의 Capability와 결정적 검증기에 남는다.
+
+실제 tool 출력은 콘텐츠의 전투·보상 요약, 아이템 지급 가능 여부·잔액 한도, 세그먼트 profile과 선택지를 제공한다. 이는 버전 고정된 데이터 근거이며, 실유저 통계로 간주하지 않는다. 세그먼트별 예상치는 `mock_historical_aggregate` provenance를 유지한다. 모든 경제 영향 계산이 이 조회 결과만으로 가능한 것은 아니며 근거가 없는 영향은 unknown으로 남긴다.
 
 ## 2. 데이터 권위와 버전 계약
 
@@ -23,7 +31,7 @@ domain_schema_version: "1.3.0"
 event_schema_version: "1.0.0"
 game_ruleset_version: opong-rules-1.3.0
 game_data_snapshot_id: opong-data-1.3.0
-runtime_capability_catalog_version: opong-capabilities-1.0.0
+runtime_capability_catalog_version: opong-capabilities-1.0.1
 balance_policy_version: string
 ```
 
@@ -38,7 +46,7 @@ balance_policy_version: string
 Capability 결과는 Runtime adapter와 catalog의 지원 조합에서 생성한다. LLM이 capability 항목이나 지원 상태를 만들거나 변경하지 않는다.
 
 ```yaml
-capability_catalog_version: opong-capabilities-1.0.0
+capability_catalog_version: opong-capabilities-1.0.1
 game_context: { game_id: opong_heroes, game_data_snapshot_id: opong-data-1.3.0,
                 game_ruleset_version: opong-rules-1.3.0, event_schema_version: "1.0.0" }
 event_constraints:
@@ -80,20 +88,22 @@ rewards: []
 | 스테이지 | `stage_clear` → Runtime `stage_cleared` | `HUNT_001` 또는 Runtime stage ID로 변환 가능한 경우만 허용 |
 | 던전 | `dungeon_clear` → Runtime `dungeon_cleared` | 현재 일반 던전 ID/레거시 alias의 명시 매핑만 허용 |
 | 성장 | `level_reach` → Runtime `growth_milestone_reached` | metric은 `hero_level`; 임계값과 상한은 동일 snapshot에서 검증 |
-| 특별 던전 | Runtime 의미는 `special_dungeon_floor_clear` | 현재 적용기의 레거시 `monster_kill`은 실제로 floor clear에 매핑된다. 몬스터 처치 수와 층 완료를 혼동하지 않도록 새 계약에서는 legacy action을 새 Plan에 허용하지 않는다. 명시적 action adapter가 구현되기 전까지 특별 던전 미션은 지원되지 않는 것으로 판정한다. |
-| 장소/template | 카탈로그에 등록된 `special_dungeon_template_id`만 허용 | 임의 template/layout/theme/difficulty ID 생성 금지 |
-| 보상 | 카탈로그 item ID와 정수 수량, 잔액 상한 내 지급 | item kind, max balance, 지급 source·한도를 검증. 환산 규칙 없는 스킨/코스튬은 화폐 가치 계산 금지 |
+| 특별 던전 | `special_dungeon_floor_clear` → Runtime `special_dungeon_progressed`의 `floor_cleared` signal | canonical Capability에 등록된 floor ID와 adapter만 허용한다. `monster_kill` legacy alias는 canonical Capability에 노출하지 않으며 새 Plan의 floor-clear 의미로 사용하지 않는다. |
+| 장소/template | Capability에 등록된 `venue.<template_id>` 조합만 지원 | `template_id`, `layout_id`, `theme_id`, `difficulty_id`가 동일 snapshot의 등록값과 일치해야 한다. 데이터에 template은 있지만 venue binding이 없으면 `NEEDS_DEVELOPMENT`; template 자체를 snapshot에서 찾지 못하면 `NEEDS_DATA`로 판정한다. |
+| 보상 | 카탈로그 item ID와 정수 수량, `once_per_user` 1회 지급 | item kind, max balance, 지급 source·한도와 `grant_policy`/`max_grants_per_user`를 검증. `once_per_cycle` 또는 1회 초과 지급은 Runtime이 의미를 보존하지 않으므로 `NEEDS_DEVELOPMENT`; 환산 규칙 없는 스킨/코스튬은 화폐 가치 계산 금지 |
 
-현재 Runtime adapter의 day 기반 보상 연결은 해당 day의 첫 미션에 보상을 연결한다. 이는 명시적 `mission_id` 연결 계약과 동등하지 않다. 따라서 새 Plan이 요청한 mission-reward link를 무손실로 변환할 수 없으면 지원으로 표시하지 않는다. 구현 전 adapter가 `mission_id` 기반 연결을 직접 수용하게 바꾸거나, MVP 계약에서 day별 단일 연결 제약을 schema로 강제해야 한다. 자동으로 첫 미션에 붙이는 동작은 금지한다.
+콘텐츠 접근성은 같은 snapshot의 progression `start_level`/`max_level`, segment `min_level`/`max_level`, 콘텐츠 `entry_level`만으로 판정한다. 시작 시점 보장 레벨 이하의 콘텐츠는 규칙 기반 접근 가능, segment 최고 레벨을 초과하는 콘텐츠는 `MISSION_SEGMENT_LEVEL_UNREACHABLE` finding으로 Runtime 적용을 차단한다. 그 사이 레벨은 이벤트 기간 성장 속도 자료가 없어 `unknown`으로 표시한다. 현재 snapshot은 일별 기대 레벨 곡선을 제공하지 않으며, 이 결과를 전투 승률·완료 확률 또는 실유저 성과로 해석하지 않는다.
+
+Runtime event 저장 형식은 day를 연결 키로 사용한다. canonical adapter는 Plan의 action 순서대로 각 미션에 고유 day를 부여하고 reward의 `mission_id`를 같은 day로 변환해 현재 mission-reward link를 보존한다. Runtime은 미션 완료 후 보상을 한 번 지급하고 grant policy와 max grants 필드를 저장하지 않는다. Capability 1.0.1은 `once_per_user`와 `max_grants_per_user=1`만 지원으로 선언한다. `once_per_cycle` 또는 1회 초과 지급은 실행에 넣지 않고 `NEEDS_DEVELOPMENT`로 반환한다. legacy day mapping에서 여러 미션이 같은 day에 들어오는 경우 첫 미션 자동 선택으로 연결 의미가 바뀔 수 있으므로 canonical 경로에서 이를 허용하지 않는다.
 
 ## 4. 결정적 게임 규칙·밸런스 입력
 
 `get_game_rules`와 `get_event_planning_context`는 같은 snapshot에서 다음 정보를 제공한다.
 
-- stage/dungeon/special dungeon ID·이름·종류·해금 조건·반복/진행 규칙
+- stage/dungeon/special dungeon ID·이름·종류·해금 조건·반복/진행 규칙. 무한 `stage_NNNN`와 `dungeon_floor_NNNN` ID는 Runtime과 같은 생성 규칙으로 조회한다.
 - action signal과 판정 단위(전투 승리, 던전 클리어, 특별 던전 층 완료, 영웅 레벨)
 - 목표 가능한 metric, 목표 연산자와 허용 범위, reset/기간 의미
-- 콘텐츠별 전투 스탯·경험치·재화 보상 및 반복 진행 formula 참조
+- 콘텐츠별 전투 스탯·1:N 적 파티·경험치·재화 보상 및 반복 진행 formula 참조
 - 성장 action별 비용·효과·상한과 세그먼트/유저 profile 입력
 - item ID·kind·최대 보유량·지급 가능 여부·상점 가격/전환 규칙(있는 경우)
 - 조회 근거의 `game_data_snapshot_id`, `game_ruleset_version`, source, data digest
@@ -110,11 +120,13 @@ rewards: []
 
 ### 5.2 `get_event_planning_context`
 
-기존 `target_user`, `duration` 입력을 versioned contract로 확장한다. 입력은 `game_id`, `game_data_snapshot_id`, `target_segment_id`, `duration_days`다. 출력은 전체 raw catalog 복사본이 아니라 선택된 세그먼트의 근거 있는 growth profile, 기간에 적용되는 콘텐츠/action 선택지, item 요약, 해당 snapshot·digest, synthetic/observed data provenance를 포함한다. 필수 snapshot ID 불일치나 세그먼트 미존재는 명시 오류다.
+기존 `target_user`, `duration` 입력을 versioned contract로 확장한다. 입력은 `game_id`, `game_data_snapshot_id`, `target_segment_id`, `duration_days`다. 출력은 전체 raw catalog 복사본이 아니라 선택된 세그먼트의 고정 profile, 기간에 적용되는 콘텐츠/action 선택지, item 요약, 해당 snapshot·digest, synthetic/observed data provenance를 포함한다. 현재 Opong profile은 세그먼트별 최소/최대 레벨만 제공하며 일별 성장 곡선은 없다. 따라서 `duration_days`는 선택지 범위에는 쓰지만 그 기간 내 접근 가능성을 증명하지 않는다. 필수 snapshot ID 불일치나 세그먼트 미존재는 명시 오류다.
 
 ### 5.3 `get_game_rules`
 
-입력은 `game_data_snapshot_id`, `content_id`다. 출력은 콘텐츠 ID·종류·이름·unlock 조건·행동 signal·목표 판정 규칙·전투/반복 progression·보상 계산 참조·snapshot/evidence다. 기존 이름·입장 레벨 전용 응답으로 밸런스 검증을 완료할 수 없다.
+입력은 `game_data_snapshot_id`, `content_id`다. 출력은 콘텐츠 ID·종류·이름·unlock 조건·행동 signal·목표 판정 규칙·전투/반복 progression·보상 계산 참조·snapshot/evidence다. 반복 스테이지와 던전 층은 Runtime generator로 산출해 실제 `combat`와 적 파티를 반환한다. 기존 이름·입장 레벨 전용 응답으로 밸런스 검증을 완료할 수 없다.
+
+기획 validator는 같은 snapshot의 `hero_stats`와 콘텐츠 전투 규칙을 사용해 콘텐츠 입장 레벨 또는 segment 최소 레벨 및 segment 최고 레벨의 기본 성장(장비 강화 0) 1회 전투 결과를 결정적으로 계산한다. 단일 적은 `resolve_combat`, 적 파티는 `resolve_party_combat`과 같은 함수를 사용한다. 결과에는 `mission_combat_feasibility`, `opong-deterministic-combat-base-stats.v1`, snapshot·content·segment evidence를 기록한다. 이 계산은 특정 레벨과 기본 스탯에서의 규칙상 승패만 말한다. 장비 강화 분포나 사용자 레벨 분포가 없으면 실유저 승률·이벤트 기간 달성 확률을 산출하지 않는다.
 
 ### 5.4 `get_item_info`
 
@@ -123,6 +135,10 @@ rewards: []
 ### 5.5 `get_game_rules_fallback`
 
 Fallback은 같은 `game_data_snapshot_id`, `game_ruleset_version`, `event_schema_version`, capability version과 digest를 가진 검증 snapshot만 반환한다. primary와 동등성이 하나라도 확인되지 않으면 fallback을 쓰지 않고 `NEEDS_DATA`/dependency error로 종료한다. 같은 버전 문자열만 일치하는 것은 충분하지 않다.
+
+### 2026-10-11 적용 버전 갱신
+
+신규 기획은 `opong-data-1.4.0`과 `opong-capabilities-1.0.2`를 기본으로 사용한다. Capability 1.0.2는 기존 유한 운영과 함께 `ongoing` 운영을 지원으로 선언한다. `1.0.1`은 저장된 과거 결과를 재현할 수 있도록 finite 전용 호환 계약으로 계속 제공한다. 각 응답의 `game_context` capability version은 요청한 정확한 catalog version과 일치해야 한다. Runtime 데이터 카탈로그는 종료일 없는 운영 이벤트와 전 기간 층별 미션을 `event_schema_version=1.1.0`으로 저장한다. 세부 층별 조건은 [이벤트 적용 계약](../게임설계/05_이벤트적용_계약.md#구현-반영-2026-10-11)을 따른다.
 
 ### 5.6 외부 사례 자료
 
@@ -155,7 +171,7 @@ Fallback은 같은 `game_data_snapshot_id`, `game_ruleset_version`, `event_schem
 - 콘텐츠·아이템·세그먼트·전투·성장·보상 계산에 필요한 근거가 같은 snapshot에서 조회된다.
 - synthetic cohort 값이 실측값처럼 취급되지 않는다.
 - legacy source, fallback, 외부 Clash 표본이 현재 Runtime capability와 섞이지 않는다.
-- `monster_kill`/floor clear와 day-based reward link 같은 의미 손실 사례는 지원으로 통과하지 않는다.
+- canonical에서는 `monster_kill`/floor clear 의미 혼동, 불명확하거나 불일치한 mission-reward link, Runtime이 보존하지 않는 grant policy를 지원으로 통과시키지 않는다.
 - 읽기 전용 Tool allowlist와 MCP write 거부가 명확하다.
 
 ## 9. 참조

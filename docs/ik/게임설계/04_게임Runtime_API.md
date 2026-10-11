@@ -28,6 +28,10 @@
 | 플레이 행동 | `POST /api/game/actions` | 서버 판정, 행동 ID, 갱신 상태 |
 | 왕국 로비 성장 | POST /api/game/growth-actions | GOLD 비용·전후 능력치·잔액과 성장 원장 ID가 서버에서 확정된 결과 |
 | 이벤트 진행 조회 | `GET /api/game/events/{event_id}/progress` | 고정 데모 유저의 미션별 진행·완료·보상 상태 |
+
+2026-10-11 이벤트 던전 계약 구현: 기획 UI는 `GET /api/game/catalog/special_dungeon_templates`와 `GET /api/game/catalog/items`에서 표시용 카탈로그를 읽는다. 승인된 Plan은 `POST /api/game/events/apply`로 등록되고, 층별 first-clear 진행·보상 결과는 `GET /api/game/events/{event_id}/progress`에서 읽는다. `operation_mode=ongoing` 응답은 `end_at: null`이며 해당 이벤트 mission은 day 값과 무관하게 active 기간 전체에서 진행된다. 행동은 기존 `POST /api/game/actions`의 성공한 `special_dungeon_progressed/floor_cleared` ActionRecord로 판정한다. 필드의 근거와 버전은 [이벤트 적용 계약](05_이벤트적용_계약.md)을 따른다.
+
+2026-10-11 선택 공간 후속 변경: 신규 `opong-data-1.5.0` 이벤트에서는 `GET /api/game/catalog/special_dungeon_templates`의 `spaces[]`와 `space_id`를 사용한다. 적용 응답의 `venue.space_ids`가 해당 이벤트의 유일한 입장 허용 목록이다. `POST /api/game/actions`에서 선택하지 않은 공간을 요청하면 `409 content_locked`를 반환하며, 성공 행동은 `special_dungeon_progressed/space_cleared`로 기록된다. 기존 floor 이벤트 응답은 저장된 구버전 계약으로 조회하고 일반 던전 층 API 동작은 유지한다.
 | 명령 결과 조회 | `GET /api/game/commands/{request_id}` | 최초 요청의 처리 상태와 저장된 결과 |
 
 현재 구현 경로는 /api/game/actions 및 /api/game/growth-actions를 포함한다. 로컬 MVP는 단일 고정 데모 유저를 사용하며 user_id를 행동 요청에서 받지 않는다. 별도 사용자 인증은 없고 API 및 UI는 loopback 요청으로 제한한다. 이는 로컬 데모 경계이며 외부에 노출하면 안 된다.

@@ -1,18 +1,46 @@
 # 멀티 에이전트·Workflow 설계
 
+## 2026-10-11 정책 복구 연결 보완
+
+현재 구현 계약은 [정책 연결 보완 §6](15_오류대응정책_Workflow_연결_재검사.md#6-정책-연결-보완-구현)을 따른다.
+
+```mermaid
+flowchart TD
+    P[Planner 설명 생성] --> V[형식·게임 규칙·경제·지원 범위 검증]
+    V --> C[Critic 평가]
+    C -->|PASS| A[Supervisor 승인 대기 결정]
+    C -->|설명만 수정 가능 + 규칙 통과| S[Supervisor 고정 정책·예산 판단]
+    S -->|REVISE_PLAN 허용| P
+    S -->|중단 또는 한도 소진| X[안전 종료·근거 기록]
+    C -->|고정 조건·미지원·데이터 부족| H[결과 finding·사람 검토]
+    P -->|일시 LLM 오류| R[Supervisor 정책 복구 결정·저장]
+    R -->|허용된 bounded retry| P
+    R -->|영구 오류·차단·한도| X
+```
+
+MCP 조회·fallback도 동일한 분류/정책 결정 순서를 거친다. 그림의 Supervisor는 규칙 기반 결정자이며 별도 LLM Agent가 아니다. 고정 사용자 조건을 자동 수정하는 루프는 없다.
+
+> 2026-10-11 검사 후 보완: 아래 내용은 설계 기준이며 구현 완료 선언이 아니다. 최신 보완 계약은 [Workflow 수정 계획 §3.1](14_Workflow_검사결과_설계보완_수정계획.md), 현재 사실은 [현재 구현 상태](../현재_구현상태.md)를 따른다.
+
+## 검사 후 추가 적용 기준
+
+실행·복구의 모든 결정은 같은 versioned 저장 경계를 사용하고 저장 성공 뒤 실행 snapshot을 갱신한다. deadline·budget·취소와 handoff 거절도 이 경계를 따른다. 코드 상태 WAITING_APPROVAL/WAITING_REVIEW와 설계 alias의 읽기 매핑을 명시한다.
+
+구체 변경 위치·의존 순서·검증 증거는 [수정 작업 §4 및 검증 §5](14_Workflow_검사결과_설계보완_수정계획.md#4-구현-순서와-변경-범위)에 연결한다. 기존 계약과 중복되면 이번 보완의 더 엄격한 저장·접근·검증 조건을 적용한다.
+
 ## 1. 목적·현재 기준
 
 이 문서는 [기획안·게임 기능 계약](01_기획안_게임기능_계약_설계.md)을 기준으로 Agent 역할, task 분할, handoff, 실행 패턴 및 상태 전이를 구체화한다.
 
-현재 Backend에는 Supervisor, Event Planner, Balance Rule, Critic 경로와 별도 `decide_recovery()` 라우터가 있다. `retry.py`의 기본값은 기술 재시도 3회, Planner 수정 2회다. 현재는 코드 기반 routing이며 본 설계의 정책 Registry, 개발 필요 결과 상태, 운영자용 Workflow 시각화가 구현됐다고 보지 않는다.
+현재 Backend에는 Supervisor, Event Planner, Balance Rule, Critic 경로와 오류별 routing 정책이 있다. `retry.py`의 기본값은 기술 재시도 3회, Planner 수정 2회다. canonical 기획안 경로는 새 Supervisor state reducer를 사용하기 시작했지만, 기존 `WorkflowEngine` 실행 경로는 아직 별도 상태 분기를 갖는다. 이는 목표 아키텍처의 별도 Backend가 아니라 공통 Workflow로 수렴해야 할 이전 코드 경로다. 저장소 CAS와 정책 Registry, 개발 필요 결과 상태, 운영자용 Workflow 시각화의 최신 구현 판정은 [현재 구현 상태](../현재_구현상태.md)를 따른다.
 
 ## 2. 책임과 역할
 
 | 역할 | 입력 | 책임 | 출력/종료 상태 | 금지 |
 |---|---|---|---|---|
-| Workflow Controller | 요청, 작업 ID, 상태 | 유효 상태 전이·기한·카운터·멱등성 관리 | 현재 단계와 terminal result | Agent 결과를 검증 없이 확정하지 않음 |
+| Workflow Controller | 요청, 작업 참조, 저장소 | Supervisor가 결정한 상태·전이·결과를 저장하고 API·DB side effect 실행 | 영속화된 Workflow snapshot과 operation 결과 | 상태 전이·업무 ID를 독자적으로 생성하거나 Agent 결과를 검증 없이 확정하지 않음 |
 | Scope Checker | Brief, capability catalog/version | 각 venue/action/reward/template 지원상태 평가 | per-field capability findings | LLM 추측으로 지원 여부 판정 금지 |
-| Supervisor/Router | 상태, 결과, policy ref | 명시된 전이표와 활성 복구 정책으로 다음 작업·handoff·복구 경로 선택 | 구조화 route decision과 `reason_code` | LLM Agent가 아니며, 규칙·정책·권한·hard limit 생성/변경 금지 |
+| Supervisor/Router | 검증된 요청·Brief, 상태, 결과, policy ref | 권위 Workflow 상태와 전이, 미션·보상 ID 연결, 다음 작업·handoff·복구 경로 결정 | 상태 snapshot, 구조화 route decision과 `reason_code` | LLM Agent가 아니며, 규칙·정책·권한·hard limit 생성/변경 금지 |
 | Event Planner | 검증된 Brief, data snapshot, findings | 이벤트 초안 생성·허용 범위 수정 | Event Plan candidate | 지원되지 않는 기능을 지원된 것으로 작성 금지 |
 | Balance/Rule Validator | Plan, rules/data version | 가능성·조건·보상 영향·제약 평가 | `PASS`/`REVISE`/`HUMAN_REVIEW`/`BLOCK` finding | 미확인 값을 사실처럼 추정 금지 |
 | Critic | Brief, Plan, validation/evidence | 요청 적합성·완전성·근거·일관성 평가 | 평가 finding 및 결론 | 정책 판정·최종 승인 대행 금지 |
@@ -42,6 +70,14 @@ deadline_at: datetime
 ```
 
 LLM을 사용하는 invocation은 추가로 `prompt_template_id`, `prompt_template_version`, `provider`, `model_id`, `model_config_version`, `max_input_tokens`, `max_output_tokens`를 받는다. Prompt template은 코드 저장소에서 버전 관리하고, 사용자 Brief·게임 데이터·이전 결과는 명시적 변수로 렌더링한다. 렌더링 결과와 원문 응답은 [API·저장·Trace 설계](06_API_저장_Trace_설계.md)에 따라 제한된 DB record로 저장한다. 모델 응답은 각 Agent 출력 계약 검증을 통과하기 전까지 workflow state 변경에 사용하지 않는다.
+
+### 3.2 Supervisor 권위 데이터 계약
+
+미션 `action_id`, 보상 `reward_id`, 미션-보상 연결 ID와 Workflow 상태의 권위자는 Supervisor다. 사용자 요청 계약은 이 내부 ID를 받지 않고, Supervisor가 검증된 입력의 항목 순서에 따라 ID를 발급해 연결한다. Planner 입력에는 이 ID를 전달하지 않으며, Planner 출력에도 ID를 요구하지 않는다. Supervisor는 순서가 보존된 설명 목록을 검증한 뒤 자신의 원본 ID를 결합한다. LLM은 요약과 설명만 제안하며 Brief 값, ID, 상태를 생성·수정하지 않는다. Controller는 Supervisor가 반환한 상태와 연결 결과를 저장하고 요청 side effect를 수행한다. `canonical-planner-input.v2` 및 `canonical-planner-output.v2`가 이 계약을 따른다.
+
+이 책임 분배는 이번 논의에서 확정한 방향이다. 이전 상세 설계와 구현 계획은 Workflow Controller가 상태 전이·카운터를 관리하고 Supervisor가 다음 route와 복구 경로를 선택하는 것으로 나눠 적었다. 따라서 “Supervisor가 오류 대응을 결정한다”는 기존 내용은 있었지만 “Supervisor가 모든 Workflow 상태의 권위자다”는 내용은 기존 문서에 명시되어 있지 않았다.
+
+2026-10-11 통합 구현 진행: canonical `EventBriefInput`은 ID 없이 action/reward를 받고 위치 인덱스로 연결하며, Supervisor가 서버 ID를 발급한다. canonical과 기존 Task API는 공통 `SupervisorWorkflowState` reducer로 전이·복구 결정을 내리고 trace에 정책 버전·오류 코드·근거를 반영한다. canonical lifecycle과 Task Trace 모두 version CAS 및 멱등 상태 버전 저장을 사용하며 MCP 복구 카운터도 snapshot에 반영한다. 남은 검증은 PostgreSQL 경합·중단 복구와 UI 세부 근거 표시다. 과거 “Backend B”는 동일 FastAPI backend 안의 agent Workflow 실행기 명칭이므로 별도 Backend나 배포 단위로 취급하지 않는다. 최신 진행표는 [Supervisor 상태 전이·복구 결정 통합 구현 계획](13_Supervisor_상태전이_복구결정_통합구현계획.md#9-구현-진행-및-남은-범위)과 [현재 구현 상태](../현재_구현상태.md)를 따른다.
 
 ### 3.1 Tool/MCP 호출 계약
 
@@ -105,7 +141,7 @@ Agent 간 모든 직접 호출을 그래프화하지 않는다. Controller가 �
 - `PLAN_READY_WITH_DEVELOPMENT_ITEMS`는 완성된 실행 기획과 구분되는 제안 결과다. `runtime_eligible=false`를 보존한다.
 - security block은 retry/fallback/revision route에 태우지 않는다.
 - 알 수 없는 route 또는 policy lookup failure는 `SAFE_STOP`한다.
-- Router 결과는 상태 전이표·policy evaluator·hard limit 검사를 통과한 경우에만 Controller가 반영한다. Router가 허용되지 않은 route를 반환하면 실행하지 않고 `SAFE_STOP`한다.
+- Supervisor는 상태 전이표·policy evaluator·hard limit 검사를 거쳐 다음 권위 상태와 route를 한 번에 결정한다. Controller는 그 결과를 영속화한다. 구현 시 Controller가 별도 상태 전이를 만들지 않도록 한다. Supervisor가 허용되지 않은 route를 반환하면 실행하지 않고 `SAFE_STOP`한다.
 
 ## 7. Trace와 완료 기준
 
@@ -126,3 +162,6 @@ Agent 간 모든 직접 호출을 그래프화하지 않는다. Controller가 �
 - [검증·평가·피드백](03_검증_평가_피드백_설계.md)
 - [오류 분류·복구 정책](05_오류분류_복구정책_설계.md)
 - [통합 검증](09_통합검증_설계.md)
+
+
+> 2026-10-11 수정 구현 및 실제 검증 범위: [수정 계획 14 §7](14_Workflow_검사결과_설계보완_수정계획.md#7-2026-10-11-구현검증-기록)을 최신 판정으로 사용한다. 이전 완료·재개방 표기는 당시 기록이다.

@@ -1,0 +1,5893 @@
+{
+  "version": "fault-precision-manifest-v1",
+  "created_at": "2026-10-11T12:09:35.729628+00:00",
+  "status": "PLANNED_NOT_EXECUTED",
+  "source_catalog_version": "fault-lab-v1",
+  "active_policy_version": 1,
+  "original_policy_content_digest": "3d78f1f1159916aaeeb024ed8e0cd6b0d916a726a98c32283ca44b345ee45927",
+  "compatibility_mappings": {
+    "ERR-DEP-MCP-003": "ERR-DEP-MCP-002"
+  },
+  "policy_note": "작성 시점의 시험 DB 활성 정책. 실행 전 동일성 확인; 변경 시 명세 새 버전 확정. API에 임의 expected 필드를 보내지 않음.",
+  "cases": [
+    {
+      "case_id": "F01-current_active-once",
+      "scenario_id": "mcp_response_invalid",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.response",
+      "request": {
+        "scenario_id": "mcp_response_invalid",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-MCP-001",
+        "observed_code": "ERR-CONTRACT-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F01-safe_stop-once",
+      "scenario_id": "mcp_response_invalid",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.response",
+      "request": {
+        "scenario_id": "mcp_response_invalid",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-MCP-001",
+        "observed_code": "ERR-CONTRACT-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F02-current_active-once",
+      "scenario_id": "context_guard_blocked",
+      "route": "canonical_planning",
+      "target_id": "context.validate",
+      "request": {
+        "scenario_id": "context_guard_blocked",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SEC-CONTEXT-001",
+        "observed_code": "ERR-SEC-CONTEXT-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F02-safe_stop-once",
+      "scenario_id": "context_guard_blocked",
+      "route": "canonical_planning",
+      "target_id": "context.validate",
+      "request": {
+        "scenario_id": "context_guard_blocked",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SEC-CONTEXT-001",
+        "observed_code": "ERR-SEC-CONTEXT-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-current_active-once",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-current_active-first_n-2",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-current_active-first_n-3",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-current_active-first_n-4",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-current_active-always",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-safe_stop-once",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-retry_allowed-once",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-retry_allowed-first_n-2",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-retry_allowed-first_n-3",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-retry_allowed-first_n-4",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F03-retry_allowed-always",
+      "scenario_id": "planner_explanation_mismatch",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "planner_explanation_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-002",
+        "observed_code": "ERR-DOMAIN-PLANNER-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F04-current_active-once",
+      "scenario_id": "input_validation_error",
+      "route": "canonical_planning",
+      "target_id": "input.validate",
+      "request": {
+        "scenario_id": "input_validation_error",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-INPUT-API-001",
+        "observed_code": "ERR-INPUT-API-001",
+        "detection_kind": "http_rejection",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "REQUEST_BLOCKED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "HTTP 422 및 원인별 응답 계약을 확인해야 함. 기존 oracle는 422만 확인."
+    },
+    {
+      "case_id": "F04-safe_stop-once",
+      "scenario_id": "input_validation_error",
+      "route": "canonical_planning",
+      "target_id": "input.validate",
+      "request": {
+        "scenario_id": "input_validation_error",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-INPUT-API-001",
+        "observed_code": "ERR-INPUT-API-001",
+        "detection_kind": "http_rejection",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "REQUEST_BLOCKED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "HTTP 422 및 원인별 응답 계약을 확인해야 함. 기존 oracle는 422만 확인."
+    },
+    {
+      "case_id": "F05-current_active-once",
+      "scenario_id": "input_guard_blocked",
+      "route": "canonical_planning",
+      "target_id": "input.guard",
+      "request": {
+        "scenario_id": "input_guard_blocked",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SEC-INPUT-001",
+        "observed_code": "ERR-SEC-INPUT-001",
+        "detection_kind": "http_rejection",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "REQUEST_BLOCKED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "HTTP 422 및 원인별 응답 계약을 확인해야 함. 기존 oracle는 422만 확인."
+    },
+    {
+      "case_id": "F05-safe_stop-once",
+      "scenario_id": "input_guard_blocked",
+      "route": "canonical_planning",
+      "target_id": "input.guard",
+      "request": {
+        "scenario_id": "input_guard_blocked",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SEC-INPUT-001",
+        "observed_code": "ERR-SEC-INPUT-001",
+        "detection_kind": "http_rejection",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "REQUEST_BLOCKED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "HTTP 422 및 원인별 응답 계약을 확인해야 함. 기존 oracle는 422만 확인."
+    },
+    {
+      "case_id": "F06-current_active-once",
+      "scenario_id": "response_guard_blocked",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "response_guard_blocked",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SEC-OUTPUT-001",
+        "observed_code": "ERR-SEC-OUTPUT-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F06-safe_stop-once",
+      "scenario_id": "response_guard_blocked",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "response_guard_blocked",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SEC-OUTPUT-001",
+        "observed_code": "ERR-SEC-OUTPUT-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F07-current_active-once",
+      "scenario_id": "tool_permission_denied",
+      "route": "canonical_planning",
+      "target_id": "tool.validate",
+      "request": {
+        "scenario_id": "tool_permission_denied",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SEC-TOOL-001",
+        "observed_code": "ERR-SEC-TOOL-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F07-safe_stop-once",
+      "scenario_id": "tool_permission_denied",
+      "route": "canonical_planning",
+      "target_id": "tool.validate",
+      "request": {
+        "scenario_id": "tool_permission_denied",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SEC-TOOL-001",
+        "observed_code": "ERR-SEC-TOOL-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F08-current_active-once",
+      "scenario_id": "unsupported_capability",
+      "route": "canonical_planning",
+      "target_id": "scope.fixture",
+      "request": {
+        "scenario_id": "unsupported_capability",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SCOPE-CHECK-001",
+        "observed_code": "ERR-SCOPE-CHECK-001",
+        "detection_kind": "business_finding",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "COMPLETED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": "NEEDS_DEVELOPMENT",
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "finding.blocks_runtime=true. 예외 복구 성공으로 집계하지 않음."
+    },
+    {
+      "case_id": "F08-safe_stop-once",
+      "scenario_id": "unsupported_capability",
+      "route": "canonical_planning",
+      "target_id": "scope.fixture",
+      "request": {
+        "scenario_id": "unsupported_capability",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-SCOPE-CHECK-001",
+        "observed_code": "ERR-SCOPE-CHECK-001",
+        "detection_kind": "business_finding",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "COMPLETED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": "NEEDS_DEVELOPMENT",
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "finding.blocks_runtime=true. 예외 복구 성공으로 집계하지 않음."
+    },
+    {
+      "case_id": "F09-current_active-once",
+      "scenario_id": "game_data_unavailable",
+      "route": "canonical_planning",
+      "target_id": "scope.fixture",
+      "request": {
+        "scenario_id": "game_data_unavailable",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DATA-CONTEXT-001",
+        "observed_code": "ERR-DATA-CONTEXT-001",
+        "detection_kind": "business_finding",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "COMPLETED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": "NEEDS_DATA",
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "finding.blocks_runtime=true. 예외 복구 성공으로 집계하지 않음."
+    },
+    {
+      "case_id": "F09-safe_stop-once",
+      "scenario_id": "game_data_unavailable",
+      "route": "canonical_planning",
+      "target_id": "scope.fixture",
+      "request": {
+        "scenario_id": "game_data_unavailable",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DATA-CONTEXT-001",
+        "observed_code": "ERR-DATA-CONTEXT-001",
+        "detection_kind": "business_finding",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "COMPLETED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": "NEEDS_DATA",
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "finding.blocks_runtime=true. 예외 복구 성공으로 집계하지 않음."
+    },
+    {
+      "case_id": "F10-current_active-once",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-current_active-first_n-2",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-current_active-first_n-3",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-current_active-first_n-4",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-current_active-always",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-safe_stop-once",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-retry_allowed-once",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-retry_allowed-first_n-2",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-retry_allowed-first_n-3",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-retry_allowed-first_n-4",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F10-retry_allowed-always",
+      "scenario_id": "planner_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "planner_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-PLANNER-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-current_active-once",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-current_active-first_n-2",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-current_active-first_n-3",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-current_active-first_n-4",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-current_active-always",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-safe_stop-once",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-retry_allowed-once",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-retry_allowed-first_n-2",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-retry_allowed-first_n-3",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-retry_allowed-first_n-4",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F11-retry_allowed-always",
+      "scenario_id": "critic_output_invalid",
+      "route": "canonical_planning",
+      "target_id": "critic.response",
+      "request": {
+        "scenario_id": "critic_output_invalid",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-CRITIC-001",
+        "observed_code": "ERR-CONTRACT-CRITIC-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F12-current_active-once",
+      "scenario_id": "handoff_contract_invalid",
+      "route": "canonical_planning",
+      "target_id": "handoff.validate",
+      "request": {
+        "scenario_id": "handoff_contract_invalid",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-HANDOFF-001",
+        "observed_code": "ERR-CONTRACT-HANDOFF-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F12-safe_stop-once",
+      "scenario_id": "handoff_contract_invalid",
+      "route": "canonical_planning",
+      "target_id": "handoff.validate",
+      "request": {
+        "scenario_id": "handoff_contract_invalid",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CONTRACT-HANDOFF-001",
+        "observed_code": "ERR-CONTRACT-HANDOFF-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-current_active-once",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-current_active-first_n-2",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-current_active-first_n-3",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-current_active-first_n-4",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-current_active-always",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-safe_stop-once",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-retry_allowed-once",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-retry_allowed-first_n-2",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-retry_allowed-first_n-3",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-retry_allowed-first_n-4",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F13-retry_allowed-always",
+      "scenario_id": "event_brief_mismatch",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "event_brief_mismatch",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-PLANNER-001",
+        "observed_code": "ERR-DOMAIN-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-current_active-once",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-current_active-first_n-2",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-current_active-first_n-3",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-current_active-first_n-4",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-current_active-always",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-safe_stop-once",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-retry_allowed-once",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-retry_allowed-first_n-2",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-retry_allowed-first_n-3",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-retry_allowed-first_n-4",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F14-retry_allowed-always",
+      "scenario_id": "mission_unreachable",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "mission_unreachable",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-RULE-001",
+        "observed_code": "ERR-DOMAIN-RULE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-current_active-once",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-current_active-first_n-2",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-current_active-first_n-3",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-current_active-first_n-4",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-current_active-always",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-safe_stop-once",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-retry_allowed-once",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-retry_allowed-first_n-2",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-retry_allowed-first_n-3",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-retry_allowed-first_n-4",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F15-retry_allowed-always",
+      "scenario_id": "item_not_found",
+      "route": "legacy_task",
+      "target_id": "legacy.planner.response",
+      "request": {
+        "scenario_id": "item_not_found",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DOMAIN-REWARD-001",
+        "observed_code": "ERR-DOMAIN-REWARD-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "REVISE_PLAN",
+          "max_attempts": 3
+        },
+        "policy_actions": [
+          "RUN_AGENT",
+          "RUN_AGENT",
+          "SAFE_STOP"
+        ],
+        "terminal": "FAILED",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-current_active-once",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-current_active-first_n-2",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-current_active-first_n-3",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-current_active-first_n-4",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-current_active-always",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-safe_stop-once",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-retry_allowed-once",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-retry_allowed-first_n-2",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-retry_allowed-first_n-3",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-retry_allowed-first_n-4",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F16-retry_allowed-always",
+      "scenario_id": "llm_timeout",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_timeout",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-001",
+        "observed_code": "ERR-DEP-LLM-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F17-current_active-once",
+      "scenario_id": "llm_execution_error",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_execution_error",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-002",
+        "observed_code": "ERR-DEP-LLM-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F17-safe_stop-once",
+      "scenario_id": "llm_execution_error",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_execution_error",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-LLM-002",
+        "observed_code": "ERR-DEP-LLM-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-current_active-once",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-current_active-first_n-2",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-current_active-first_n-3",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-current_active-first_n-4",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-current_active-always",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-safe_stop-once",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-retry_allowed-once",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-retry_allowed-first_n-2",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-retry_allowed-first_n-3",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-retry_allowed-first_n-4",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F18-retry_allowed-always",
+      "scenario_id": "mcp_timeout",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_timeout",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-001",
+        "observed_code": "ERR-DEP-MCP-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-current_active-once",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-current_active-first_n-2",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-current_active-first_n-3",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-current_active-first_n-4",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "current_active",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-current_active-always",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-safe_stop-once",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-retry_allowed-once",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-retry_allowed-first_n-2",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 2
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 3,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-retry_allowed-first_n-3",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 3
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-retry_allowed-first_n-4",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "retry_allowed",
+        "pattern": "first_n",
+        "first_n": 4
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F19-retry_allowed-always",
+      "scenario_id": "mcp_tool_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_event_capabilities.call",
+      "request": {
+        "scenario_id": "mcp_tool_error",
+        "profile": "retry_allowed",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-002",
+        "observed_code": "ERR-DEP-MCP-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F20-current_active-once",
+      "scenario_id": "mcp_game_rules_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_game_rules.call",
+      "request": {
+        "scenario_id": "mcp_game_rules_error",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-003",
+        "observed_code": "ERR-DEP-MCP-003",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "TOOL_FALLBACK"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 1,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "Primary 1회 실패 뒤 fallback. 두 번째 Primary 조회는 별도 콘텐츠 조회이며 재시도가 아님."
+    },
+    {
+      "case_id": "F20-safe_stop-once",
+      "scenario_id": "mcp_game_rules_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_game_rules.call",
+      "request": {
+        "scenario_id": "mcp_game_rules_error",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-003",
+        "observed_code": "ERR-DEP-MCP-003",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "Primary 1회 실패 뒤 fallback. 두 번째 Primary 조회는 별도 콘텐츠 조회이며 재시도가 아님."
+    },
+    {
+      "case_id": "F20-retry_allowed-once",
+      "scenario_id": "mcp_game_rules_error",
+      "route": "canonical_planning",
+      "target_id": "mcp.get_game_rules.call",
+      "request": {
+        "scenario_id": "mcp_game_rules_error",
+        "profile": "retry_allowed",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-DEP-MCP-003",
+        "observed_code": "ERR-DEP-MCP-003",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "TOOL_FALLBACK"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 1,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "Primary 1회 실패 뒤 fallback. 두 번째 Primary 조회는 별도 콘텐츠 조회이며 재시도가 아님."
+    },
+    {
+      "case_id": "F21-current_active-once",
+      "scenario_id": "db_connection_error",
+      "route": "canonical_planning",
+      "target_id": "storage.write",
+      "request": {
+        "scenario_id": "db_connection_error",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-STORE-DB-001",
+        "observed_code": "ERR-STORE-DB-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_OPERATION",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY"
+        ],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 2,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F21-safe_stop-once",
+      "scenario_id": "db_connection_error",
+      "route": "canonical_planning",
+      "target_id": "storage.write",
+      "request": {
+        "scenario_id": "db_connection_error",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-STORE-DB-001",
+        "observed_code": "ERR-STORE-DB-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F22-current_active-once",
+      "scenario_id": "db_write_outcome_unknown",
+      "route": "canonical_planning",
+      "target_id": "storage.commit_ack",
+      "request": {
+        "scenario_id": "db_write_outcome_unknown",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-STORE-DB-002",
+        "observed_code": "ERR-STORE-DB-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "commit 결과 조회 후 같은 결과 반환. 쓰기 재시도/중복 결과 금지."
+    },
+    {
+      "case_id": "F22-safe_stop-once",
+      "scenario_id": "db_write_outcome_unknown",
+      "route": "canonical_planning",
+      "target_id": "storage.commit_ack",
+      "request": {
+        "scenario_id": "db_write_outcome_unknown",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-STORE-DB-002",
+        "observed_code": "ERR-STORE-DB-002",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "commit 결과 조회 후 같은 결과 반환. 쓰기 재시도/중복 결과 금지."
+    },
+    {
+      "case_id": "F23-current_active-once",
+      "scenario_id": "trace_write_error",
+      "route": "canonical_planning",
+      "target_id": "trace.write",
+      "request": {
+        "scenario_id": "trace_write_error",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-OBS-TRACE-001",
+        "observed_code": "ERR-OBS-TRACE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F23-safe_stop-once",
+      "scenario_id": "trace_write_error",
+      "route": "canonical_planning",
+      "target_id": "trace.write",
+      "request": {
+        "scenario_id": "trace_write_error",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-OBS-TRACE-001",
+        "observed_code": "ERR-OBS-TRACE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F24-current_active-always",
+      "scenario_id": "recovery_limit_exceeded",
+      "route": "canonical_planning",
+      "target_id": "planner.response",
+      "request": {
+        "scenario_id": "recovery_limit_exceeded",
+        "profile": "current_active",
+        "pattern": "always",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CTRL-LIMIT-001",
+        "observed_code": "ERR-CONTRACT-PLANNER-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "RETRY_AGENT",
+          "max_attempts": 4
+        },
+        "policy_actions": [
+          "RETRY",
+          "RETRY",
+          "RETRY",
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 4,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "선택 코드 LIMIT과 실제 관측 원인 PLANNER 코드를 구분."
+    },
+    {
+      "case_id": "F25-current_active-once",
+      "scenario_id": "supervisor_state_conflict",
+      "route": "canonical_planning",
+      "target_id": "workflow.cas",
+      "request": {
+        "scenario_id": "supervisor_state_conflict",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CTRL-STATE-001",
+        "observed_code": "ERR-CTRL-STATE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "충돌 요청 거절과 기존 승자 상태 불변; 승인 대기 유지."
+    },
+    {
+      "case_id": "F25-safe_stop-once",
+      "scenario_id": "supervisor_state_conflict",
+      "route": "canonical_planning",
+      "target_id": "workflow.cas",
+      "request": {
+        "scenario_id": "supervisor_state_conflict",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CTRL-STATE-001",
+        "observed_code": "ERR-CTRL-STATE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [],
+        "terminal": "WAITING_APPROVAL",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": "충돌 요청 거절과 기존 승자 상태 불변; 승인 대기 유지."
+    },
+    {
+      "case_id": "F26-current_active-once",
+      "scenario_id": "llm_budget_exceeded",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_budget_exceeded",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CTRL-BUDGET-001",
+        "observed_code": "ERR-CTRL-BUDGET-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F26-safe_stop-once",
+      "scenario_id": "llm_budget_exceeded",
+      "route": "canonical_planning",
+      "target_id": "planner.call",
+      "request": {
+        "scenario_id": "llm_budget_exceeded",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CTRL-BUDGET-001",
+        "observed_code": "ERR-CTRL-BUDGET-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F27-current_active-once",
+      "scenario_id": "workflow_deadline_exceeded",
+      "route": "canonical_planning",
+      "target_id": "workflow.deadline",
+      "request": {
+        "scenario_id": "workflow_deadline_exceeded",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CTRL-DEADLINE-001",
+        "observed_code": "ERR-CTRL-DEADLINE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F27-safe_stop-once",
+      "scenario_id": "workflow_deadline_exceeded",
+      "route": "canonical_planning",
+      "target_id": "workflow.deadline",
+      "request": {
+        "scenario_id": "workflow_deadline_exceeded",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-CTRL-DEADLINE-001",
+        "observed_code": "ERR-CTRL-DEADLINE-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F28-current_active-once",
+      "scenario_id": "unknown_error",
+      "route": "canonical_planning",
+      "target_id": "workflow.execute",
+      "request": {
+        "scenario_id": "unknown_error",
+        "profile": "current_active",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-UNKNOWN-WORKFLOW-001",
+        "observed_code": "ERR-UNKNOWN-WORKFLOW-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    },
+    {
+      "case_id": "F28-safe_stop-once",
+      "scenario_id": "unknown_error",
+      "route": "canonical_planning",
+      "target_id": "workflow.execute",
+      "request": {
+        "scenario_id": "unknown_error",
+        "profile": "safe_stop",
+        "pattern": "once",
+        "first_n": 1
+      },
+      "expected": {
+        "catalog_code": "ERR-UNKNOWN-WORKFLOW-001",
+        "observed_code": "ERR-UNKNOWN-WORKFLOW-001",
+        "detection_kind": "exception_or_validation",
+        "policy_rule": {
+          "action": "SAFE_STOP",
+          "max_attempts": 1
+        },
+        "policy_actions": [
+          "SAFE_STOP"
+        ],
+        "terminal": "SAFE_STOP",
+        "target_attempts": 1,
+        "fallback_calls": 0,
+        "finding": null,
+        "runtime_writes": 0,
+        "policy_restored": true
+      },
+      "ui_checks": [
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "U5",
+        "U6",
+        "U7",
+        "U8"
+      ],
+      "execution_state": "PLANNED",
+      "expectation_note": ""
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Infra·네트워크·운영 설계
 
+> 2026-10-11 실행 경계 보완: loopback bind와 전체 업무 API의 로컬 클라이언트 검사를 함께 적용한다. 로컬 실행 worker는 DB operation owner/lease/deadline으로 중단을 추적하고 재기동 시 만료 실행을 정리한다. 자동 재개·외부 queue·Redis는 이번 필수 범위가 아니다. 상세는 [Workflow 수정 계획 §3.3~3.6](14_Workflow_검사결과_설계보완_수정계획.md)를 따른다.
+
 ## 1. 목적과 경계
 
 로컬 중심 시스템이 API, PostgreSQL, 선택적 Redis, LLM/MCP dependency와 안전하게 통신하고, 장애를 격리·관찰·복구하는 기준을 정한다. 구체 AWS/Docker/GitHub Actions 구성과 운영 환경 값은 별도 구현 계획 및 배포 설계에서 실제 저장소·계정 구성을 확인한 뒤 확정한다.
@@ -61,3 +63,19 @@ Health endpoint는 비밀·내부 상세 없이 서비스 준비 상태를 반�
 ## 8. 참조
 
 [전체 시스템 최상위 설계 §13–15](../최상위_시스템_설계서.md), [API·저장·Trace](06_API_저장_Trace_설계.md), [오류 복구 정책](05_오류분류_복구정책_설계.md), [통합 검증](09_통합검증_설계.md)를 따른다.
+
+
+## 로컬 Workflow 실행·검증 경계 (2026-10-11)
+
+[수정 계획 14 §7](14_Workflow_검사결과_설계보완_수정계획.md#7-2026-10-11-구현검증-기록)을 따른다. 백엔드는 loopback에 실행하며 Docker bridge 주소를 인증 예외로 허용하지 않는다. Edge E2E의 backend도 로컬 venv Python 프로세스로 실행한다. DB는 격리된 Docker PostgreSQL, migration/pytest runner는 캐시된 테스트 이미지다. MCP HTTP 오류 opt-in fixture만 별도 격리 endpoint를 사용한다.
+
+실행 worker는 2개, 접수 용량은 4개, 전체 deadline은 180초다. DB 예약은 process 간 공유하며 endpoint 재시도는 기존 실행을 조회한다. 15초마다 만료 정리를 하고 GET에서도 확인한다. 중단한 작업을 자동 이어 실행하지 않는다. 테스트 종료 시 스크립트가 직접 생성한 process만 종료하고 임시 환경변수를 복원한다. Playwright는 worker 1개로 실행해 같은 DB의 최신 기록 경합과 브라우저 자원 중복을 피한다.
+
+기본 집중 검증 명령:
+
+```powershell
+.\infra\test-local.ps1 -TestPath backend/tests -TestName 'workflow_execution or recovery_with_real_repository or runtime_trace_write_recovery or planning_lifecycle_trace'
+.\infra\e2e-local.ps1 -ApiPort 8015 -UiPort 5195 -Browser edge -TestName 'durable asynchronous workflow connects' -VerifyRestart
+```
+
+검증은 `eventquest_auto_test`만 대상으로 하며 사용자 DB/Edge 검토 DB는 변경하지 않는다. 명령의 성공 여부와 최종 확인 결과는 수정 계획의 기록을 확인한다. 현재 변경에 CI/CD나 Redis는 포함하지 않는다.

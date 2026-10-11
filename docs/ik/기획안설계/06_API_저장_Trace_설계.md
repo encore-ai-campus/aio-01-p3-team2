@@ -1,12 +1,24 @@
 # API·저장·Trace 설계
 
+## 2026-10-11 정책 오류 응답 보완
+
+POST `/api/v1/event-briefs`의 활성 정책 누락/계약 불일치는 Workflow 실행 전 **HTTP 503, detail.code=RECOVERY_POLICY_INVALID**로 응답한다. 입력 검증 오류 및 RUNTIME_CATALOG_UNAVAILABLE와 구분한다. 활성 정책은 자동 덮어쓰지 않고 운영자의 초안→검증→미리보기→활성화를 유지한다. MCP fallback과 설명 수정의 Supervisor 복구 결정도 다음 command 실행 전에 상태/Trace에 저장한다. [실제 적용 범위 §6](15_오류대응정책_Workflow_연결_재검사.md#6-정책-연결-보완-구현)을 따른다.
+
+> 2026-10-11 검사 후 보완: 아래 내용은 설계 기준이며 구현 완료 선언이 아니다. 최신 보완 계약은 [Workflow 수정 계획 §3.2](14_Workflow_검사결과_설계보완_수정계획.md), 현재 사실은 [현재 구현 상태](../현재_구현상태.md)를 따른다.
+
+## 검사 후 추가 적용 기준
+
+승인 결정/Runtime 업무 변경과 Supervisor snapshot·decision·Trace·멱등 결과를 동일 PostgreSQL transaction으로 저장한다. 복구 결정도 최상위 권위 버전으로 저장한다. 생성 중 실행 예약·owner/lease/deadline과 UNKNOWN 재조정 절차를 추가한다. 현재 코드가 모두 충족한다는 뜻은 아니다.
+
+구체 변경 위치·의존 순서·검증 증거는 [수정 작업 §4 및 검증 §5](14_Workflow_검사결과_설계보완_수정계획.md#4-구현-순서와-변경-범위)에 연결한다. 기존 계약과 중복되면 이번 보완의 더 엄격한 저장·접근·검증 조건을 적용한다.
+
 ## 1. 목적과 범위
 
 기획 요청부터 결과, 복구 정책 결정과 승인 후 Runtime 반영 요청까지의 API 경계와 데이터 소유권을 정한다. 구체 URL·SQL migration·JSON Schema 파일은 구현 계획 단계에서 이 논리 계약을 실제 저장소 구조에 맞춰 확정한다.
 
 ## 2. 현재 구현 기준
 
-현재는 canonical 기획 API와 가상 게임 Runtime API가 별도 자원이지만 같은 PostgreSQL을 사용한다. Brief/Plan은 canonical workflow record로 저장하고, 결정은 immutable decision row로 저장한다. 승인·Runtime 등록은 별도 append-only lifecycle event로 같은 Workflow 조회에 합쳐 반환한다. 이 Trace는 UI 메모리에서 만들어내지 않는다. E2E 검증 및 아직 미완료인 전체 Trace 계약 범위는 [현재 구현 상태](../현재_구현상태.md), 적용 경계는 [게임 이벤트 적용 계약](../게임설계/05_이벤트적용_계약.md)를 기준으로 한다.
+현재는 canonical 기획 API와 가상 게임 Runtime API가 별도 자원이지만 같은 PostgreSQL을 사용한다. Brief/Plan은 canonical workflow record로 저장하고, 결정은 immutable decision row로 저장한다. `actor_id`는 서버의 단일 operator 설정에서 도출해 decision row와 lifecycle Trace에 기록하며 요청 본문 값은 인증 근거로 사용하지 않는다. 과거 actor 미저장 결정은 migration 010에서 `legacy-unknown`으로 표시한다. 승인·Runtime 등록은 별도 append-only lifecycle event로 같은 Workflow 조회에 합쳐 반환한다. 이 Trace는 UI 메모리에서 만들어내지 않는다. E2E 검증 및 아직 미완료인 전체 Trace 계약 범위는 [현재 구현 상태](../현재_구현상태.md), 적용 경계는 [게임 이벤트 적용 계약](../게임설계/05_이벤트적용_계약.md)를 기준으로 한다.
 
 ## 3. 원칙과 권위 데이터
 
@@ -31,7 +43,7 @@
 | `/plans` | GET 결과/버전 조회 | `plan_id`, `result_version`, runtime eligibility, findings, evidence 및 고정 context 버전 |
 | `/decisions` | POST 승인/거절 | 승인 대상 `plan_id/result_version`, 결정, 선택적 코멘트, `Idempotency-Key`; 최신 결과·사용자 권한 재검사 |
 | `/runtime-events` | POST 승인 결과 등록 요청, GET 등록 상태 | 승인된 Plan version을 `source_task_id + result_version`으로 해석해 게임 적용 계약에 전달; idempotency key와 adapter 결과 반환 |
-| `/recovery-policies` | GET 버전 조회, POST draft/validate/preview/activate/rollback | immutable version, schema/replay 결과, 영향 요약, actor·시각; 활성화/rollback은 `Idempotency-Key` 필요 |
+| `/recovery-policies` | GET 버전 조회, POST draft/validate/preview/activate/rollback | GET은 immutable version·감사 기록·hard cap과 동일 오류 registry에서 만든 `error_catalog`(category, location, retry_class, 안전 메시지)을 반환한다. 변경은 schema/replay 결과, 영향 요약, actor·시각을 기록하며 활성화/rollback은 `Idempotency-Key` 필요. 활성화/rollback 결과는 동일 transaction의 operation 원장으로 회수한다 |
 | `/traces` | GET Workflow/Task/Error 이벤트 조회 | correlation 필터, 안전한 요약; 제한 상세는 별도 권한 및 감사 기록 |
 
 기본 API prefix는 `/api/v1`로 제안한다. 실제 framework route naming은 기존 앱과 충돌 여부를 확인해 구현 계획에서 매핑하지만, 동작 의미·필수 필드·응답 결과 의미를 바꾸지 않는다. Workflow 시작은 비동기 `202 Accepted`와 `workflow_id`를 반환하고, 동기 validation failure는 4xx, 처리 중 dependency failure는 해당 Workflow의 terminal state로 기록한다. 사용자 재개 입력은 기존 Workflow를 덮어쓰지 않고 명시적인 resume command/version으로 기록한다.
@@ -70,13 +82,17 @@ Runtime 등록은 `runtime_eligible=true`, 승인된 동일 `plan_id/result_vers
 - Redis 캐시 허용 후보: 버전 지정 게임 카탈로그, 정적 규칙, 읽기 전용 capability lookup. key에 데이터 버전을 포함하고 TTL/명시적 무효화 방식을 둔다.
 - 최신 정책, 승인 여부, 사용자 잔액, 미션 진행도, idempotency 결과는 캐시만으로 판정하지 않는다.
 
+복구 정책 activate/rollback은 migration `011_policy_operation_idempotency.sql`의 `recovery_policy_operations`에 actor·operation·key·request hash·응답을 업무 변경 및 감사 row와 같은 PostgreSQL transaction으로 기록한다. 같은 키와 같은 대상은 저장 응답을 반환하고, 같은 키를 다른 버전에 재사용하면 conflict다. transaction advisory lock으로 동일 키의 동시 요청을 직렬화한다. commit 예외가 발생하면 새 연결에서 원장을 조회하고, 결과 확인도 불가능하면 `POLICY_OPERATION_RESULT_UNAVAILABLE`로 안전 응답한다. UI는 재시도 키와 요청 fingerprint를 sessionStorage에 유지해 페이지 새로고침 후에도 같은 요청을 재전송한다. PostgreSQL API 통합 검증은 commit 후 응답 유실, 동일 키 결과 회수, 변경·감사 단일 저장, 다른 버전 충돌을 확인한다.
+
 ## 7. Trace 계약
 
 최소 이벤트 필드: `event_id`, `occurred_at`, `trace_id`, `workflow_id`, nullable `task_id`/`parent_task_id`, `event_type`, `phase`, `component`, `status`, `attempt`, `revision`, `plan_version`, `domain_schema_version`, `event_schema_version`, `game_data_snapshot_id`, `game_ruleset_version`, `capability_catalog_version`, `balance_policy_version`, `recovery_policy_version`, `error_code`, `reason_code`, `duration_ms`, `safe_attributes`. LLM invocation event에는 추가로 `provider`, `model_id`, `model_config_version`, `prompt_template_id/version`, `prompt_record_id`, `input_tokens`, `output_tokens`, `reported_cost`와 `pricing_version`을 기록한다. Provider가 token/cost 사용량을 반환하지 않는 경우 null과 사유를 기록하고 추정 사용량을 실제값으로 표시하지 않는다.
 
 Trace는 요청 접수→task/handoff→검증/평가→복구 정책 결정→사람 결정→Plan→Runtime 등록 순서를 연결한다. 화면에 보여주는 단계 수는 사전 고정값이 아니라 실제 발생 이벤트와 현재 workflow 상태에서 계산한다. 기록 실패 시 필수 감사 이벤트는 업무 성공으로 표시하지 않는다.
 
-현재 구현은 계획 생성 시의 immutable Trace와 승인·등록 이후의 `canonical_planning_events`를 Workflow 조회 시 시간순으로 합친다. 결정 이벤트 dedupe key는 workflow/plan version을, Runtime 등록 이벤트 dedupe key는 `runtime_event_id`를 기준으로 한다. Runtime 등록 후 API가 이벤트 Trace를 쓰지 못한 경우 요청은 실패로 반환되며, 같은 Runtime 등록을 다시 읽은 재요청에서 같은 event key로 기록을 보완한다. 전체 공통 Trace envelope의 모든 설계 필드와 불명확한 DB commit의 전 범위 outcome lookup은 아직 후속 수용 대상이다.
+현재 구현은 계획 생성 시의 immutable Trace와 승인·등록 이후의 `canonical_planning_events`를 Workflow 조회 시 시간순으로 합친다. 결정 이벤트 dedupe key는 workflow/plan version을, Runtime 등록 이벤트 dedupe key는 `runtime_event_id`를 기준으로 한다. Runtime 등록의 commit ACK 유실은 `request_id`로 저장 결과를 다시 조회해 회수하고, 후속 lifecycle Trace 쓰기가 실패하면 업무 상태 `APPLIED`와 `runtime_event_id`를 응답·Workflow 조회에 보존한다. 같은 등록 요청의 재시도는 Runtime 이벤트를 중복 생성하지 않고 누락된 Trace를 같은 dedupe key로 보완한다. PostgreSQL 통합 검사는 commit ACK 유실 후 replay와 두 번 연속 Trace 실패 후 세 번째 요청의 복구를 확인한다. Brief 생성은 idempotency key와 canonical body hash로 이미 저장된 workflow를 읽기 전용 조회해 commit ACK 유실 결과를 회수하며 Agent를 재실행하지 않는다. 승인/거절 결정과 정책 초안 저장은 같은 키로 결과 확인 재시도를 하고, 확인할 수 없으면 안전한 503을 반환한다. UI는 Brief/결정/Runtime Apply의 재시도 키를 sessionStorage에 유지하고 저장된 workflow/result 확인 후 제거한다. PostgreSQL 통합 검사는 Brief와 결정의 commit ACK 유실 및 단일 저장을, Edge E2E는 Brief/결정 재시도와 Apply 응답 유실 후 reload/replay를 확인한다. 이는 애플리케이션 예외로 commit ACK 유실을 재현한 검증이다. 강제 네트워크 단절, 장기/영구 Trace 장애의 결과 조회, 전체 공통 Trace envelope의 필드 추적성은 아직 수용되지 않았다.
+
+2026-10-11 Supervisor 상태 통합: Task `traces`와 canonical lifecycle event는 `state_version`/`expected_state_version`을 검사하고 결정 snapshot과 Trace를 한 DB transaction에 추가한다. Task Trace migration `015_task_trace_state_version_cas.sql`은 기존 JSON payload의 버전을 열로 이관하고 `(task_id, state_version)` unique index를 추가한다. 오래된 worker의 버전은 `ERR-CTRL-STATE-001`로 거부하며 무조건 재시도하지 않는다. 격리 PostgreSQL에서 서로 다른 repository instance가 stale version을 제출하면 거부되고, 최신 snapshot을 읽은 다음 버전 결정은 저장되는 것을 확인했다. 실제 다중 process 동시 경쟁은 별도 운영 부하 검증이다.
 
 ## 8. 보존·마스킹·환경 설정
 
@@ -91,3 +107,23 @@ Redis는 첫 로컬 MVP의 필수 의존성으로 두지 않으며, 캐시가 �
 - Runtime eligibility와 승인 버전이 서버 경계에서 재검증됨
 - 캐시 장애·DB 쓰기 결과 불명·Trace 기록 실패의 동작이 정의됨
 - [계약 설계](01_기획안_게임기능_계약_설계.md), [Workflow 설계](02_멀티에이전트_Workflow_설계.md), [오류 복구 설계](05_오류분류_복구정책_설계.md), [보안 설계](04_보안_권한_설계.md)를 따른다.
+
+
+## 10. Workflow 수정 후 실제 계약 (2026-10-11)
+
+설계 보충과 실행 증거는 [수정 계획 14 §7](14_Workflow_검사결과_설계보완_수정계획.md#7-2026-10-11-구현검증-기록)을 따른다.
+
+| 실제 endpoint/저장 | 계약 |
+|---|---|
+| `POST /api/v1/event-briefs` | `Idempotency-Key`; UI는 `Prefer: respond-async`로 202 및 Location/Workflow ID를 받는다. sync 호환은 같은 DB 예약 경로에서 완료 결과 201. 같은 key·다른 hash는 409 |
+| `GET /api/v1/workflows/{id}` | 생성 중 마지막 확정 state/Trace, 종료 후 Plan/승인/Runtime 결과. `reconciliation_required`, `actual_effects`로 저장 상태와 실제 효과를 구분 |
+| `POST /api/v1/workflows/{id}/cancel` | `expected_state_version` 정수. active 실행만 Supervisor CANCELLED로 변경; 이미 취소한 요청은 같은 결과 반환. 만료·완료 상태나 stale version은 conflict |
+| `POST /api/v1/workflows/{id}/reconcile` | `expected_state_version`와 `Idempotency-Key`. 저장 승인과 실제 Runtime 등록 근거로 상태/Trace만 연결. 이벤트·보상 재실행 없음 |
+| `workflow_operations` | migration `016`. key PK, Workflow unique, hash, owner, deadline, operation status, JSON snapshot·Trace. canonical 최종 결과와 FINISHED 전환을 같은 transaction에 저장 |
+| 기존 Task Trace | nested recovery 목록을 권위 version 행으로 펼쳐 함께 commit. `new = expected + 1`, 같은 event/decision replay. `phase=handoff`, `recovery_policy_ref`는 추가된 필드 |
+| DB 장애 응답 | mutation의 저장 결과를 확인할 수 없으면 503 + `operation_status=UNKNOWN`, 같은 key로 확인. read는 UNAVAILABLE. SQL/접속 정보는 응답하지 않음 |
+
+승인과 Runtime 쓰기는 공유 `session_scope`로 업무 상태·전이·Trace·멱등 원장을 함께 기록한다. Agent/MCP 대기 중에는 transaction을 유지하지 않는다. active 정책은 실행 시작에 고정하며 policy/catalog/hard-limit hash를 참조한다. token/cost 한도와 공개 단가·pricing version도 hard-limit fingerprint에 포함한다.
+
+
+기존 동기 Task/오류 시연 경로의 실행 owner·deadline은 Task JSON에 내부 필드로 저장하고 외부 응답에서는 제외한다. 생성/수정 시작 시 180초 deadline을 부여하며 결과 저장 직전 row lock 아래 owner·deadline을 검사한다. 만료 시 Supervisor SAFE_STOP, Task FAILED 투영, Trace와 owner 해제를 같은 transaction으로 기록한다. 과거 레코드는 updated_at 기준으로 만료를 판단한다. 공유 Task 저장과 Trace 저장 후 오류가 발생하면 양쪽 모두 rollback된다. 프로세스 중단·늦은 결과·반복 정리 검증은 수정 계획 14 §7을 따른다.
