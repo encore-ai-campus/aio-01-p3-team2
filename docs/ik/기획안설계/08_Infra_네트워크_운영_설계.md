@@ -1,6 +1,6 @@
 # Infra·네트워크·운영 설계
 
-> 2026-10-12 배포 계획 보충: 로컬 구현 경계는 유지하며 AWS 시연용 container/ingress/DB 격리·CI/CD·migration/rollback을 [배포 계획 23](23_AWS_배포_CICD_계획.md)로 구체화했다. 최신 권장안은 EC2 6대·private RDS·Parameter Store, 웹만 공개하고 내부 서버 outbound는 NAT 1개로 처리하는 구조다. §4에 시간당 비용, §12에 생성·최종 종료·데이터 보존 후 정리 계약을 둔다. cloud proxy 인증, 시험 DB 정체 검증, 이미지 package와 Linux CI 보완 및 AWS 생성/삭제는 아직 구현 전이다. 아래 로컬 실행 계약을 AWS에서 그대로 충족했다고 해석하지 않는다.
+> 2026-10-12 배포 계획 보충: 로컬 구현 경계는 유지하며 AWS 시연용 container/ingress/DB 격리·CI/CD·migration/rollback을 [배포 계획 23](23_AWS_배포_CICD_계획.md)로 구체화했다. 최신 권장안은 EC2 6대·private RDS·Parameter Store, 웹만 공개하고 내부 서버 outbound는 NAT 1개로 처리하는 구조다. §4에 시간당 비용, §12에 생성·최종 종료·데이터 보존 후 정리 계약을 둔다. cloud proxy 인증과 RDS DB 정체·권한/TLS 검증·초기화 기반은 구현 후 로컬 검증했다. 최신 범위는 [구현 계획 24 §12](24_AWS_배포_CICD_구현계획.md#12-rds-tlsdb-권한초기-데이터-준비-구현-2026-10-12)를 따른다. 이미지 package·Linux CI·AWS 수용·생성/삭제는 남아 있다. 아래 로컬 실행 계약을 AWS에서 그대로 충족했다고 해석하지 않는다.
 
 > 2026-10-11 실행 경계 보완: loopback bind와 전체 업무 API의 로컬 클라이언트 검사를 함께 적용한다. 로컬 실행 worker는 DB operation owner/lease/deadline으로 중단을 추적하고 재기동 시 만료 실행을 정리한다. 자동 재개·외부 queue·Redis는 이번 필수 범위가 아니다. 상세는 [Workflow 수정 계획 §3.3~3.6](14_Workflow_검사결과_설계보완_수정계획.md)를 따른다.
 
@@ -90,3 +90,8 @@ Health endpoint는 비밀·내부 상세 없이 서비스 준비 상태를 반�
 ## 2026-10-12 migration 기반 후속 동기화
 
 cloud runtime DDL 차단과 별도 migration CLI를 구현했다. PostgreSQL은 매 검사마다 새 임시 DB를 생성·제거해 사용자 DB를 보존한다. Python inventory 65개(core 48, postgres 12, external 3, compatibility 2), JavaScript 7개. core 453 PASS / 1 SKIP, 영향 보충 29 PASS, migration PostgreSQL 4 PASS. TLS/role/권한·bootstrap·maintenance는 미완료다. 실행 계약·실험 과정·남은 범위는 [구현 계획 24 §11](24_AWS_배포_CICD_구현계획.md#11-runtime-ddl-분리migration-기반-구현-2026-10-12)을 따른다.
+
+
+## 2026-10-12 TLS·권한·bootstrap 후속 동기화
+
+cloud DB guard·6개 role/2개 DB provision·owner 초기화와 정책 hash/audit를 구현했다. core 483 PASS / 1 SKIP, 실제 임시 TLS DB·migration 14 PASS, 기존 local 승인→게임 보상 연동 2 PASS. Python inventory 67개(core 49, postgres 13, external 3, compatibility 2), JS 7개. 시험은 CLOUD_DATABASE_TESTS=true와 기존 postgres profile의 loopback test URL을 명시해야 하며 별도의 소유 컨테이너와 자체 CA를 사용한다. 실제 RDS 수용은 아직 아니다. 운영 명령·비밀 설정·권한과 보존·실험 진단/정리·남은 범위는 [구현 계획 24 §12](24_AWS_배포_CICD_구현계획.md#12-rds-tlsdb-권한초기-데이터-준비-구현-2026-10-12)를 따른다.

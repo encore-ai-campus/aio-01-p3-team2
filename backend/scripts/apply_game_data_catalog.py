@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 import psycopg
+from backend.app.config.deployment import deployment_mode
 from psycopg.types.json import Jsonb
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -26,6 +27,8 @@ def _psycopg_url(database_url: str) -> str:
 
 
 def apply_catalog(database_url: str, *, data_path: Path = DATA_PATH) -> str:
+    if deployment_mode() == "cloud":
+        raise RuntimeError("Use the explicit deployment bootstrap command in cloud mode")
     data = json.loads(data_path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise TypeError("게임 데이터는 JSON 객체여야 합니다.")

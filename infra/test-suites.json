@@ -806,6 +806,33 @@
         "test_migration_failure_rolls_back_and_concurrent_calls_serialize",
         "test_untracked_database_is_preserved"
       ]
+    },
+    {
+      "file": "backend/tests/unit/test_cloud_database.py",
+      "suite": "core",
+      "reason": "RDS transport/identity and owned TLS cluster role isolation/bootstrap contracts",
+      "test_functions": [
+        "test_role_specific_database_contract",
+        "test_invalid_transport_target_is_rejected",
+        "test_libpq_routing_override_is_rejected",
+        "test_fault_cloud_configuration_fails_closed",
+        "test_missing_cloud_database_blocks_app_before_router_imports",
+        "test_cloud_mcp_does_not_fall_back_to_seed"
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_cloud_database.py",
+      "suite": "postgres",
+      "reason": "RDS transport/identity and owned TLS cluster role isolation/bootstrap contracts",
+      "test_functions": [
+        "test_authenticated_tls_database_and_runtime_privileges",
+        "test_tls_hostname_and_ca_failures",
+        "test_bootstrap_reapply_preserves_user_balance_and_active_policy",
+        "test_cloud_policy_query_does_not_bootstrap_missing_policy",
+        "test_live_privilege_and_marker_mismatch_are_rejected",
+        "test_provision_without_superuser_and_safe_reapply",
+        "test_bootstrap_rejects_changed_catalog_and_invalid_policy"
+      ]
     }
   ],
   "javascript": [

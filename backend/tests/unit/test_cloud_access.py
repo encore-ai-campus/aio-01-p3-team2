@@ -83,6 +83,8 @@ def test_middleware_rejects_direct_and_forwarded_header_spoofing(monkeypatch):
     from backend.app.main import create_app
 
     _configure(monkeypatch)
+    # Ingress test: database verification is independently covered by cloud DB tests.
+    monkeypatch.setattr("backend.app.config.cloud_database.verify_cloud_database", lambda: None)
     headers = {"x-eventquest-proxy": "game-web", "x-eventquest-proxy-key": "g" * 32}
     with TestClient(create_app(), client=("10.0.1.11", 9000)) as client:
         assert client.get("/api/policies", headers=headers).status_code == 403

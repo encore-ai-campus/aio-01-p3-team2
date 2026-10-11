@@ -13,6 +13,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.app.config.deployment import deployment_mode
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,9 +32,11 @@ def configure_live_environment(env_path: Path | None = None) -> None:
 
 def create_app() -> FastAPI:
     """Build the API after the selected process environment is ready."""
+    from backend.app.config.cloud_database import verify_cloud_database
     from backend.app.guards.cloud_access import CloudAccess
 
     cloud_access = CloudAccess.from_environment()
+    verify_cloud_database()
     from backend.app.api.event import router as event_router
     from backend.app.api.game import router as game_router
     from backend.app.api.health import router as health_router
@@ -234,9 +238,15 @@ async def _llm_record_retention_loop() -> None:
 
 
 if __name__ == "__main__":
-    configure_live_environment()
+    if deployment_mode() == "local":
+        configure_live_environment()
 
 app = create_app()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(
+        app,
+        host="0.0.0.0" if deployment_mode() == "cloud" else "127.0.0.1",
+        port=8000,
+        proxy_headers=False,
+    )

@@ -1,0 +1,117 @@
+{
+  "policy_id": "planning.default",
+  "routes": {
+    "ERR-CONTRACT-MCP-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-SEC-CONTEXT-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-DOMAIN-PLANNER-002": {
+      "action": "REVISE_PLAN",
+      "max_attempts": 3
+    },
+    "ERR-INPUT-API-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-SEC-INPUT-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-SEC-OUTPUT-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-SEC-TOOL-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-SCOPE-CHECK-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-DATA-CONTEXT-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-CONTRACT-PLANNER-001": {
+      "action": "RETRY_AGENT",
+      "max_attempts": 4
+    },
+    "ERR-CONTRACT-CRITIC-001": {
+      "action": "RETRY_AGENT",
+      "max_attempts": 4
+    },
+    "ERR-CONTRACT-HANDOFF-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-DOMAIN-PLANNER-001": {
+      "action": "REVISE_PLAN",
+      "max_attempts": 3
+    },
+    "ERR-DOMAIN-RULE-001": {
+      "action": "REVISE_PLAN",
+      "max_attempts": 3
+    },
+    "ERR-DOMAIN-REWARD-001": {
+      "action": "REVISE_PLAN",
+      "max_attempts": 3
+    },
+    "ERR-DEP-LLM-001": {
+      "action": "RETRY_AGENT",
+      "max_attempts": 4
+    },
+    "ERR-DEP-LLM-002": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-DEP-MCP-001": {
+      "action": "RETRY_OPERATION",
+      "max_attempts": 4
+    },
+    "ERR-DEP-MCP-002": {
+      "action": "RETRY_OPERATION",
+      "max_attempts": 4
+    },
+    "ERR-DEP-MCP-003": {
+      "action": "RETRY_OPERATION",
+      "max_attempts": 4
+    },
+    "ERR-STORE-DB-001": {
+      "action": "RETRY_OPERATION",
+      "max_attempts": 4
+    },
+    "ERR-STORE-DB-002": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-OBS-TRACE-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-CTRL-LIMIT-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-CTRL-STATE-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-CTRL-BUDGET-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-CTRL-DEADLINE-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    },
+    "ERR-UNKNOWN-WORKFLOW-001": {
+      "action": "SAFE_STOP",
+      "max_attempts": 1
+    }
+  }
+}

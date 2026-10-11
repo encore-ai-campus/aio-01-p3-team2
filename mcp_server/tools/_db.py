@@ -6,11 +6,15 @@ import os
 from typing import Any
 
 import psycopg
+from backend.app.config.cloud_database import CloudDatabase
 
 
 def load_game_data_from_db() -> dict[str, Any]:
     """Read one complete game-data document; never hide database failures."""
     database_url = os.getenv("MCP_DATABASE_URL", "").strip()
+    cloud = CloudDatabase.from_environment()
+    if cloud is not None:
+        database_url = cloud.url
     if not database_url:
         raise ValueError("MCP_DATABASE_URL is required for database lookup")
     game_id = os.getenv("MCP_GAME_ID", "tiny_heroes").strip()

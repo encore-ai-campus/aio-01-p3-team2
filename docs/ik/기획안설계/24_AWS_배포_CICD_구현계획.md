@@ -87,10 +87,11 @@ flowchart TD
 | 기존 시험 | `FAULT_LAB_MODE=isolated`, `DATABASE_URL=POSTGRES_TEST_URL`은 시험 RDS DB/role을 명시. cloud guard가 확인하고 일반 CI의 local destructive guard는 유지 |
 | 기존 MCP | `MCP_DATABASE_URL`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8010`. DB catalog 사용과 Host/Origin allowlist 명시 |
 | 구현한 cloud ingress 설정 | `DEPLOYMENT_MODE=cloud`, `SERVICE_ROLE`, `CLOUD_PROXY_IDENTITIES` (사이트별 `peers` IP 목록·`secret`), `APP_ALLOWED_ORIGINS`의 HTTPS 출처 |
-| 나머지 cloud 설정(예정) | `DEPLOYMENT_ENVIRONMENT_ID`, `RDS_EXPECTED_ENDPOINT`, `EXPECTED_DATABASE_ROLE`, `DATABASE_AUTO_CREATE=false`. 개별 proxy proof는 host에서 `CLOUD_PROXY_IDENTITIES`로 묶어 주입 |
+| 구현한 cloud DB 설정 | `DEPLOYMENT_ENVIRONMENT_ID`, `RDS_EXPECTED_ENDPOINT`, `EXPECTED_DATABASE_ROLE`, `DATABASE_AUTO_CREATE=false`. URL은 정확한 role/DB/5432 endpoint와 `sslmode=verify-full`, 존재하는 절대 경로 `sslrootcert`를 포함. §12의 고정 역할을 사용 |
+| owner/bootstrap 전용 설정 | `MIGRATION_DATABASE_URL`, `RDS_BOOTSTRAP_DATABASE_URL`, `RDS_BOOTSTRAP_USER`, `DATABASE_ROLE_PASSWORDS`(6개 role별 비밀번호 JSON). runtime에 주입하지 않음 |
 | 새 저장 위치(예정) | `FAULT_LAB_JOURNAL_DIR`, deployment manifest·certificate 저장 위치. host volume 경로는 고정 whitelist |
 
-구현한 ingress 설정과 나머지 예정 설정을 구분한다. cloud entry는 `.env` 파일 없이 주입 환경을 먼저 검증하고 앱을 import하도록 구현할 예정이다. 현재 `python -m backend.app.main`의 로컬 `.env` 요구 경로를 그대로 cloud entry로 쓰지 않는다. cloud에서 DB/live 설정 누락을 메모리 저장소·mock으로 조용히 전환하지 않도록 후속 시작 검증이 필요하다.
+API와 MCP의 cloud 시작은 `.env` 로딩을 생략하고 DB 경계를 확인한다. API module 실행은 cloud에서 0.0.0.0으로 bind하며 forwarded header 해석을 끈다. DB 누락·잘못된 권한/marker·카탈로그·활성 정책은 시작 또는 readiness에서 실패한다. production image의 역할별 entry와 main live/LLM 설정 검증, MCP Host/Origin 설정은 A3에서 추가해야 한다.
 
 ### 4.3 parameter·IAM 매핑
 
@@ -114,7 +115,7 @@ bootstrap/migration은 maintenance 상태의 일반 API 호스트에서 일회�
 ## 5. DB 초기화·migration·maintenance
 
 1. 별도 bootstrap 주체가 `eventquest_demo`, `eventquest_fault_test`와 migration owner/runtime/MCP reader role을 만든다. runtime은 SUPERUSER·CREATEDB·CREATEROLE·schema CREATE·migration role 상속을 갖지 않는다. PUBLIC CONNECT와 schema 권한을 명시한다.
-2. DB별 `deployment_identity` marker에 환경 ID·DB 용도·schema 버전을 기록한다. marker와 migration ledger는 runtime SELECT만 허용한다. 시험 guard는 expected endpoint/TLS·current_database/current_user·marker·role 속성을 모두 확인하며 환경변수 하나로 통과시키지 않는다.
+2. DB별 `deployment_identity` marker에 환경 ID·DB 용도를 기록하고 schema 버전은 checksum migration ledger로 확인한다. marker와 migration ledger는 runtime SELECT만 허용한다. 시험 guard는 expected endpoint/TLS·current_database/current_user·marker·role 속성을 모두 확인하며 환경변수 하나로 통과시키지 않는다.
 3. 현재 SQL 001~016과 ORM model을 비교해 누락된 workflow/trace/시험 테이블까지 baseline manifest에 포함한다. `backend/sql`과 MCP legacy SQL을 중복 실행하지 않는다. 현재 Opong catalog 경로를 기준으로 migration·seed 목록을 고정한다.
 4. empty DB는 baseline→순차 migration, 기존 DB는 schema/version fingerprint 확인→baseline 등록→미적용 migration 순서다. checksum 불일치·알 수 없는 schema·동시 적용은 중단한다. seed는 기존 user 상태·정책을 reset하지 않는다.
 5. 최초 활성 오류 정책은 승인된 기준 버전을 검증 후 bootstrap audit로 등록한다. 정책이 없거나 invalid이면 readiness를 실패시키며 기본 정책으로 조용히 넘어가지 않는다. 재배포는 기존 활성 정책을 임의로 교체하지 않는다.
@@ -293,3 +294,58 @@ backend/.venv/Scripts/python.exe -m backend.app.deployment.migrate --purpose mai
 - Ruff 전체 lint/format 및 diff 확인을 수행했다. 실제 LLM 호출, AWS 자원 생성, 사용자 서버 재시작, push는 하지 않았다.
 
 현재 inventory는 Python 65개 파일(core 48, postgres 12, external 3, compatibility 2), JavaScript 7개다. 다음은 A1의 RDS TLS·DB/role/marker guard 및 A2의 owner/runtime 권한·bootstrap·기존 baseline 채택·공유 maintenance이며, A2 전체 완료로 표시하지 않는다.
+
+
+## 12. RDS TLS·DB 권한·초기 데이터 준비 구현 (2026-10-12)
+
+### 구현 경계
+
+- `backend/app/config/cloud_database.py`: cloud의 정확한 서울 RDS endpoint DNS·DB명·로그인 role·5432 포트, verify-full·절대 CA 파일 경로를 검증한다. hostaddr/service/options 등 libpq URL override를 거부한다. 실제 서버의 TLS, current_database/current_user/DB owner, 비상속 role 속성·membership, 반대 DB CONNECT 금지, 비시스템 schema CREATE·TEMPORARY 금지, 앱 relation/sequence 소유자, 보호 table 쓰기 금지, marker·현재 전체 ledger·카탈로그·활성 정책을 읽기 전용으로 확인한다. 연결 timeout 5초, 확인 SQL statement timeout 5초/lock timeout 3초다.
+- API 시작과 readiness, MCP 시작, 시험실 store의 cloud 연결에 guard를 연결했다. 시험 store는 cloud에서 local Docker/5434 owner 검사 대신 이 검증을 사용하며, local 검사와 일반 CI destructive DB guard는 유지한다. 시험 API는 URL=POSTGRES_TEST_URL, isolated·deterministic·오류 주입 허용, OpenAI 키 미주입을 요구한다.
+- MCP primary lookup은 cloud에서 DB 설정 누락을 seed로 바꾸지 않는다. API 내부의 동일 tool read는 자기 DB의 runtime 계정으로 읽는다. 명시적으로 버전/digest를 확인하는 정책 기반 fallback은 기존 계약을 유지한다.
+- `deployment/provision.py`: master 전용 일회성 역할·DB 생성. 6개 login은 LOGIN/NOINHERIT/NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/NOBYPASSRLS. DB ACL 작업 동안 owner SET 권한을 확보·사용하고 원래 SET 상태로 복귀한다. 기존 role 속성·membership 또는 DB owner가 다르면 거부한다. 기존 password는 자동 회전하지 않는다. CREATE DATABASE는 transaction 밖 작업이므로 중간 실패 시 일부 역할/DB가 남을 수 있으며, 검증 후 재실행한다. 임의로 기존 자원을 삭제하지 않는다.
+- `deployment/bootstrap.py`: owner 접속·환경 marker·전체 ledger 확인 후 하나의 transaction에서 seed·정책·권한을 준비한다. 재배포에서는 catalog ID/digest/내용·버전 일치 확인, 기존 user·재화·성장·활성 정책 보존. 정책은 검토한 후보 파일의 정규화 SHA256과 안전 검증을 통과한 경우에만 최초 ACTIVE로 등록하고 actor/hash audit를 남긴다. 기존 활성 정책이 없거나 invalid이면 교체하지 않고 거부한다. 반환값에 승인 후보 hash와 실제 활성 policy hash를 구분한다.
+- `recovery_policy.list_policies()`의 cloud 조회는 초기 정책을 자동 생성하지 않는다. legacy seed 명령의 cloud DDL 경로는 explicit migration/bootstrap을 안내하며 중단한다. `seed_game_runtime.seed_records()`는 DDL 없이 기존 유저의 누락 inventory도 시작 수량으로 채우지 않는다.
+
+### DB·role·권한
+
+| 용도 | DB | migration owner | API runtime | MCP reader |
+|---|---|---|---|---|
+| 일반 | eventquest_demo | eventquest_main_owner | eventquest_main_runtime | eventquest_main_mcp |
+| 시험 | eventquest_fault_test | eventquest_fault_owner | eventquest_fault_runtime | eventquest_fault_mcp |
+
+PUBLIC의 DB CONNECT/TEMPORARY, public schema 권한과 table/sequence/function 권한을 제거한다. API는 자기 업무 table의 SELECT/INSERT/UPDATE/DELETE와 sequence USAGE/SELECT만 갖는다. catalog 2개와 marker/ledger는 SELECT만 갖는다. MCP는 catalog와 marker/ledger의 SELECT만 갖고 사용자·정책·원문·로그 table은 읽지 못한다. 반대 용도 계정의 DB 권한은 provision에서 제거한다. 새 객체는 기본 권한으로 열리지 않으며 migration 뒤 bootstrap 권한 적용을 다시 수행해야 한다. 앱 계정에는 owner membership과 DDL/DB 생성·role 관리 권한을 부여하지 않는다.
+
+### 초기 데이터·정책
+
+기획안 시스템과 게임이 사용하는 Opong snapshot 1.3.0/1.4.0/1.5.0, 현재 게임 규칙의 demo user·시작 재화, 기존 get_game_rules health 경로에 필요한 tiny_heroes catalog를 준비한다. 신규 유저만 시작 재화를 받고 기존 유저의 재화·성장은 재설정하지 않는다. 일반/시험 DB 각각 독립적으로 초기화한다.
+
+`backend/data/cloud_bootstrap_policy_v1.json`은 현재 카탈로그의 **28개 오류 코드**에 대한 초기 후보이며, 승인 hash는 정렬 key·UTF-8·compact JSON을 기준으로 계산한다. 현재 후보 hash는 `b175379609f2f9615b5b1f49c9140a66c945dd0c11f00e57b927bf708b9fa61b`다. `Get-FileHash`의 파일 byte hash와 다르다. 후보 파일·hash를 제공하는 것 자체가 AWS에서 정책을 승인·활성화했다는 뜻은 아니다. 실제 실행자는 검토한 hash를 전달해야 한다.
+
+### 운영 실행 순서
+
+아직 AWS에서 실행하지 않았다. bootstrap/master URL과 6개 독립 password는 Parameter Store에서 일회성 작업 프로세스에 주입한다. 비밀번호는 최소 32자이며 서로 달라야 한다. 기존 role password와 주입값이 달라지면 자동 변경하지 않고 접속 실패를 해결해야 한다.
+
+```powershell
+backend/.venv/Scripts/python.exe -m backend.app.deployment.provision --apply
+backend/.venv/Scripts/python.exe -m backend.app.deployment.migrate --purpose main --environment ikonly-demo --apply
+$approvedPolicyHash = '검토한_정규화_SHA256_64자리'
+backend/.venv/Scripts/python.exe -m backend.app.deployment.bootstrap --purpose main --environment ikonly-demo --policy-file backend/data/cloud_bootstrap_policy_v1.json --approved-policy-sha256 $approvedPolicyHash
+```
+
+provision은 DEPLOYMENT_MODE=cloud와 RDS_BOOTSTRAP_DATABASE_URL/RDS_BOOTSTRAP_USER/DATABASE_ROLE_PASSWORDS를 사용한다. migration/bootstrap은 각 DB owner의 MIGRATION_DATABASE_URL을 사용한다. 일반 작업 후 owner URL을 시험 DB로 바꾸고 `--purpose fault`로 migration/bootstrap을 반복한다. `DEPLOYMENT_ENVIRONMENT_ID`, exact endpoint·role, auto-create=false와 runtime 또는 MCP URL은 서비스별로 주입한다. URL에 password를 넣는 명령 인자·문서·CI 로그를 만들지 않는다. CA bundle은 이후 image/deploy 단계에서 공식 AWS 파일과 무결성을 확인해 공급해야 하며 현재 실제 RDS CA 파일을 배포한 상태는 아니다.
+
+### 검증·실험
+
+- 최종 core **483 PASS / 1 SKIP, 26.38초**. 최초 신규 URL/ingress 검사 48 PASS, 이후 영향·inventory·URL 검사 75 PASS. paid LLM 호출 없음.
+- 실제 TLS PostgreSQL의 cloud 경계 **10개 사례**와 앞 단계 migration **4개 사례**, 합계 **14 PASS, 17.73초**. valid TLS·잘못된 CA/hostname 거부, main/fault API/MCP의 실제 로그인, DDL/보호 데이터 변경/원문 조회/반대 DB CONNECT 거부, marker/권한 불일치, 초기화 재실행 보존·잘못된 승인 hash·변형 catalog·invalid 기존 정책 거부, missing 정책 조회의 자동 활성화 금지, non-superuser provision 및 SET 원복을 확인했다.
+- 실제 AWS RDS가 아닌 새 postgres:16-alpine 컨테이너·자체 시험 CA다. fixture만 localhost로 연결 주소를 고정하고 certificate hostname 검증은 유지한다. production URL 계약은 hostaddr를 계속 거부한다. 계정·RDS endpoint·AWS CA·SG·IAM·실제 RDS master 특성은 AWS 수용 단계에서 따로 확인해야 한다.
+- 초기 검사에서 접속 대기가 있었고 대기 process와 자신이 만든 컨테이너만 정리했다. faulthandler로 psycopg 연결 대기를 확인했다. fixture timeout과 IPv4 hostaddr 고정 후 50.21초→17.67초로 단축했고 최종 검사는 17.73초다. 이것만으로 실제 RDS 장애 원인을 확정하지 않는다. 시험 코드의 파일 Path import 누락도 고쳐 다시 통과했다.
+- local seed 변경 영향 확인을 위해 자동 시험 DB `eventquest_auto_test`에서 기존 기획 승인→게임 등록·최초 보상 경로 **2 PASS, 4.30초**. 사용자 일반/시험 DB는 변경하지 않았다. 임시 TLS 컨테이너/volume·test credential 파일, migration 임시 DB를 제거했고 사용자 서버는 재시작하지 않았다.
+- Ruff lint/format, diff, inventory를 확인한다. Python inventory 67개(core 49, postgres 13, external 3, compatibility 2), JavaScript 7개. 실제 GitHub Actions·AWS 생성/배포·push 결과로 표현하지 않는다.
+
+### 남은 범위
+
+A1 DB 경계와 A2 신규 DB 초기화 기반은 로컬에서 구현·검증했다. 기존 미추적 DB의 baseline 채택, 공유 maintenance/drain, production image·MCP Host/Origin·live entry 검증, Linux CI/production E2E·IaC·CD/복원/정리는 남아 있다. AWS 인증이 필요한 단계에는 사용자 로그인 세션을 연다. 아직 계정 인증이나 AWS 자원 생성은 수행하지 않았다.
+
+TLS 설정은 [AWS RDS PostgreSQL SSL](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html), 권한과 SET 복귀는 [PostgreSQL 16 권한 함수](https://www.postgresql.org/docs/16/functions-info.html), [Role membership](https://www.postgresql.org/docs/16/role-membership.html), [Default privileges](https://www.postgresql.org/docs/16/sql-alterdefaultprivileges.html)를 확인했다.

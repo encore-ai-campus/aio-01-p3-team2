@@ -15,6 +15,7 @@ from typing import Any
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.app.config.deployment import deployment_mode
 from backend.app.faults.error_catalog import ERROR_CATALOG
 from backend.app.services.settings import configured_operator_actor_id
 
@@ -260,6 +261,10 @@ def list_policies() -> dict[str, Any]:
             {"id": POLICY_ID},
         ).fetchall()
         if not rows:
+            if deployment_mode() == "cloud":
+                raise RecoveryPolicyError(
+                    "활성 정책 bootstrap이 필요합니다. 운영자가 승인한 정책을 준비하세요."
+                )
             connection.execute(
                 text("""INSERT INTO recovery_policy_versions
                 (policy_id, version, status, idempotency_key, request_hash, policy, validation, created_at)

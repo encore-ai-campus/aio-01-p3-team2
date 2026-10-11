@@ -6,6 +6,8 @@ Run from the repository root with: python -m mcp_server.server
 import os
 from pathlib import Path
 
+from backend.app.config.cloud_database import verify_cloud_database
+from backend.app.config.deployment import deployment_mode
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from mcp_server.tools.get_clash_event_sample import get_clash_event_sample
@@ -16,7 +18,9 @@ from mcp_server.tools.get_game_rules_fallback import get_game_rules_fallback
 from mcp_server.tools.get_item_info import get_item_info
 
 if __name__ == "__main__":
-    load_dotenv(Path(__file__).with_name(".env"), override=False)
+    if deployment_mode() == "local":
+        load_dotenv(Path(__file__).with_name(".env"), override=False)
+    verify_cloud_database()
 
 mcp = FastMCP(
     "game_mcp_server",

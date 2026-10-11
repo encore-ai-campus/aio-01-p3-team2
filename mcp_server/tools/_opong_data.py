@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from backend.app.config.cloud_database import CloudDatabase
 from backend.app.game.rules import endless_dungeon_floor, endless_stage
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "backend" / "data"
@@ -30,6 +31,9 @@ def _digest(payload: dict[str, Any]) -> str:
 
 
 def _database_url() -> str:
+    cloud = CloudDatabase.from_environment()
+    if cloud is not None:
+        return "postgresql://" + cloud.url.removeprefix("postgresql+psycopg://")
     value = os.getenv("MCP_DATABASE_URL", "").strip()
     if not value:
         configured_database = os.getenv("DATABASE_URL", "").strip()

@@ -11,6 +11,7 @@
     {"id": "game-ui", "patterns": ["demo-game/**"], "targets": ["game-web"], "ci": true},
     {"id": "mcp-entry", "patterns": ["mcp_server/server.py"], "targets": ["main-mcp", "fault-mcp"], "ci": true},
     {"id": "mcp-tools", "patterns": ["mcp_server/**"], "targets": ["main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true},
+    {"id": "cloud-database-contract", "patterns": ["backend/app/config/cloud_database.py", "backend/app/config/deployment.py"], "targets": ["main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true},
     {"id": "backend", "patterns": ["backend/app/**", "backend/__init__.py"], "targets": ["main-api", "fault-api"], "ci": true},
     {"id": "application-image", "patterns": ["backend/requirements.txt", "infra/aws/Dockerfile.application*", "infra/aws/requirements.application.lock"], "targets": ["main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true},
     {"id": "web-image", "patterns": ["infra/aws/Dockerfile.web*", "infra/aws/Caddyfile*"], "targets": ["plan-web", "game-web"], "ci": true},

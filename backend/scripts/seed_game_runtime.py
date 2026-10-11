@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from backend.app.config.deployment import deployment_mode
 from backend.app.game.catalog import get_catalog
 from backend.app.repositories.game_runtime import (
     CatalogSnapshotRow,
@@ -59,13 +60,17 @@ def _digest(payload: dict[str, Any]) -> str:
 
 
 def apply_migration(database_url: str) -> None:
+    if deployment_mode() == "cloud":
+        raise RuntimeError(
+            "Use the explicit deployment migration and bootstrap commands in cloud mode"
+        )
     with psycopg.connect(_psycopg_url(database_url), connect_timeout=5) as connection:
         for migration in MIGRATIONS:
             connection.execute(migration.read_text(encoding="utf-8"))
 
 
-def seed(database_url: str) -> None:
-    apply_migration(database_url)
+def seed_records(session) -> None:
+    """Seed immutable snapshots and a new demo user without DDL or refilling existing users."""
     catalog = get_catalog()
     legacy_catalog_path = ROOT / "backend" / "data" / "virtual_game_v1.json"
     previous_catalog_path = ROOT / "backend" / "data" / "virtual_game_v1_4_0.json"
@@ -76,7 +81,6 @@ def seed(database_url: str) -> None:
     if previous_catalog.get("game_data_snapshot_id") != "opong-data-1.4.0":
         raise ValueError("보존된 이전 게임 snapshot ID가 예상값과 다릅니다.")
     snapshots = [legacy_catalog, previous_catalog, catalog]
-    repository = GameRepository(make_engine(database_url))
     now = datetime.now(UTC)
     progression = catalog["progression"]
     demo_user = catalog["demo_user"]
@@ -84,50 +88,68 @@ def seed(database_url: str) -> None:
     experience = (
         progression["level_thresholds"][starting_level - 1] + progression["start_experience"]
     )
-    with repository.session() as session, session.begin():
-        for snapshot_payload in snapshots:
-            snapshot_id = snapshot_payload["game_data_snapshot_id"]
-            digest = _digest(snapshot_payload)
-            snapshot = session.get(CatalogSnapshotRow, snapshot_id)
-            if snapshot is None:
-                session.add(
-                    CatalogSnapshotRow(
-                        snapshot_id=snapshot_id,
-                        game_ruleset_version=snapshot_payload["game_ruleset_version"],
-                        domain_schema_version=snapshot_payload["domain_schema_version"],
-                        payload_digest=digest,
-                        catalog_payload=snapshot_payload,
-                        created_at=now,
-                    )
+    for snapshot_payload in snapshots:
+        snapshot_id = snapshot_payload["game_data_snapshot_id"]
+        digest = _digest(snapshot_payload)
+        snapshot = session.get(CatalogSnapshotRow, snapshot_id)
+        if snapshot is None:
+            session.add(
+                CatalogSnapshotRow(
+                    snapshot_id=snapshot_id,
+                    game_ruleset_version=snapshot_payload["game_ruleset_version"],
+                    domain_schema_version=snapshot_payload["domain_schema_version"],
+                    payload_digest=digest,
+                    catalog_payload=snapshot_payload,
+                    created_at=now,
                 )
-            elif snapshot.payload_digest != digest:
-                raise ValueError(
-                    "동일 snapshot ID의 카탈로그 내용이 달라졌습니다. 새 버전을 발급하세요."
-                )
-        user = session.get(VirtualUserRow, demo_user["id"])
-        if user is None:
-            user = VirtualUserRow(
-                user_id=demo_user["id"],
-                display_name=demo_user["display_name"],
-                segment_id=demo_user["segment_id"],
-                experience_total=experience,
-                highest_stage_order=0,
-                current_hunt_stage_order=1,
-                hunt_mode="push",
-                weapon_upgrade_level=0,
-                armor_upgrade_level=0,
-                created_at=now,
-                updated_at=now,
             )
-            session.add(user)
-        for item_id, quantity in demo_user["starting_inventory"].items():
-            if session.get(InventoryBalanceRow, (demo_user["id"], item_id)) is None:
-                session.add(
-                    InventoryBalanceRow(
-                        user_id=demo_user["id"], item_id=item_id, quantity=quantity, updated_at=now
-                    )
+        elif (
+            snapshot.payload_digest != digest
+            or snapshot.catalog_payload != snapshot_payload
+            or snapshot.game_ruleset_version != snapshot_payload["game_ruleset_version"]
+            or snapshot.domain_schema_version != snapshot_payload["domain_schema_version"]
+        ):
+            raise ValueError(
+                "동일 snapshot ID의 카탈로그 내용이 달라졌습니다. 새 버전을 발급하세요."
+            )
+    user = session.get(VirtualUserRow, demo_user["id"])
+    new_user = user is None
+    if user is None:
+        user = VirtualUserRow(
+            user_id=demo_user["id"],
+            display_name=demo_user["display_name"],
+            segment_id=demo_user["segment_id"],
+            experience_total=experience,
+            highest_stage_order=0,
+            current_hunt_stage_order=1,
+            hunt_mode="push",
+            weapon_upgrade_level=0,
+            armor_upgrade_level=0,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(user)
+    for item_id, quantity in demo_user["starting_inventory"].items():
+        if new_user and session.get(InventoryBalanceRow, (demo_user["id"], item_id)) is None:
+            session.add(
+                InventoryBalanceRow(
+                    user_id=demo_user["id"], item_id=item_id, quantity=quantity, updated_at=now
                 )
+            )
+
+
+def seed(database_url: str) -> None:
+    apply_migration(database_url)
+    engine = make_engine(database_url)
+    repository = GameRepository(engine)
+    try:
+        with repository.session() as session, session.begin():
+            seed_records(session)
+    finally:
+        engine.dispose()
+    catalog = get_catalog()
     print(f"가상 게임 준비 완료: {catalog['game_id']} / {catalog['game_data_snapshot_id']}")
+    demo_user = catalog["demo_user"]
     print(f"데모 유저: {demo_user['id']} ({demo_user['segment_id']})")
 
 

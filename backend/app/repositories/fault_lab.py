@@ -10,11 +10,13 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
+from backend.app.config.cloud_database import CloudDatabase, CloudDatabaseError
 from backend.app.config.deployment import runtime_schema_creation_allowed
 from backend.app.config.test_database import validate_test_database_environment
 from backend.app.fault_injection.injector import enabled
-from backend.app.services.settings import configured_operator_actor_id
+from backend.app.services.settings import OperatorIdentityError, configured_operator_actor_id
 
 DDL = """
 CREATE TABLE IF NOT EXISTS fault_lab_records (
@@ -40,6 +42,24 @@ class LabError(RuntimeError):
 
 
 def database_engine():
+    if not runtime_schema_creation_allowed():
+        try:
+            config = CloudDatabase.from_environment()
+            if config is None or config.spec.purpose != "fault" or config.reader:
+                raise CloudDatabaseError("Fault runtime database is required")
+            configured_operator_actor_id()
+            engine = create_engine(
+                config.url, pool_pre_ping=True, connect_args={"connect_timeout": 5}
+            )
+            try:
+                with engine.connect() as connection:
+                    config.validate_connection(connection)
+            except Exception:
+                engine.dispose()
+                raise
+            return engine
+        except (CloudDatabaseError, SQLAlchemyError, ValueError, OperatorIdentityError):
+            raise LabError("CLOUD_FAULT_DATABASE_UNVERIFIED", 403) from None
     url = os.getenv("DATABASE_URL", "")
     test_url = os.getenv("POSTGRES_TEST_URL", "")
     if not enabled() or url != test_url or urlsplit(url).path != "/eventquest_fault_test":
