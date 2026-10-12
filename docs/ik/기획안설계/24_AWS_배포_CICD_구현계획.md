@@ -1,6 +1,6 @@
 # AWS 배포·CI/CD 구현 계획
 
-작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **영향 판별·manifest·cloud ingress·RDS 경계·신규 DB 초기화·공유 maintenance/drain·운영 이미지/entry·Linux CI/동일 이미지 승격 검사 구현, 전체 배포는 미구현**. 최신 진행 범위와 결과는 §15, 이전 단계 기록은 §10~14를 따른다. 원격 Actions 실행 성공은 아직 확인하지 않았다.
+작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **A0~A4 기반 및 A5 IaC/IAM/SSM/Parameter Store 준비 구현·로컬/실제 AWS 조회 검증, 실제 생성·전체 배포는 미완료**. 최신 진행 범위와 사용자 확정 사항은 §16, 이전 단계 기록은 §10~15를 따른다. 원격 Actions 실행 성공은 아직 확인하지 않았다.
 
 구조·비용·종료 원칙은 [배포 설계 23](23_AWS_배포_CICD_계획.md), 테스트 선택은 [CI 분류 22](22_CI_테스트분류_정리.md), 구현 사실은 [현재 구현 상태](../현재_구현상태.md)를 따른다. 가이드의 필수 산출물은 [보존 가이드](../pre/멀티_에이전트_협업_및_서비스_운영_가이드.md)로 확인한다. 구현 담당은 팀장이다.
 
@@ -8,7 +8,7 @@
 
 현재 기획안 시스템·가상 게임·오류 시험실을 AWS에 연결해 짧게 검증·시연하고, 증빙과 복원 가능한 데이터를 남긴 뒤 실행 자원을 정리한다. 웹 2·Backend 2·MCP 2의 EC2 6대, private RDS 1개, public NAT 1개, Parameter Store, ECR/OIDC/SSM을 사용한다. Supervisor·Planner·Critic 및 게임 Runtime의 업무 책임은 현재 Backend 구조를 따른다.
 
-이 계획의 파일 이름은 **구현 예정 경로**다. 현재 실행 명령처럼 안내하지 않는다. 실제 AWS 단계는 account·도메인·DNS 권한·접속 CIDR·알림 수신자·종료 시점·GitHub deployment 보호 기능을 확인한 뒤 진행한다. 도메인이나 계정 없이도 A0~A4의 코드·로컬 검증 준비는 가능하다. 로컬 사용자 서버와 DB, 기존 yejin AWS 자원은 별도로 유지한다.
+단계별 파일은 §10~16에서 구현 여부를 확인한다. 실제 자원 생성은 account·도메인·DNS 권한·접속 CIDR·알림 수신자·종료 방식·GitHub deployment 보호 기능을 확인한 뒤 진행한다. 현재 계정 인증·현재 IP /32·알림·수동 종료는 확인했고, 도메인과 GitHub 보호 설정은 미확인이다. 계정 없이도 코드·로컬 검증 준비는 가능하다. 로컬 사용자 서버와 DB, 기존 yejin AWS 자원은 별도로 유지한다.
 
 ### 전체 완료 조건
 
@@ -222,13 +222,15 @@ RDS 삭제·snapshot 완료 기준은 [AWS 삭제 문서](https://docs.aws.amazo
 
 AWS 수용 시 `docs/ik/검증산출물/<실제 실행일>_AWS_배포장애복구_보고서.md`, `<실제 실행일>_AWS_CICD_파이프라인_보고서.md`, `<실제 실행일>_AWS_정리결과.md`를 작성한다. AWS object ID와 release digest를 포함하되 credential·원문 prompt는 기록하지 않는다. 보고서에는 복구율/MTTR 정의·실패/안전 종료·수동 개입·보존 목록을 분리한다.
 
-### 현재 체크포인트
+### 현재 체크포인트 (최신 상세 §16)
 
 - [x] 네트워크·시간당 기본 비용·짧은 운영 및 정리 방향 합의
 - [x] 코드와 설계의 배포 제약 대조, 선행 보완과 예정 파일·검증 게이트 작성
-- [ ] A0~A4 구현 및 로컬/container/Linux 검증
-- [ ] AWS account·도메인·접속 범위·알림·종료 시점·GitHub 보호 기능 확인
-- [ ] A5~A8 구현·AWS 실행·복원·정리·보고서
+- [x] A0~A4 코드 및 로컬/container/Linux 검증 (원격 Actions 실행은 별도)
+- [x] AWS account 인증·현재 공인 IP /32·알림·수동 종료 확인
+- [x] A5 IaC/IAM/SSM/Parameter 준비·실제 AWS template 조회 검증
+- [ ] 도메인/DNS·GitHub 보호·subject/execution 권한 확인
+- [ ] A5 실제 생성/host 수용 및 A6~A8 배포·복원·정리·보고서
 
 지금 작성한 계획은 AWS 생성/삭제 승인이나 실제 성공 기록을 대신하지 않는다. 단계별 실행 범위를 확인하고 실패한 gate를 해결한 뒤 다음 단계로 진행한다.
 
@@ -510,3 +512,24 @@ UI fixture는 표현/디자인/상태 분기의 기존 검사를 유지한다. �
 profile hook이 기본 pytest ignore 처리를 막던 문제와 오래된 MCP503 UI 응답 기대를 수정했다. Node localhost 해석 차이는 Chromium same-origin 조회로 해결했다. 자세한 결과·중간 실패·이미지 ID/해시·격리/정리 근거는 [Linux CI·이미지 승격 검증](../검증산출물/2026-10-12_LinuxCI_이미지승격_검증.md)을 따른다.
 
 **A4 코드·로컬 연결 검증 완료, 원격 Actions 실행은 push 후 확인 필요**. push·ECR 게시·AWS 인증/배포는 수행하지 않았다. 다음 구현은 A5 IaC/IAM/SSM/Parameter Store와 AWS preflight이며 인증이 필요할 때 사용자 세션을 연다. 실제 public TLS·RDS·OpenAI·SG·IMDS·배포/rollback/복원/정리는 후속 AWS 수용 범위다.
+
+
+## 16. IaC·IAM·SSM·Parameter Store 구성 (2026-10-12)
+
+### 최신 확정과 구현 범위
+
+사용자 AWS 로그인을 완료하고 IAM user/계정을 확인했다. 접근 허용 범위는 현재 로컬 컴퓨터의 공인 IPv4 `/32`다. 사용자가 종료할 때 수동으로 정리하는 방식으로 변경했으므로 `termination_mode=manual`, `stop_after=null`을 허용한다. 기존 scheduled manifest의 종료 시각/시간대 검증은 유지한다. 아직 도메인이 없다는 답변에 따라 실제 자원 생성은 보류했다. 실제 값은 Git 제외 로컬 config에만 기록한다. 이전 절의 필수 종료 예정 시각 요구는 이 결정으로 대체한다.
+
+`infra/aws/iac.py`와 5개 stack은 독립 VPC/1 NAT/2 웹 EIP/6 EC2/private RDS, SG 통신 경계, 역할별 profile/ECR/고정 SSM document, 로그/SNS/S3·기본 경보를 정의한다. `infrastructure.py`는 조회 preflight→change set 생성→review→검토 hash 대조 apply를 구현한다. 실행 요청과 stack 완료를 구분하며 다른 계정/환경·unknown 소유권·다른 template/parameter·불완전 change set을 거부한다. `export_environment.py`의 실패 snapshot과 완료 manifest, `verify_infrastructure.py`의 SSM/IMDS/private RDS/IAM 범위 조회를 추가했다.
+
+Parameter Store SecureString 최초 import는 `put_parameters.py`, Linux host의 자기 역할 secret 조회·0600 atomic env file은 `parameters.py`와 `scripts/load-parameters.sh`로 관리한다. 기존 key/password의 자동 덮어쓰기·회전은 없다. bootstrap과 migration profile을 분리해 후자는 master 값에 접근하지 않는다. 관리형 AmazonSSMManagedInstanceCore의 wildcard Parameter 읽기를 그대로 상속하지 않고 필요한 agent/channel 권한과 정확한 Parameter ARN을 분리했다. RDS master는 지원되는 고정 version SecureString 참조를 사용하며 값은 template/CLI argv/로그에 넣지 않는다.
+
+새 `ikonly-infrastructure.yml`은 account-free 검사 workflow다. 기존 `quality-core`에도 생성 일치·hash-locked cfn-lint를 연결했으므로 실패하면 image 승격이 차단된다. OIDC trust 후보는 exact repo/environment/audience이며 기본 생성은 false다. GitHub 조회에서 PRIVATE/default main, `ikonly-demo` environment 404로 보호 기능을 확인하지 못했다. 기존 AWS GitHub provider는 조회만 했다. 보호·subject·execution identity 확인 전 OIDC 발급/사용과 원격 plan/apply는 미완료로 둔다. GitHub infrastructure role 후보의 execute/PassRole 권한은 아직 주지 않았다.
+
+### 확인 결과와 남은 경계
+
+신규 계약 18개와 기존 schema/영향 검사 33개: Windows **51 PASS**. 5개 template의 cfn-lint 및 실제 AWS validate-template 모두 PASS, actionlint PASS. Linux 최초 core는 **561 PASS/1 SKIP**, 최종 수동 종료/CLI 보완 후 결과는 [A5 검증 기록](../검증산출물/2026-10-12_IaC_IAM_SSM_구성검증.md#2-실제-검증-결과)을 따른다. Python inventory 72개(core 53, postgres 14, external 3, compatibility 2), JS 8개다. 앱/DB/UI 변경은 없어서 PG/UI/image 전체를 반복하지 않았다.
+
+공식 Ubuntu 24.04 amd64 AMI와 서울 PostgreSQL 16 제공 버전, 인프라 주요 8개 동작의 현재 IAM user simulation을 실제 조회했다. 이는 실제 RunInstances/RDS 생성·quota·조직 정책·host decrypt 수용을 대신하지 않는다. `ikonly-demo-*` stack은 없다. 조회/로컬 기록은 `test-results/aws-a5/`이며 secret은 기록하지 않았다.
+
+**A5 실제 생성/SSM 6대/private RDS/host decrypt·DB 초기화 수용은 아직 미완료**다. 도메인/DNS, GitHub 보호 설정과 권한 연결 확인 후 검토 가능한 change set을 만들고 적용한다. A6 release helper·동일 tar ECR·host config·maintenance/배포/rollback, 메모리/디스크 agent·앱 로그 전송, A7 실제 연결/알림/복원, A8 역순 정리는 후속 단계다. `IkonlyDeploy`는 A6 helper가 설치되기 전에는 의도적으로 실행 실패한다. 자세한 실행 계약·실험 과정·현재 한계는 [A5 검증 기록](../검증산출물/2026-10-12_IaC_IAM_SSM_구성검증.md)을 따른다.

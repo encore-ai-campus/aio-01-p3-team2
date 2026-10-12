@@ -36,7 +36,8 @@ class EnvironmentManifest(Contract):
     roles: dict[Role, str]
     resources: list[Resource]
     parameter_names: dict[str, str]
-    stop_after: datetime
+    termination_mode: Literal["manual", "scheduled"] = "scheduled"
+    stop_after: datetime | None = None
 
     @model_validator(mode="after")
     def check_scope(self):
@@ -52,7 +53,11 @@ class EnvironmentManifest(Contract):
         prefix = "/multi-agent-autohealing/ikonly-demo/"
         if any(not value.startswith(prefix) for value in self.parameter_names.values()):
             raise ValueError("Parameter names must use the environment prefix")
-        if self.stop_after.tzinfo is None:
+        if self.termination_mode == "manual" and self.stop_after is not None:
+            raise ValueError("Manual termination must not imply a scheduled stop time")
+        if self.termination_mode == "scheduled" and self.stop_after is None:
+            raise ValueError("Scheduled termination needs a stop time")
+        if self.stop_after is not None and self.stop_after.tzinfo is None:
             raise ValueError("The stop time needs an explicit timezone")
         return self
 

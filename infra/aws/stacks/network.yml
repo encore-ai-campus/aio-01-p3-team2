@@ -1,0 +1,1059 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Independent ikonly network; no SSH; one NAT, two DB AZs",
+  "Parameters": {
+    "OperatorCidr": {
+      "Type": "String",
+      "AllowedPattern": "[0-9.]+/(3[0-2]|[12]?[0-9])"
+    }
+  },
+  "Resources": {
+    "Vpc": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.72.0.0/16",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "Igw": {
+      "Type": "AWS::EC2::InternetGateway",
+      "Properties": {
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "IgwAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "InternetGatewayId": {
+          "Ref": "Igw"
+        }
+      }
+    },
+    "Public": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "CidrBlock": "10.72.0.0/24",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "App": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "CidrBlock": "10.72.10.0/24",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "DbA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "CidrBlock": "10.72.20.0/24",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            0,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "DbB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "CidrBlock": "10.72.21.0/24",
+        "AvailabilityZone": {
+          "Fn::Select": [
+            1,
+            {
+              "Fn::GetAZs": ""
+            }
+          ]
+        },
+        "MapPublicIpOnLaunch": false,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "NatEip": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc",
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "Nat": {
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "Public"
+        },
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "NatEip",
+            "AllocationId"
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      },
+      "DependsOn": "IgwAttachment"
+    },
+    "PublicRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "PublicRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "GatewayId": {
+          "Ref": "Igw"
+        }
+      },
+      "DependsOn": "IgwAttachment"
+    },
+    "PublicRouteAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "PublicRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "Public"
+        }
+      }
+    },
+    "AppRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "AppRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "AppRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "Nat"
+        }
+      }
+    },
+    "AppRouteAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "AppRouteTable"
+        },
+        "SubnetId": {
+          "Ref": "App"
+        }
+      }
+    },
+    "PlanWebSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ikonly plan-web",
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "plan-web"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "PlanWebSgHttpEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "PlanWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "GameWebSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ikonly game-web",
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "game-web"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "GameWebSgHttpEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "GameWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "MainApiSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ikonly main-api",
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-api"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "MainApiSgHttpEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "MainApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "FaultApiSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ikonly fault-api",
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-api"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "FaultApiSgHttpEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "FaultApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "MainMcpSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ikonly main-mcp",
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-mcp"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "MainMcpSgHttpEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "MainMcpSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "FaultMcpSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ikonly fault-mcp",
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-mcp"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 443,
+            "ToPort": 443,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+    "FaultMcpSgHttpEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "FaultMcpSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "DatabaseSg": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "ikonly database",
+        "VpcId": {
+          "Ref": "Vpc"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "database"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 1,
+            "ToPort": 1,
+            "CidrIp": "127.0.0.1/32"
+          }
+        ]
+      }
+    },
+    "PlanWeb80": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "PlanWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "PlanWeb443": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "PlanWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 443,
+        "ToPort": 443,
+        "CidrIp": {
+          "Ref": "OperatorCidr"
+        }
+      }
+    },
+    "GameWeb80": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "GameWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 80,
+        "ToPort": 80,
+        "CidrIp": "0.0.0.0/0"
+      }
+    },
+    "GameWeb443": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "GameWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 443,
+        "ToPort": 443,
+        "CidrIp": {
+          "Ref": "OperatorCidr"
+        }
+      }
+    },
+    "PlanWebToMainApiIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "MainApiSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "PlanWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8000,
+        "ToPort": 8000
+      }
+    },
+    "PlanWebToMainApiEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "PlanWebSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "MainApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8000,
+        "ToPort": 8000
+      }
+    },
+    "PlanWebToFaultApiIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "FaultApiSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "PlanWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8000,
+        "ToPort": 8000
+      }
+    },
+    "PlanWebToFaultApiEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "PlanWebSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "FaultApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8000,
+        "ToPort": 8000
+      }
+    },
+    "GameWebToMainApiIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "MainApiSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "GameWebSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8000,
+        "ToPort": 8000
+      }
+    },
+    "GameWebToMainApiEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "GameWebSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "MainApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8000,
+        "ToPort": 8000
+      }
+    },
+    "MainApiToMainMcpIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "MainMcpSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "MainApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8010,
+        "ToPort": 8010
+      }
+    },
+    "MainApiToMainMcpEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "MainApiSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "MainMcpSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8010,
+        "ToPort": 8010
+      }
+    },
+    "FaultApiToFaultMcpIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "FaultMcpSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "FaultApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8010,
+        "ToPort": 8010
+      }
+    },
+    "FaultApiToFaultMcpEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "FaultApiSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "FaultMcpSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 8010,
+        "ToPort": 8010
+      }
+    },
+    "MainApiToDatabaseIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "DatabaseSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "MainApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432
+      }
+    },
+    "MainApiToDatabaseEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "MainApiSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "DatabaseSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432
+      }
+    },
+    "FaultApiToDatabaseIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "DatabaseSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "FaultApiSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432
+      }
+    },
+    "FaultApiToDatabaseEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "FaultApiSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "DatabaseSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432
+      }
+    },
+    "MainMcpToDatabaseIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "DatabaseSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "MainMcpSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432
+      }
+    },
+    "MainMcpToDatabaseEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "MainMcpSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "DatabaseSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432
+      }
+    },
+    "FaultMcpToDatabaseIngress": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "DatabaseSg"
+        },
+        "SourceSecurityGroupId": {
+          "Ref": "FaultMcpSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432
+      }
+    },
+    "FaultMcpToDatabaseEgress": {
+      "Type": "AWS::EC2::SecurityGroupEgress",
+      "Properties": {
+        "GroupId": {
+          "Ref": "FaultMcpSg"
+        },
+        "DestinationSecurityGroupId": {
+          "Ref": "DatabaseSg"
+        },
+        "IpProtocol": "tcp",
+        "FromPort": 5432,
+        "ToPort": 5432
+      }
+    }
+  },
+  "Outputs": {
+    "PlanWebSg": {
+      "Value": {
+        "Ref": "PlanWebSg"
+      }
+    },
+    "GameWebSg": {
+      "Value": {
+        "Ref": "GameWebSg"
+      }
+    },
+    "MainApiSg": {
+      "Value": {
+        "Ref": "MainApiSg"
+      }
+    },
+    "FaultApiSg": {
+      "Value": {
+        "Ref": "FaultApiSg"
+      }
+    },
+    "MainMcpSg": {
+      "Value": {
+        "Ref": "MainMcpSg"
+      }
+    },
+    "FaultMcpSg": {
+      "Value": {
+        "Ref": "FaultMcpSg"
+      }
+    },
+    "DatabaseSg": {
+      "Value": {
+        "Ref": "DatabaseSg"
+      }
+    },
+    "Vpc": {
+      "Value": {
+        "Ref": "Vpc"
+      }
+    },
+    "Public": {
+      "Value": {
+        "Ref": "Public"
+      }
+    },
+    "App": {
+      "Value": {
+        "Ref": "App"
+      }
+    },
+    "DbA": {
+      "Value": {
+        "Ref": "DbA"
+      }
+    },
+    "DbB": {
+      "Value": {
+        "Ref": "DbB"
+      }
+    },
+    "Nat": {
+      "Value": {
+        "Ref": "Nat"
+      }
+    },
+    "NatEip": {
+      "Value": {
+        "Ref": "NatEip"
+      }
+    }
+  }
+}

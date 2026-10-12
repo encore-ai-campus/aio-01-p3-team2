@@ -886,6 +886,31 @@
         "test_function_coverage_is_required",
         "test_missing_parameter_is_rejected_even_when_function_passed"
       ]
+    },
+    {
+      "file": "backend/tests/unit/test_aws_infrastructure.py",
+      "suite": "core",
+      "reason": "Account-free IaC, IAM, parameter scope, host security and changeset guards.",
+      "test_functions": [
+        "test_config_requires_explicit_account_domains_cidr_and_future_stop",
+        "test_six_hosts_have_imdsv2_encrypted_disks_and_no_private_public_ip",
+        "test_network_has_exact_service_edges_and_no_ssh_or_public_database",
+        "test_rds_is_private_tls_encrypted_and_master_is_versioned_reference",
+        "test_runtime_parameter_permissions_are_role_specific",
+        "test_oidc_disabled_and_deploy_only_fixed_document",
+        "test_fixed_document_has_only_hash_inputs_no_shell_parameters",
+        "test_host_parameter_rendering_uses_actual_proxy_contract_and_fault_isolation",
+        "test_parameter_values_are_single_line_and_cannot_cross_role",
+        "test_planning_rejects_unknown_parameters_oidc_enablement_and_wrong_engine",
+        "test_generated_sources_match_checked_in_templates",
+        "test_preflight_rejects_wrong_account_and_root_without_mutation",
+        "test_review_binds_account_stack_parameters_template_and_complete_changes",
+        "test_secret_import_never_overwrites_existing_parameter_or_accepts_unknown_name",
+        "test_partial_resource_snapshot_preserves_failed_stack_resource_ids",
+        "test_apply_requires_reviewed_hash_and_does_not_claim_stack_completion",
+        "test_actual_infrastructure_query_requires_ssm_online_and_opposite_parameter_denial",
+        "test_aws_payload_file_avoids_windows_argv_limit_and_is_deleted"
+      ]
     }
   ],
   "javascript": [

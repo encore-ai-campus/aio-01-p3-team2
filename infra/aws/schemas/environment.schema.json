@@ -96,8 +96,25 @@
       "type": "object"
     },
     "stop_after": {
-      "format": "date-time",
-      "title": "Stop After",
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stop After"
+    },
+    "termination_mode": {
+      "default": "scheduled",
+      "enum": [
+        "manual",
+        "scheduled"
+      ],
+      "title": "Termination Mode",
       "type": "string"
     },
     "version": {
@@ -113,8 +130,7 @@
     "environment_id",
     "roles",
     "resources",
-    "parameter_names",
-    "stop_after"
+    "parameter_names"
   ],
   "title": "EnvironmentManifest",
   "type": "object"

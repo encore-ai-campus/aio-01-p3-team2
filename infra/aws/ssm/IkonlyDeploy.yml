@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Run only the installed reviewed release helper",
+  "parameters": {
+    "ReleaseId": {
+      "type": "String",
+      "allowedPattern": "^[a-f0-9]{40}$",
+      "interpolationType": "ENV_VAR"
+    },
+    "ManifestSha256": {
+      "type": "String",
+      "allowedPattern": "^[a-f0-9]{64}$",
+      "interpolationType": "ENV_VAR"
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "VerifiedRelease",
+      "inputs": {
+        "timeoutSeconds": "1800",
+        "runCommand": [
+          "set -eu",
+          "test -x /opt/eventquest/bin/deploy-release",
+          "exec /opt/eventquest/bin/deploy-release \"$SSM_ReleaseId\" \"$SSM_ManifestSha256\""
+        ]
+      }
+    }
+  ]
+}

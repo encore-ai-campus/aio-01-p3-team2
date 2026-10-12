@@ -8,6 +8,7 @@
   "operator_cidr": null,
   "notification_email": "operator@example.com",
   "stop_after": null,
+  "termination_mode": "manual",
   "auto_deploy_enabled": false,
   "instances": {
     "plan-web": "t3.small",

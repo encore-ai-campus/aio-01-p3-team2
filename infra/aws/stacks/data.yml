@@ -1,0 +1,158 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Private encrypted PostgreSQL; secure parameter reference, deletion protection",
+  "Parameters": {
+    "DbA": {
+      "Type": "String"
+    },
+    "DbB": {
+      "Type": "String"
+    },
+    "DatabaseSg": {
+      "Type": "String"
+    },
+    "EngineVersion": {
+      "Type": "String"
+    },
+    "MasterPasswordVersion": {
+      "Type": "Number",
+      "MinValue": 1
+    }
+  },
+  "Resources": {
+    "SubnetGroup": {
+      "Type": "AWS::RDS::DBSubnetGroup",
+      "Properties": {
+        "DBSubnetGroupDescription": "ikonly private DB",
+        "SubnetIds": [
+          {
+            "Ref": "DbA"
+          },
+          {
+            "Ref": "DbB"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "Parameters": {
+      "Type": "AWS::RDS::DBParameterGroup",
+      "Properties": {
+        "Description": "Require TLS",
+        "Family": "postgres16",
+        "Parameters": {
+          "rds.force_ssl": "1"
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "Database": {
+      "Type": "AWS::RDS::DBInstance",
+      "Properties": {
+        "DBInstanceIdentifier": "ikonly-demo-postgres",
+        "Engine": "postgres",
+        "EngineVersion": {
+          "Ref": "EngineVersion"
+        },
+        "DBInstanceClass": "db.t4g.small",
+        "AllocatedStorage": "20",
+        "MaxAllocatedStorage": 20,
+        "StorageType": "gp3",
+        "StorageEncrypted": true,
+        "MultiAZ": false,
+        "PubliclyAccessible": false,
+        "DBSubnetGroupName": {
+          "Ref": "SubnetGroup"
+        },
+        "VPCSecurityGroups": [
+          {
+            "Ref": "DatabaseSg"
+          }
+        ],
+        "DBParameterGroupName": {
+          "Ref": "Parameters"
+        },
+        "MasterUsername": "eventquest_bootstrap",
+        "ManageMasterUserPassword": false,
+        "MasterUserPassword": {
+          "Fn::Sub": "{{resolve:ssm-secure:/multi-agent-autohealing/ikonly-demo/operations/master-password:${MasterPasswordVersion}}}"
+        },
+        "BackupRetentionPeriod": 7,
+        "CopyTagsToSnapshot": true,
+        "DeletionProtection": true,
+        "EnableCloudwatchLogsExports": [
+          "postgresql",
+          "upgrade"
+        ],
+        "AutoMinorVersionUpgrade": true,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "database"
+          }
+        ]
+      },
+      "DeletionPolicy": "Snapshot",
+      "UpdateReplacePolicy": "Snapshot"
+    }
+  },
+  "Outputs": {
+    "Endpoint": {
+      "Value": {
+        "Fn::GetAtt": [
+          "Database",
+          "Endpoint.Address"
+        ]
+      }
+    },
+    "DatabaseId": {
+      "Value": {
+        "Ref": "Database"
+      }
+    }
+  }
+}

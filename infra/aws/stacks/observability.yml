@@ -1,0 +1,1377 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Retained evidence and logs; SNS email requires recipient confirmation",
+  "Parameters": {
+    "NotificationEmail": {
+      "Type": "String",
+      "AllowedPattern": "[^\\s@]+@[^\\s@]+\\.[^\\s@]+"
+    },
+    "PlanWebInstance": {
+      "Type": "String",
+      "Default": ""
+    },
+    "GameWebInstance": {
+      "Type": "String",
+      "Default": ""
+    },
+    "MainApiInstance": {
+      "Type": "String",
+      "Default": ""
+    },
+    "FaultApiInstance": {
+      "Type": "String",
+      "Default": ""
+    },
+    "MainMcpInstance": {
+      "Type": "String",
+      "Default": ""
+    },
+    "FaultMcpInstance": {
+      "Type": "String",
+      "Default": ""
+    }
+  },
+  "Resources": {
+    "Topic": {
+      "Type": "AWS::SNS::Topic",
+      "Properties": {
+        "Subscription": [
+          {
+            "Protocol": "email",
+            "Endpoint": {
+              "Ref": "NotificationEmail"
+            }
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      }
+    },
+    "PlanWebLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ikonly-demo/plan-web",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "plan-web"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "PlanWebCPUUtilization": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "PlanWebInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 80,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "plan-web"
+          }
+        ]
+      },
+      "Condition": "PlanWebExists"
+    },
+    "PlanWebCPUCreditBalance": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUCreditBalance",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "PlanWebInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 10,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "plan-web"
+          }
+        ]
+      },
+      "Condition": "PlanWebExists"
+    },
+    "PlanWebStatusCheckFailed": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "StatusCheckFailed",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "PlanWebInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "plan-web"
+          }
+        ]
+      },
+      "Condition": "PlanWebExists"
+    },
+    "GameWebLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ikonly-demo/game-web",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "game-web"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "GameWebCPUUtilization": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "GameWebInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 80,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "game-web"
+          }
+        ]
+      },
+      "Condition": "GameWebExists"
+    },
+    "GameWebCPUCreditBalance": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUCreditBalance",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "GameWebInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 10,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "game-web"
+          }
+        ]
+      },
+      "Condition": "GameWebExists"
+    },
+    "GameWebStatusCheckFailed": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "StatusCheckFailed",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "GameWebInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "game-web"
+          }
+        ]
+      },
+      "Condition": "GameWebExists"
+    },
+    "MainApiLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ikonly-demo/main-api",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-api"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "MainApiCPUUtilization": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "MainApiInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 80,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-api"
+          }
+        ]
+      },
+      "Condition": "MainApiExists"
+    },
+    "MainApiCPUCreditBalance": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUCreditBalance",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "MainApiInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 10,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-api"
+          }
+        ]
+      },
+      "Condition": "MainApiExists"
+    },
+    "MainApiStatusCheckFailed": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "StatusCheckFailed",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "MainApiInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-api"
+          }
+        ]
+      },
+      "Condition": "MainApiExists"
+    },
+    "FaultApiLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ikonly-demo/fault-api",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-api"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "FaultApiCPUUtilization": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "FaultApiInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 80,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-api"
+          }
+        ]
+      },
+      "Condition": "FaultApiExists"
+    },
+    "FaultApiCPUCreditBalance": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUCreditBalance",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "FaultApiInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 10,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-api"
+          }
+        ]
+      },
+      "Condition": "FaultApiExists"
+    },
+    "FaultApiStatusCheckFailed": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "StatusCheckFailed",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "FaultApiInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-api"
+          }
+        ]
+      },
+      "Condition": "FaultApiExists"
+    },
+    "MainMcpLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ikonly-demo/main-mcp",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-mcp"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "MainMcpCPUUtilization": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "MainMcpInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 80,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-mcp"
+          }
+        ]
+      },
+      "Condition": "MainMcpExists"
+    },
+    "MainMcpCPUCreditBalance": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUCreditBalance",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "MainMcpInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 10,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-mcp"
+          }
+        ]
+      },
+      "Condition": "MainMcpExists"
+    },
+    "MainMcpStatusCheckFailed": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "StatusCheckFailed",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "MainMcpInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "main-mcp"
+          }
+        ]
+      },
+      "Condition": "MainMcpExists"
+    },
+    "FaultMcpLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ikonly-demo/fault-mcp",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-mcp"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "FaultMcpCPUUtilization": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUUtilization",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "FaultMcpInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 80,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-mcp"
+          }
+        ]
+      },
+      "Condition": "FaultMcpExists"
+    },
+    "FaultMcpCPUCreditBalance": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "CPUCreditBalance",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "FaultMcpInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 10,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-mcp"
+          }
+        ]
+      },
+      "Condition": "FaultMcpExists"
+    },
+    "FaultMcpStatusCheckFailed": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/EC2",
+        "MetricName": "StatusCheckFailed",
+        "Dimensions": [
+          {
+            "Name": "InstanceId",
+            "Value": {
+              "Ref": "FaultMcpInstance"
+            }
+          }
+        ],
+        "Statistic": "Average",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "fault-mcp"
+          }
+        ]
+      },
+      "Condition": "FaultMcpExists"
+    },
+    "BootstrapLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ikonly-demo/bootstrap",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "bootstrap"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "MigrationLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/ikonly-demo/migration",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "migration"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "DatabaseDisk": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/RDS",
+        "MetricName": "FreeStorageSpace",
+        "Dimensions": [
+          {
+            "Name": "DBInstanceIdentifier",
+            "Value": "ikonly-demo-postgres"
+          }
+        ],
+        "Statistic": "Minimum",
+        "Period": 300,
+        "EvaluationPeriods": 2,
+        "Threshold": 3221225472,
+        "ComparisonOperator": "LessThanThreshold",
+        "TreatMissingData": "missing",
+        "AlarmActions": [
+          {
+            "Ref": "Topic"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "database"
+          }
+        ]
+      }
+    },
+    "Evidence": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "IgnorePublicAcls": true,
+          "BlockPublicPolicy": true,
+          "RestrictPublicBuckets": true
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled"
+        },
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "Id": "Evidence30Days",
+              "Status": "Enabled",
+              "Prefix": "evidence/",
+              "ExpirationInDays": 30,
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 30
+              }
+            },
+            {
+              "Id": "Backups7Days",
+              "Status": "Enabled",
+              "Prefix": "backups/",
+              "ExpirationInDays": 7,
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 7
+              }
+            }
+          ]
+        },
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "EvidencePolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "Evidence"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Deny",
+              "Principal": "*",
+              "Action": "s3:*",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "Evidence",
+                    "Arn"
+                  ]
+                },
+                {
+                  "Fn::Sub": "${Evidence.Arn}/*"
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "EvidenceBucket": {
+      "Value": {
+        "Ref": "Evidence"
+      }
+    },
+    "AlarmTopic": {
+      "Value": {
+        "Ref": "Topic"
+      }
+    }
+  },
+  "Conditions": {
+    "PlanWebExists": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "PlanWebInstance"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "GameWebExists": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "GameWebInstance"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "MainApiExists": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "MainApiInstance"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "FaultApiExists": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "FaultApiInstance"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "MainMcpExists": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "MainMcpInstance"
+            },
+            ""
+          ]
+        }
+      ]
+    },
+    "FaultMcpExists": {
+      "Fn::Not": [
+        {
+          "Fn::Equals": [
+            {
+              "Ref": "FaultMcpInstance"
+            },
+            ""
+          ]
+        }
+      ]
+    }
+  }
+}
