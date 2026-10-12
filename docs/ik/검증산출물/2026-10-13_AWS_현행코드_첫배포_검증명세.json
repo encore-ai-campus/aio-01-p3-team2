@@ -1,0 +1,259 @@
+{
+  "date": "2026-10-13",
+  "source_sha": "a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05",
+  "ci_run_id": "38308564165",
+  "release_id": "9ea865291a2d51a184d67ca260aa268e7347cd97",
+  "lifecycle": "ACTIVE",
+  "endpoints": {
+    "planning": "https://13.209.226.41",
+    "game": "https://54.180.53.213"
+  },
+  "acceptance": {
+    "plan-web": {
+      "status": "Success",
+      "command_id": "3b88e150-65ef-4073-a21d-0ab7eeef3cab",
+      "source_sha": "a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05",
+      "image_digest": "sha256:c9c8269e7e00b4b1fc39f308670a421769077d39ed65430adf471d53e586fb37"
+    },
+    "game-web": {
+      "status": "Success",
+      "command_id": "2580eae1-14f1-4f5a-ab3e-a47ff9b3274b",
+      "source_sha": "a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05",
+      "image_digest": "sha256:c9c8269e7e00b4b1fc39f308670a421769077d39ed65430adf471d53e586fb37"
+    },
+    "main-api": {
+      "status": "Success",
+      "command_id": "5fab9a60-52e2-4818-af1c-188c1cb6acd5",
+      "source_sha": "a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05",
+      "image_digest": "sha256:460770f53358668b9df2666774d076f7d245d38051eac1aea420cba86f6074a8"
+    },
+    "fault-api": {
+      "status": "Success",
+      "command_id": "f9a4a51f-40a6-4587-bfd0-bb2fb26cf048",
+      "source_sha": "a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05",
+      "image_digest": "sha256:460770f53358668b9df2666774d076f7d245d38051eac1aea420cba86f6074a8"
+    },
+    "main-mcp": {
+      "status": "Success",
+      "command_id": "51a315ee-d37e-437b-9361-6b014abcdc94",
+      "source_sha": "a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05",
+      "image_digest": "sha256:460770f53358668b9df2666774d076f7d245d38051eac1aea420cba86f6074a8"
+    },
+    "fault-mcp": {
+      "status": "Success",
+      "command_id": "ef37a8ec-0034-49e9-b378-a29516282deb",
+      "source_sha": "a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05",
+      "image_digest": "sha256:460770f53358668b9df2666774d076f7d245d38051eac1aea420cba86f6074a8"
+    }
+  },
+  "public_https": {
+    "plan-web": {
+      "status": "AUTHENTICATED_PUBLIC_ACCEPTED",
+      "paths": [
+        "/",
+        "/api/game/state",
+        "/api/test/fault-catalog"
+      ],
+      "tls_verified": true
+    },
+    "game-web": {
+      "status": "AUTHENTICATED_PUBLIC_ACCEPTED",
+      "paths": [
+        "/",
+        "/game-api/state"
+      ],
+      "tls_verified": true
+    }
+  },
+  "live": {
+    "status": "PASS",
+    "workflow_id": "WF-BBC777CA158B",
+    "task_id": "TASK-C0F8FFBA6258",
+    "runtime_event_id": "4ccd5968-6211-4c70-a0e0-1878e8db0a73",
+    "selected_spaces": [
+      "rift_space_01",
+      "rift_space_02"
+    ],
+    "execution_profile": "mcp_runtime_capability_tool+mcp_runtime_evidence_tools+canonical_openai_agents:gpt-4.1-mini",
+    "llm_usage": {
+      "cost": "0.0050544",
+      "calls": 2,
+      "records": [
+        {
+          "model_id": "gpt-4.1-mini",
+          "provider": "openai",
+          "record_id": "76026162-0144-4a86-834a-caf8ca66fc3b",
+          "prompt_hash": "49ec6b3d5720bddeea5df8288e76c620f19d8a3efb0954a2bc5a7ad00b649f1b",
+          "input_tokens": 6920,
+          "cost_currency": "USD",
+          "output_tokens": 311,
+          "response_hash": "8ad93fa8ccc36739bb8691e120066e00a70f085dc9dc3b334d76cfd7c30fb1cd",
+          "configured_cost": "0.003265600",
+          "pricing_version": "openai-standard-2026-10-11-gpt-4.1-mini",
+          "prompt_template_id": "canonical_event_planner_agent",
+          "provider_reported_cost": null,
+          "prompt_template_version": "92d6b7c9d407f288"
+        },
+        {
+          "model_id": "gpt-4.1-mini",
+          "provider": "openai",
+          "record_id": "b444ccfd-ed71-47ab-874b-c06d3572b134",
+          "prompt_hash": "dcc85b765258cca2c6a54ebe5934d0f71a577086c629c04ecf1df8a0937c9bb5",
+          "input_tokens": 3952,
+          "cost_currency": "USD",
+          "output_tokens": 130,
+          "response_hash": "b1287f58c849609dbe0f65c0b80854c32b9e700ba1040a42d85e391357472487",
+          "configured_cost": "0.001788800",
+          "pricing_version": "openai-standard-2026-10-11-gpt-4.1-mini",
+          "prompt_template_id": "canonical_event_critic_agent",
+          "provider_reported_cost": null,
+          "prompt_template_version": "8909bd65238891bc"
+        }
+      ],
+      "currency": "USD",
+      "input_tokens": 10872,
+      "output_tokens": 441,
+      "pricing_version": "openai-standard-2026-10-11-gpt-4.1-mini"
+    },
+    "checks": [
+      {
+        "name": "anonymous HTTPS access blocked plan",
+        "passed": true
+      },
+      {
+        "name": "anonymous HTTPS access blocked game",
+        "passed": true
+      },
+      {
+        "name": "two web proxies share authoritative game state",
+        "passed": true
+      },
+      {
+        "name": "real LLM workflow reached approval",
+        "passed": true
+      },
+      {
+        "name": "live agent profile and recorded LLM usage",
+        "passed": true
+      },
+      {
+        "name": "runtime eligible validated plan",
+        "passed": true
+      },
+      {
+        "name": "event apply idempotency",
+        "passed": true
+      },
+      {
+        "name": "exact selected spaces registered",
+        "passed": true
+      },
+      {
+        "name": "gameplay reaches event entry level",
+        "passed": true
+      },
+      {
+        "name": "space clear rift_space_02",
+        "passed": true
+      },
+      {
+        "name": "space clear rift_space_01",
+        "passed": true
+      },
+      {
+        "name": "both first-clear missions completed",
+        "passed": true
+      },
+      {
+        "name": "first-clear event rewards persisted",
+        "passed": true
+      },
+      {
+        "name": "repeat clear does not duplicate event reward",
+        "passed": true
+      },
+      {
+        "name": "both web proxies reflect persisted mutations",
+        "passed": true
+      },
+      {
+        "name": "normal recovery policy preserved",
+        "passed": true
+      }
+    ],
+    "plan_url": "https://13.209.226.41",
+    "game_url": "https://54.180.53.213",
+    "tls_verified_with_exported_roots": true
+  },
+  "database_proof": {
+    "status": "PASS",
+    "records": 2,
+    "encrypted": true,
+    "decrypt_hash_match": true,
+    "ssl": true,
+    "database": "eventquest_demo"
+  },
+  "browser": {
+    "browser": "Edge",
+    "passed": 3,
+    "junit_sha256": "d62867458c88781ebbb77ccde403569f7f628109a50503ffa8348c5b40a245ad",
+    "global_windows_ca_installed": false,
+    "browser_ignore_https_errors": true,
+    "tls_verification": "Public HTTPS and API checks used actual exported root CA and hostname verification"
+  },
+  "visual": {
+    "failures": [],
+    "errors": [],
+    "logs": [],
+    "info": {
+      "phaserGlobal": true,
+      "canvas": {
+        "x": 29,
+        "y": 269,
+        "width": 956.15625,
+        "height": 537.84375,
+        "top": 269,
+        "right": 985.15625,
+        "bottom": 806.84375,
+        "left": 29
+      }
+    }
+  },
+  "fault_status": {
+    "environment": "isolated",
+    "database": "eventquest_fault_test",
+    "state": "CLEAN",
+    "active_policy_version": 1
+  },
+  "normal_preservation": {
+    "user_unchanged": true,
+    "policy_unchanged": true
+  },
+  "certificates": {
+    "game-web-root.crt": {
+      "sha1": "F0F1B748D1F5EBA77582DF6E3EE57D7B6E155C17",
+      "sha256": "eccadd6b7ed127b6541fa99bffc2a2c2594d9c9517cf38a4aa38fd64faf3ff47"
+    },
+    "plan-web-root.crt": {
+      "sha1": "D0416F132FDCF108B8824245AB1FC3C982CFF590",
+      "sha256": "966f6d2c262b7cdbd7999a193d7b4d01c2fcdea82e3294378296c15005874491"
+    }
+  },
+  "raw_evidence": "test-results\\aws-first-current-2026-10-13",
+  "limitations": [
+    "No snapshot restore or whole AWS rollback retest",
+    "Two isolated recovery executions of one scenario; not all error-code or external OpenAI failure tests",
+    "Windows CA trust installation requires operator action",
+    "SNS email subscription pending confirmation"
+  ],
+  "planning_visual": {
+    "failures": [],
+    "errors": [],
+    "logs": [],
+    "info": {
+      "image_loaded": true,
+      "width": 1672,
+      "height": 941
+    }
+  }
+}
