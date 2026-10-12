@@ -148,6 +148,14 @@ def migration_backup(aws, release, output):
         ][0]
         if snapshot["DBInstanceIdentifier"] != "ikonly-demo-postgres" or not snapshot["Encrypted"]:
             raise ValueError("Migration backup identity or encryption mismatch")
+        tags = {
+            tag["Key"]: tag["Value"]
+            for tag in aws(
+                "rds", "list-tags-for-resource", "--resource-name", snapshot["DBSnapshotArn"]
+            )["TagList"]
+        }
+        if tags.get("Environment") != "ikonly-demo" or tags.get("ManagedBy") != "ikonly-iac":
+            raise ValueError("Migration backup ownership mismatch")
         write(
             Path(output) / "migration-backup.json",
             {"name": name, "status": snapshot["Status"], "encrypted": True},

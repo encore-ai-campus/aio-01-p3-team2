@@ -1,5 +1,6 @@
 """Local first deployment with reviewed policy and local OpenAI key supply."""
 
+import base64
 import hashlib
 import json
 import secrets
@@ -328,7 +329,7 @@ def initial(aws, config, directory, run_id, env_file, policy_file, approved_poli
         time.sleep(10)
     from infra.aws.release_plan import build
 
-    return deploy(
+    accepted = deploy(
         aws,
         config,
         state,
@@ -338,3 +339,27 @@ def initial(aws, config, directory, run_id, env_file, policy_file, approved_poli
         policy=policy,
         database_config={"actor": env["OPERATOR_ACTOR_ID"], "policy_hash": approved_policy_hash},
     )
+    from infra.aws.host_transport import command
+
+    for role in ("plan-web", "game-web"):
+        instance = state["roles"][role]
+        metadata = command(
+            aws,
+            config,
+            instance,
+            "base64 -w0 /var/lib/eventquest/caddy-data/caddy/pki/authorities/local/root.crt",
+            output / (role + "-certificate.json"),
+        )
+        result = aws(
+            "ssm",
+            "get-command-invocation",
+            "--command-id",
+            metadata["command_id"],
+            "--instance-id",
+            instance,
+        )
+        certificate = base64.b64decode(result["StandardOutputContent"].strip(), validate=True)
+        if not certificate.startswith(b"-----BEGIN CERTIFICATE-----"):
+            raise ValueError("Public certificate export format mismatch")
+        (output / (role + "-root.crt")).write_bytes(certificate)
+    return accepted

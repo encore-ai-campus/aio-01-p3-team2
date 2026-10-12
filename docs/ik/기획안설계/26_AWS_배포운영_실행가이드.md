@@ -24,7 +24,7 @@ $env:PYTHONPATH='.'
 backend/.venv/Scripts/python.exe -m infra.aws.bootstrap_oidc --config test-results/aws-a5/config.json --output test-results/aws-lifecycle/oidc-plan.json --apply
 ```
 
-생성한 `test-results/aws-lifecycle/operation-config.json`에는 CFN 역할 ARN이 포함된다. GitHub 변수 `IKONLY_DEPLOY_ROLE_ARN`, `IKONLY_ACCOUNT_ID`, `IKONLY_CONFIG`에는 비밀값이 없다. `IKONLY_CD_ENABLED=true`는 실제 OIDC 인증 확인 후 활성화한다. legacy config의 `auto_deploy_enabled`와 이 변수는 서로 다른 게이트다.
+생성한 `test-results/aws-lifecycle/operation-config.json`에는 CFN 역할 ARN이 포함된다. GitHub 변수 `IKONLY_DEPLOY_ROLE_ARN`, `IKONLY_ACCOUNT_ID`, `IKONLY_CONFIG`에는 비밀값이 없다. `IKONLY_CD_ENABLED=true`는 실제 OIDC 인증 성공 후 활성화했다. legacy config의 `auto_deploy_enabled`와 이 변수는 서로 다른 게이트다.
 
 ```powershell
 gh workflow run ikonly-ci.yml --repo ik-e/multi-agent-autohealing --ref ikonly -f operation=oidc-check
@@ -69,3 +69,5 @@ backend/.venv/Scripts/python.exe -m infra.aws.operations reset --config test-res
 시험 저널, S3 모든 object version/delete marker, CloudWatch/RDS 로그를 로컬로 보관한다. 객체 크기/SHA 확인 실패 시 삭제에 진입하지 않는다. observability→application→data→access→network 역순으로 삭제한 뒤 manual snapshot/ECR/log/S3/앱 Parameter를 제거한다. 마지막 조회에서 EC2/NAT/VPC/EIP/volume/RDS/snapshot/automated backup/Parameter/ECR/log/S3와 runtime IAM/profile/SSM document/alarm/SNS 잔존을 확인한다.
 
 제어 IAM 두 역할과 공유 OIDC는 유지한다. 앱 OpenAI Parameter는 삭제되므로 다음 첫 배포는 다시 로컬 키 공급이 필요하다. 이미 발생한 요금과 종료된 인스턴스/CFN 이력은 잔존 실행 자원과 다르다. 실제 새 경로 시험 결과는 [구현 검증 기록](../검증산출물/2026-10-12_AWS_배포수명주기_구현검증.md)에 누적한다.
+
+첫 배포 수용 후 두 공개 root CA는 로컬 출력 폴더의 `plan-web-root.crt`, `game-web-root.crt`로 내보낸다. Windows 신뢰 등록은 자동 수행하지 않는다. 개인 비밀번호는 로컬 `web-login.txt`에만 저장한다.

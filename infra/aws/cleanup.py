@@ -203,6 +203,17 @@ def reset(aws, config, state, output):
         stack = selected.get("ikonly-demo-" + stage)
         if stack is None:
             continue
+        deadline = time.monotonic() + 3600
+        while stack["StackStatus"].endswith("IN_PROGRESS") and stack["StackStatus"] not in (
+            "REVIEW_IN_PROGRESS",
+            "DELETE_IN_PROGRESS",
+        ):
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Stack creation/rollback has not settled before reset")
+            time.sleep(10)
+            stack = aws("cloudformation", "describe-stacks", "--stack-name", stack["StackId"])[
+                "Stacks"
+            ][0]
         if stage == "data":
             databases = aws("rds", "describe-db-instances")["DBInstances"]
             for db in databases:
@@ -234,7 +245,8 @@ def reset(aws, config, state, output):
                         time.sleep(5)
                     else:
                         raise TimeoutError("RDS protection change timeout")
-        aws("cloudformation", "delete-stack", "--stack-name", stack["StackId"])
+        if stack["StackStatus"] != "DELETE_IN_PROGRESS":
+            aws("cloudformation", "delete-stack", "--stack-name", stack["StackId"])
         deadline = time.monotonic() + 3600
         while time.monotonic() < deadline:
             value = aws("cloudformation", "describe-stacks", "--stack-name", stack["StackId"])[
