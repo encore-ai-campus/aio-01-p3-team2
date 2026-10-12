@@ -25,14 +25,34 @@ def validate_config(config):
         raise ValueError("Unexpected region/environment")
     if not re.fullmatch(r"\d{12}", config.get("account_id") or ""):
         raise ValueError("Authenticated account ID is required")
-    for name in ("plan_domain", "game_domain"):
-        value = config.get(name) or ""
-        if not re.fullmatch(r"[a-z0-9][a-z0-9.-]+\.[a-z]+", value) or value.endswith(
-            (".internal", ".localhost")
-        ):
-            raise ValueError("Public domain is required: " + name)
-    if config["plan_domain"] == config["game_domain"]:
-        raise ValueError("Sites require distinct domains")
+    access_mode = config.get("access_mode", "domain")
+    if access_mode == "ip":
+        if config.get("https_mode") != "internal":
+            raise ValueError("IP access requires explicitly managed internal CA certificates")
+        if config.get("plan_domain") or config.get("game_domain"):
+            raise ValueError("IP configuration cannot also select domains")
+        hosts = [config.get(name) for name in ("plan_public_ip", "game_public_ip")]
+        if any(hosts) and not all(hosts):
+            raise ValueError("Assign both web EIPs together")
+        if all(hosts):
+            for host in hosts:
+                address = ipaddress.ip_address(host)
+                if address.version != 4 or not address.is_global or str(address) != host:
+                    raise ValueError("Web endpoints require canonical public IPv4 addresses")
+            if hosts[0] == hosts[1]:
+                raise ValueError("Web services require distinct EIPs")
+        # Initial infrastructure planning precedes allocation of web EIPs.
+    elif access_mode == "domain":
+        for name in ("plan_domain", "game_domain"):
+            value = config.get(name) or ""
+            if not re.fullmatch(r"[a-z0-9][a-z0-9.-]+\.[a-z]+", value) or value.endswith(
+                (".internal", ".localhost")
+            ):
+                raise ValueError("Public domain is required: " + name)
+        if config["plan_domain"] == config["game_domain"]:
+            raise ValueError("Sites require distinct domains")
+    else:
+        raise ValueError("Unknown access mode")
     cidr = ipaddress.ip_network(config.get("operator_cidr") or "", strict=True)
     if cidr.version != 4 or cidr.prefixlen == 0:
         raise ValueError("Operator IPv4 CIDR must not expose HTTPS to the whole Internet")

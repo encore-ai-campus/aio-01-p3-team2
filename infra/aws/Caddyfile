@@ -4,7 +4,7 @@
 	http_port 8080
 	https_port 8443
 	auto_https disable_redirects
-	email {$ACME_EMAIL}
+	default_sni {$PUBLIC_HOST}
 }
 
 # A container-local liveness endpoint. Host/network rules expose only public 80/443.
@@ -16,14 +16,15 @@ http://:8080 {
 	handle @local {
 		respond "ok" 200
 	}
-	@public host {$PUBLIC_DOMAIN}
+	@public host {$PUBLIC_HOST}
 	handle @public {
-		redir https://{$PUBLIC_DOMAIN}{uri} 308
+		redir https://{$PUBLIC_HOST}{uri} 308
 	}
 	respond 404
 }
 
-{$PUBLIC_DOMAIN} {
+{$PUBLIC_HOST} {
+	{$TLS_CONFIGURATION}
 	encode zstd gzip
 	header {
 		X-Content-Type-Options nosniff

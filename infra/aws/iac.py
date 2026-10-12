@@ -170,7 +170,7 @@ def network():
                 IpProtocol="tcp",
                 FromPort=port,
                 ToPort=port,
-                CidrIp="0.0.0.0/0" if port == 80 else ref("OperatorCidr"),
+                CidrIp=ref("OperatorCidr"),
             )
     edges = [
         ("plan-web", "main-api", 8000),

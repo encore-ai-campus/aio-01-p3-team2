@@ -688,7 +688,9 @@
         "IpProtocol": "tcp",
         "FromPort": 80,
         "ToPort": 80,
-        "CidrIp": "0.0.0.0/0"
+        "CidrIp": {
+          "Ref": "OperatorCidr"
+        }
       }
     },
     "PlanWeb443": {
@@ -714,7 +716,9 @@
         "IpProtocol": "tcp",
         "FromPort": 80,
         "ToPort": 80,
-        "CidrIp": "0.0.0.0/0"
+        "CidrIp": {
+          "Ref": "OperatorCidr"
+        }
       }
     },
     "GameWeb443": {

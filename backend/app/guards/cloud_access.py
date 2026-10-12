@@ -7,6 +7,7 @@ import ipaddress
 import json
 import os
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 
 @dataclass(frozen=True)
@@ -59,7 +60,7 @@ class CloudAccess:
             for origin in os.getenv("APP_ALLOWED_ORIGINS", "").split(",")
             if origin.strip()
         )
-        if not origins or any(not origin.startswith("https://") for origin in origins):
+        if not origins or any(not valid_https_origin(origin) for origin in origins):
             raise ValueError("Cloud access requires explicit HTTPS origins")
         return cls(role, proxies, origins)
 
@@ -83,3 +84,23 @@ class CloudAccess:
         if identity == "game-web":
             return path == "/api/game" or path.startswith("/api/game/")
         return identity == "plan-web"
+
+
+def valid_https_origin(origin: str) -> bool:
+    """Exact HTTPS origin, including IP hosts; never accept URL paths or credentials."""
+    try:
+        parsed = urlsplit(origin)
+        return bool(
+            parsed.scheme == "https"
+            and parsed.hostname
+            and parsed.username is None
+            and parsed.password is None
+            and not parsed.path
+            and not parsed.query
+            and not parsed.fragment
+            and parsed.port != 0
+            and not any(char.isspace() for char in origin)
+            and "\\" not in origin
+        )
+    except ValueError:
+        return False

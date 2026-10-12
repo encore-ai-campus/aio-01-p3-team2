@@ -1,6 +1,6 @@
 # AWS 배포·CI/CD 구현 계획
 
-작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **A0~A4 기반 및 A5 IaC/IAM/SSM/Parameter Store 준비 구현·로컬/실제 AWS 조회 검증, 실제 생성·전체 배포는 미완료**. 최신 진행 범위와 사용자 확정 사항은 §16, 이전 단계 기록은 §10~15를 따른다. 원격 Actions 실행 성공은 아직 확인하지 않았다.
+작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **A0~A4 기반 및 A5 IaC/IAM/SSM/Parameter Store 준비 구현·로컬/실제 AWS 조회 검증, 실제 생성·전체 배포는 미완료**. 최신 진행 범위와 사용자 확정 사항은 §17, 이전 단계 기록은 §10~15를 따른다. 원격 Actions 실행 성공은 아직 확인하지 않았다.
 
 구조·비용·종료 원칙은 [배포 설계 23](23_AWS_배포_CICD_계획.md), 테스트 선택은 [CI 분류 22](22_CI_테스트분류_정리.md), 구현 사실은 [현재 구현 상태](../현재_구현상태.md)를 따른다. 가이드의 필수 산출물은 [보존 가이드](../pre/멀티_에이전트_협업_및_서비스_운영_가이드.md)로 확인한다. 구현 담당은 팀장이다.
 
@@ -8,7 +8,7 @@
 
 현재 기획안 시스템·가상 게임·오류 시험실을 AWS에 연결해 짧게 검증·시연하고, 증빙과 복원 가능한 데이터를 남긴 뒤 실행 자원을 정리한다. 웹 2·Backend 2·MCP 2의 EC2 6대, private RDS 1개, public NAT 1개, Parameter Store, ECR/OIDC/SSM을 사용한다. Supervisor·Planner·Critic 및 게임 Runtime의 업무 책임은 현재 Backend 구조를 따른다.
 
-단계별 파일은 §10~16에서 구현 여부를 확인한다. 실제 자원 생성은 account·도메인·DNS 권한·접속 CIDR·알림 수신자·종료 방식·GitHub deployment 보호 기능을 확인한 뒤 진행한다. 현재 계정 인증·현재 IP /32·알림·수동 종료는 확인했고, 도메인과 GitHub 보호 설정은 미확인이다. 계정 없이도 코드·로컬 검증 준비는 가능하다. 로컬 사용자 서버와 DB, 기존 yejin AWS 자원은 별도로 유지한다.
+단계별 파일은 §10~17에서 구현 여부를 확인한다. 계정 인증·현재 IP /32·알림·수동 종료와 도메인 없는 IP 접속을 확정했다. 최초 인프라는 로컬 AWS 자격으로 change set을 검토·적용하고, GitHub 보호 확인은 OIDC 자동 배포 활성화의 선행 조건이다. 실제 서비스 수용은 인증서 신뢰·host 설정·연결 검증까지 완료해야 한다. 계정 없이도 코드·로컬 검증 준비는 가능하다. 로컬 사용자 서버와 DB, 기존 yejin AWS 자원은 별도로 유지한다.
 
 ### 전체 완료 조건
 
@@ -222,14 +222,15 @@ RDS 삭제·snapshot 완료 기준은 [AWS 삭제 문서](https://docs.aws.amazo
 
 AWS 수용 시 `docs/ik/검증산출물/<실제 실행일>_AWS_배포장애복구_보고서.md`, `<실제 실행일>_AWS_CICD_파이프라인_보고서.md`, `<실제 실행일>_AWS_정리결과.md`를 작성한다. AWS object ID와 release digest를 포함하되 credential·원문 prompt는 기록하지 않는다. 보고서에는 복구율/MTTR 정의·실패/안전 종료·수동 개입·보존 목록을 분리한다.
 
-### 현재 체크포인트 (최신 상세 §16)
+### 현재 체크포인트 (최신 상세 §17)
 
 - [x] 네트워크·시간당 기본 비용·짧은 운영 및 정리 방향 합의
 - [x] 코드와 설계의 배포 제약 대조, 선행 보완과 예정 파일·검증 게이트 작성
 - [x] A0~A4 코드 및 로컬/container/Linux 검증 (원격 Actions 실행은 별도)
 - [x] AWS account 인증·현재 공인 IP /32·알림·수동 종료 확인
 - [x] A5 IaC/IAM/SSM/Parameter 준비·실제 AWS template 조회 검증
-- [ ] 도메인/DNS·GitHub 보호·subject/execution 권한 확인
+- [x] 도메인 없는 EIP 접속·내부 CA HTTPS 계약 확정
+- [ ] 실제 웹 CA 신뢰 설치·GitHub 보호·subject/execution 권한 확인
 - [ ] A5 실제 생성/host 수용 및 A6~A8 배포·복원·정리·보고서
 
 지금 작성한 계획은 AWS 생성/삭제 승인이나 실제 성공 기록을 대신하지 않는다. 단계별 실행 범위를 확인하고 실패한 gate를 해결한 뒤 다음 단계로 진행한다.
@@ -533,3 +534,23 @@ Parameter Store SecureString 최초 import는 `put_parameters.py`, Linux host의
 공식 Ubuntu 24.04 amd64 AMI와 서울 PostgreSQL 16 제공 버전, 인프라 주요 8개 동작의 현재 IAM user simulation을 실제 조회했다. 이는 실제 RunInstances/RDS 생성·quota·조직 정책·host decrypt 수용을 대신하지 않는다. `ikonly-demo-*` stack은 없다. 조회/로컬 기록은 `test-results/aws-a5/`이며 secret은 기록하지 않았다.
 
 **A5 실제 생성/SSM 6대/private RDS/host decrypt·DB 초기화 수용은 아직 미완료**다. 도메인/DNS, GitHub 보호 설정과 권한 연결 확인 후 검토 가능한 change set을 만들고 적용한다. A6 release helper·동일 tar ECR·host config·maintenance/배포/rollback, 메모리/디스크 agent·앱 로그 전송, A7 실제 연결/알림/복원, A8 역순 정리는 후속 단계다. `IkonlyDeploy`는 A6 helper가 설치되기 전에는 의도적으로 실행 실패한다. 자세한 실행 계약·실험 과정·현재 한계는 [A5 검증 기록](../검증산출물/2026-10-12_IaC_IAM_SSM_구성검증.md)을 따른다.
+
+## 17. IP 접속·HTTPS 계약 (2026-10-12)
+
+도메인/DNS 확보를 배포 선행 조건에서 제외한다. 기획안·게임 화면은 각 웹 EC2의 독립 EIP로 접속한다. 초기 인프라 계획은 `access_mode=ip`, `https_mode=internal`, 두 `*_public_ip=null`로 가능하다. 실제 공개 전에 두 IP를 함께 확정하며 사설 주소·중복·한쪽만 설정된 값은 거부한다. 기존 domain 입력은 호환용으로 유지하되 현재 배포 경로는 IP다.
+
+| 변경 파일 | 계약 |
+|---|---|
+| `infra/aws/infrastructure.py`, `config/demo.example.json` | IP 방식과 EIP 할당 전 계획 검증 |
+| `infra/aws/web_endpoints.py` | 완료·소유 stack과 EIP의 host 연결/소유 tag 조회 후 설정 산출. 조회만 수행 |
+| `scripts/start-web.sh`, `Caddyfile` | `PUBLIC_HOST`, `WEB_ACCESS_MODE=ip`, `HTTPS_MODE=internal`; 내부 CA, SNI 없는 IP 클라이언트 기본 인증서 선택 |
+| `iac.py`, `stacks/network.yml` | 웹 80/443 모두 `OperatorCidr`. HTTP는 HTTPS 전환 용도 |
+| Backend `cloud_access.py` | 정확한 HTTPS Origin 검사; 경로·query·사용자 정보·fragment 거부 |
+
+application stack 완료 뒤 `python -m infra.aws.web_endpoints --config <로컬-config> --output <로컬-endpoints>`로 두 EIP와 웹 설정을 산출한다. main-api Origin은 두 `https://<EIP>`, fault-api는 기획안 EIP만 사용한다. 산출은 배포 성공을 뜻하지 않으며 A6 host 설정 생성·배포 과정에 연결해야 한다. Parameter Store의 역할별 secret 계약은 유지한다.
+
+웹마다 별도 CA가 있으므로 실제 host의 `/data/caddy/pki/authorities/local/root.crt` 두 개만 SSM 인증된 경로로 가져와 SHA-256 지문을 대조한 뒤 Windows `Cert:\CurrentUser\Root`에 등록한다. 개인 키와 CA 저장소 전체는 전송하지 않는다. 실제 host가 아직 없으므로 현재 PC에 시험용 CA를 설치하지 않았다. A6에서는 `/data`·`/config`를 지속 볼륨으로 유지하고 교체/rollback 시에도 재사용해야 한다. 정리 시 이번 환경에서 추가한 인증서의 thumbprint를 기록·제거한다. 신뢰 저장소 설치를 생략하면 Edge 경고가 발생하므로 실제 수용 기준에 포함한다.
+
+GitHub 보호/OIDC는 최초 로컬 인프라 생성과 별도 게이트다. 자동 배포는 보호·subject 확인 후 활성화한다. 향후 domain+ACME로 변경할 경우 challenge/DNS와 SG 정책도 다시 설계해야 하며 현재 HTTP 제한을 자동으로 해제하지 않는다.
+
+단위 39 PASS, 두 웹 실제 이미지 IP TLS·미신뢰/주소 불일치 차단·로그인·HTTP 전환·재시작 후 CA 보존 1 PASS. 최초 시험에서 SNI 없는 IP TLS 선택 실패를 확인하고 `default_sni`로 수정했다. 자세한 증빙과 미완료 범위는 [IP 접속 검증 기록](../검증산출물/2026-10-12_IP접속_HTTPS_구성검증.md)을 따른다. AWS 자원 생성·실제 CA 설치·외부 EIP 접속·API/DB/LLM 연결은 이번 시험 결과에 포함되지 않는다.

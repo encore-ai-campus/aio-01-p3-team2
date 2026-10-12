@@ -12,6 +12,7 @@ def valid_config():
     config = json.loads((ROOT / "config/demo.example.json").read_text())
     config.update(
         account_id="123456789012",
+        access_mode="domain",
         plan_domain="plan.example.com",
         game_domain="game.example.com",
         operator_cidr="203.0.113.4/32",
@@ -507,3 +508,107 @@ def test_aws_payload_file_avoids_windows_argv_limit_and_is_deleted(monkeypatch):
         "cloudformation", "validate-template", payload=payload
     ) == {"ok": True}
     assert seen and not seen[0].exists()
+
+
+def test_ip_config_can_plan_before_allocation_and_requires_distinct_public_ips():
+    config = {
+        **valid_config(),
+        "access_mode": "ip",
+        "https_mode": "internal",
+        "plan_domain": None,
+        "game_domain": None,
+    }
+    assert validate_config(config)
+    assert validate_config({**config, "plan_public_ip": "8.8.8.8", "game_public_ip": "8.8.4.4"})
+    for changes in (
+        {"https_mode": "acme"},
+        {"plan_public_ip": "10.0.0.1", "game_public_ip": "8.8.4.4"},
+        {"plan_public_ip": "8.8.8.8"},
+        {"plan_public_ip": "8.8.8.8", "game_public_ip": "8.8.8.8"},
+        {"plan_domain": "plan.example.com"},
+    ):
+        with pytest.raises(ValueError):
+            validate_config({**config, **changes})
+
+
+def test_ip_eip_binding_verifies_ownership_and_builds_site_specific_origins():
+    from infra.aws.web_endpoints import endpoints
+
+    config = {
+        **valid_config(),
+        "access_mode": "ip",
+        "https_mode": "internal",
+        "plan_domain": None,
+        "game_domain": None,
+    }
+    mismatch = False
+
+    def fake_aws(*args, **kwargs):
+        if args[:2] == ("sts", "get-caller-identity"):
+            return {"Account": "123456789012", "Arn": "arn:aws:iam::123456789012:user/ops"}
+        if args[:2] == ("cloudformation", "describe-stacks"):
+            return {
+                "Stacks": [
+                    {
+                        "StackStatus": "CREATE_COMPLETE",
+                        "Tags": [
+                            {"Key": "Environment", "Value": "ikonly-demo"},
+                            {"Key": "ManagedBy", "Value": "ikonly-iac"},
+                        ],
+                        "Outputs": [
+                            {"OutputKey": key, "OutputValue": value}
+                            for key, value in {
+                                "PlanWebPublicIp": "8.8.8.8",
+                                "GameWebPublicIp": "8.8.4.4",
+                                "PlanWeb": "i-plan",
+                                "GameWeb": "i-game",
+                            }.items()
+                        ],
+                    }
+                ]
+            }
+        if args[:2] == ("ec2", "describe-addresses"):
+            return {
+                "Addresses": [
+                    {
+                        "InstanceId": "wrong"
+                        if mismatch
+                        else "i-plan"
+                        if args[-1] == "8.8.8.8"
+                        else "i-game",
+                        "Tags": [
+                            {"Key": "Environment", "Value": "ikonly-demo"},
+                            {"Key": "ManagedBy", "Value": "ikonly-iac"},
+                        ],
+                    }
+                ]
+            }
+        pytest.fail("Unexpected operation")
+
+    result = endpoints(fake_aws, config)
+    assert result["origins"] == {
+        "main-api": "https://8.8.8.8,https://8.8.4.4",
+        "fault-api": "https://8.8.8.8",
+    }
+    assert result["web"]["plan-web"]["HTTPS_MODE"] == "internal"
+    mismatch = True
+    with pytest.raises(ValueError):
+        endpoints(fake_aws, config)
+
+
+def test_https_origin_accepts_exact_ip_and_rejects_url_fields():
+    from backend.app.guards.cloud_access import valid_https_origin
+
+    assert valid_https_origin("https://8.8.8.8")
+    assert valid_https_origin("https://plan.localhost:8443")
+    for value in (
+        "http://8.8.8.8",
+        "https://8.8.8.8/path",
+        "https://user@8.8.8.8",
+        "https://8.8.8.8?x=1",
+        "https://8.8.8.8#x",
+        "https://8.8.8.8:bad",
+        "https://",
+        "https://8.8.8.8\\evil",
+    ):
+        assert not valid_https_origin(value)

@@ -499,3 +499,127 @@ def test_production_fleet_tls_routes_mcp_game_and_runner(production_cluster, tmp
         docker("network", "rm", network)
         for file in env_files:
             file.unlink(missing_ok=True)
+
+
+def test_ip_web_https_trust_auth_redirect_and_ca_persistence(tmp_path):
+    """Public-shaped IPs are certificate fixtures; connections stay on loopback."""
+    if os.getenv("CLOUD_IMAGE_TESTS") != "true":
+        pytest.skip("CLOUD_IMAGE_TESTS=true requires explicitly built production images")
+    image = os.getenv("WEB_TEST_IMAGE", "ikonly-web:a3")
+    password = secrets.token_urlsafe(24)
+    hashed = docker(
+        "run",
+        "--rm",
+        "--interactive",
+        "--entrypoint",
+        "caddy",
+        image,
+        "hash-password",
+        input_text=password + "\n",
+    )
+    authorization = "Basic " + base64.b64encode(("operator:" + password).encode()).decode()
+    identifier = str(uuid4())
+    for role, public_ip in (("plan-web", "8.8.8.8"), ("game-web", "8.8.4.4")):
+        config = tmp_path / (role + ".env")
+        values = {
+            "DEPLOYMENT_MODE": "cloud",
+            "SERVICE_ROLE": role,
+            "PUBLIC_HOST": public_ip,
+            "WEB_ACCESS_MODE": "ip",
+            "HTTPS_MODE": "internal",
+            "WEB_USERNAME": "operator",
+            "WEB_PASSWORD_HASH": hashed,
+            "MAIN_API_UPSTREAM": "http://10.72.10.10:8000",
+            "MAIN_PROXY_KEY": secrets.token_urlsafe(32),
+        }
+        if role == "plan-web":
+            values.update(
+                FAULT_API_UPSTREAM="http://10.72.10.11:8000",
+                FAULT_PROXY_KEY=secrets.token_urlsafe(32),
+            )
+        config.write_text(
+            "\n".join(f"{key}={value}" for key, value in values.items()) + "\n", encoding="utf-8"
+        )
+        config.chmod(0o600)
+        container = None
+        try:
+            container = docker(
+                "run",
+                "--detach",
+                "--label",
+                "ikonly.image-test=" + identifier,
+                "--env-file",
+                str(config),
+                "--read-only",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
+                "--tmpfs",
+                "/tmp",
+                "--volume",
+                "/data",
+                "--volume",
+                "/config",
+                "--publish",
+                "127.0.0.1::8443",
+                "--publish",
+                "127.0.0.1::8080",
+                "--health-interval",
+                "1s",
+                "--health-start-period",
+                "1s",
+                image,
+            )
+            wait_ready(container)
+            root = tmp_path / (role + "-ip-root.crt")
+            root_text = docker(
+                "exec", container, "cat", "/data/caddy/pki/authorities/local/root.crt"
+            )
+            root.write_text(root_text, encoding="utf-8")
+            # An untrusted client must fail certificate validation.
+            port = int(info(container)["NetworkSettings"]["Ports"]["8443/tcp"][0]["HostPort"])
+            with (
+                socket.create_connection(("127.0.0.1", port), timeout=15) as plain,
+                pytest.raises(ssl.SSLCertVerificationError),
+            ):
+                ssl.create_default_context().wrap_socket(plain, server_hostname=public_ip)
+            assert https_request(container, public_ip, root, "/")[0] == 401
+            status, body, _ = https_request(
+                container, public_ip, root, "/", authorization=authorization
+            )
+            assert status == 200 and "<html" in body.lower()
+            with (
+                socket.create_connection(("127.0.0.1", port), timeout=15) as plain,
+                pytest.raises(ssl.SSLCertVerificationError),
+            ):
+                ssl.create_default_context(cafile=str(root)).wrap_socket(
+                    plain, server_hostname="1.1.1.1"
+                )
+            http_port = int(info(container)["NetworkSettings"]["Ports"]["8080/tcp"][0]["HostPort"])
+            connection = http.client.HTTPConnection("127.0.0.1", http_port, timeout=15)
+            try:
+                connection.request("GET", "/", headers={"Host": public_ip})
+                response = connection.getresponse()
+                assert (
+                    response.status == 308
+                    and response.getheader("Location") == "https://" + public_ip + "/"
+                )
+                response.read()
+            finally:
+                connection.close()
+            docker("restart", container)
+            wait_ready(container)
+            assert (
+                docker("exec", container, "cat", "/data/caddy/pki/authorities/local/root.crt")
+                == root_text
+            )
+            assert (
+                https_request(container, public_ip, root, "/", authorization=authorization)[0]
+                == 200
+            )
+        finally:
+            if container:
+                assert info(container)["Config"]["Labels"].get("ikonly.image-test") == identifier
+                docker("rm", "--force", "--volumes", container)
+            config.unlink(missing_ok=True)
