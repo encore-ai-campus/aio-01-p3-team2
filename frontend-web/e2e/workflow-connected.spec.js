@@ -6,12 +6,9 @@ test("durable asynchronous workflow connects approval and game registration", as
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
+  await page.locator(".login-submit").click();
   await page.getByRole("button", { name: "기획안 만들기", exact: true }).click();
   await expect(page.locator("[data-space-row]").first()).toBeVisible();
-  for (const row of await page.locator("[data-space-row]").all()) {
-    await row.locator('select[name="reward_item"]').selectOption("GOLD");
-    await row.locator('input[name="reward_quantity"]').fill("10");
-  }
   await page.locator('textarea[name="objective"]').fill("실제 DB 연결과 이벤트 공간 등록 확인");
   const admission = page.waitForResponse((response) =>
     response.url().endsWith("/api/v1/event-briefs") && response.request().method() === "POST");
@@ -31,6 +28,7 @@ test("durable asynchronous workflow connects approval and game registration", as
   await page.locator("[data-apply-plan]").click();
   await expect(page.getByText("Runtime 이벤트 등록 완료", { exact: true })).toBeVisible();
   await page.reload();
+  await page.locator(".login-submit").click();
   await expect(page.locator(".page-intro .state-chip")).toHaveText("가상 게임 등록 완료");
   const restored = await page.request.get(`/api/v1/workflows/${accepted.workflow_id}`).then((r) => r.json());
   expect(restored.supervisor_state.status).toBe("APPLIED");
@@ -55,6 +53,7 @@ test("restores durable workflow after backend restart", async ({ page }) => {
   test.skip(!state || state.contractKind !== "space_workflow", "requires the native restart profile");
   await page.addInitScript((id) => localStorage.setItem("eventquest.latestWorkflow", id), state.workflowId);
   await page.goto("/");
+  await page.locator(".login-submit").click();
   await expect(page.locator(".page-intro .state-chip")).toHaveText("가상 게임 등록 완료");
   const restored = await page.request.get(`/api/v1/workflows/${state.workflowId}`).then((r) => r.json());
   expect(restored.supervisor_state.state_version).toBe(state.stateVersion);

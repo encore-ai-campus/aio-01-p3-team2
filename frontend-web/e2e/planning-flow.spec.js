@@ -4,12 +4,9 @@ import path from "node:path";
 
 async function openCreate(page) {
   await page.goto("/");
+  await page.locator(".login-submit").click();
   await page.getByRole("button", { name: "기획안 만들기", exact: true }).click();
   await expect(page.locator("[data-space-row]").first()).toBeVisible();
-  for (const row of await page.locator("[data-space-row]").all()) {
-    await row.locator('[name="reward_item"]').selectOption("GOLD");
-    await row.locator('[name="reward_quantity"]').fill("20");
-  }
 }
 function stageBrief(contentId) {
   return { objective: "게임 규칙 근거 확인", target_segments: ["new_user"], event_type: "growth_progression",
@@ -21,6 +18,7 @@ function stageBrief(contentId) {
 async function showWorkflow(page, workflow) {
   await page.route("**/api/v1/workflows?*", route => route.fulfill({ json: [workflow] }));
   await page.goto("/");
+  await page.locator(".login-submit").click();
   await expect(page.locator(".workflow-board")).toBeVisible();
 }
 
@@ -39,7 +37,7 @@ test("brief form explains the required goal before sending a request", async ({ 
   await page.getByRole("button", { name: /기획안 검증 시작/ }).click();
   await expect(objective).toBeFocused();
   await expect(objective).toHaveAttribute("aria-invalid", "true");
-  await expect(page.getByRole("alert")).toHaveText("이벤트 목표를 입력하세요.");
+  await expect(page.getByRole("alert")).toHaveText("퀘스트 목표를 입력하세요.");
   expect(briefRequests).toBe(0);
   await page.screenshot({ path: test.info().outputPath("ux-01-input-required-1910x912.png"), fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -48,7 +46,7 @@ test("brief form explains the required goal before sending a request", async ({ 
   await page.screenshot({ path: test.info().outputPath("ux-01-input-required-390x844.png"), fullPage: true });
 });
 
-test("event dungeon form maps selected spaces to one linked first-clear reward each", async ({ page }) => {
+test("event dungeon form delegates selected-space rewards to the planner", async ({ page }) => {
   let submittedBrief;
   await page.route("**/api/v1/event-briefs", async (route) => {
     submittedBrief = route.request().postDataJSON();
@@ -63,17 +61,17 @@ test("event dungeon form maps selected spaces to one linked first-clear reward e
   for (let index = 1; index < rowCount; index += 1) {
     await spaceRows.nth(index).locator('input[name="space_enabled"]').uncheck();
   }
-  await spaceRows.first().locator('select[name="reward_item"]').selectOption({ index: 1 });
   await page.locator('textarea[name="objective"]').fill("이벤트 던전 공간별 첫 클리어를 돕는다");
   await page.getByRole("button", { name: /기획안 검증 시작/ }).click();
   await expect(page.getByRole("alert")).toContainText("계약 요청을 확인했습니다.");
 
   expect(submittedBrief.event_type).toBe("special_dungeon");
   expect(submittedBrief.actions).toHaveLength(1);
-  expect(submittedBrief.rewards).toHaveLength(1);
+  expect(submittedBrief.rewards).toHaveLength(0);
+  expect(submittedBrief.reward_selection).toBe("planner");
   expect(submittedBrief.actions.every((action) => action.action_type === "special_dungeon_space_clear")).toBe(true);
   expect(submittedBrief.actions.every((action) => action.goal.target === 1)).toBe(true);
-  expect(submittedBrief.mission_reward_links).toHaveLength(1);
+  expect(submittedBrief.mission_reward_links).toHaveLength(0);
   expect(new Set(submittedBrief.actions.map((action) => action.content_scope.content_ids[0])).size).toBe(1);
   expect(submittedBrief.mission_reward_links.every((link) =>
     submittedBrief.actions.some((action) => action.action_id === link.action_id)
@@ -167,7 +165,7 @@ test("navigation stays named and fits a narrow viewport", async ({ page }) => {
   await openCreate(page);
 
   for (const [label, heading] of [
-    ["기획안 만들기", "이벤트 공간별 보상을 설계합니다."],
+    ["기획안 만들기", "퀘스트 목표를 정하고 도전 구간을 선택합니다."],
     ["진행 기록", /진행 기록이 없습니다\.|실제 검증 경로와 결과/],
     ["복구 정책", "복구 규칙을 통제합니다."],
     ["복구 시연", "오류를 선택하고 실제 복구를 확인합니다."],
@@ -196,10 +194,6 @@ test("supported plan approval and runtime registration survive reload", async ({
   await page.getByRole("button", { name: /기획안 검증 시작/ }).click();
   await failure;
   await expect(page.getByRole("button", { name: /기획안 검증 시작/ })).toBeEnabled();
-  for (const row of await page.locator("[data-space-row]").all()) {
-    await row.locator('[name="reward_item"]').selectOption("GOLD");
-    await row.locator('[name="reward_quantity"]').fill("20");
-  }
   await page.locator('textarea[name="objective"]').fill("ACK 유실 후 같은 기획 요청 복원");
   await page.getByRole("button", { name: /기획안 검증 시작/ }).click();
   await expect(page.locator("[data-approve-plan]")).toBeVisible();
@@ -210,6 +204,7 @@ test("supported plan approval and runtime registration survive reload", async ({
   await page.locator("[data-apply-plan]").click();
   await expect(page.getByText("Runtime 이벤트 등록 완료", { exact: true })).toBeVisible();
   await page.reload();
+  await page.locator(".login-submit").click();
   await expect(page.locator(".page-intro .state-chip")).toHaveText("가상 게임 등록 완료");
   await expect(page.locator('.route-node[data-event="runtime.event_registered"]')).toBeVisible();
 });
@@ -222,6 +217,7 @@ test("event window access stays unknown without a segment growth curve", async (
   const workflow = await result.json();
   expect(workflow.plan.impact_assessment.find(row => row.metric === "mission_accessibility").status).toBe("unknown");
   await showWorkflow(page, workflow);
+  await page.getByText("데이터 기준과 영향 근거 보기", {exact:true}).click();
   await expect(page.getByText(/성장 속도 자료 부족/).first()).toBeVisible();
 });
 
@@ -257,10 +253,15 @@ test("unsupported reward is shown as development work without approval action", 
   await page.locator('textarea[name="objective"]').fill("스킨 보상 지원 범위 확인");
   const rows = page.locator("[data-space-row]");
   for (let i = 1; i < await rows.count(); i++) await rows.nth(i).locator('[name="space_enabled"]').uncheck();
-  await rows.first().locator('[name="reward_item"]').selectOption("SKIN_STAR_CANDY");
-  await rows.first().locator('[name="reward_quantity"]').fill("1");
+  await page.route("**/api/v1/event-briefs", async route => {
+    const body = route.request().postDataJSON();
+    body.reward_selection = "explicit";
+    body.rewards = [{item_id:"SKIN_STAR_CANDY",quantity:1}];
+    body.mission_reward_links = [{action_index:0,reward_index:0}];
+    await route.continue({postData:JSON.stringify(body)});
+  });
   await page.getByRole("button", { name: /기획안 검증 시작/ }).click();
-  await expect(page.locator(".result-head h3")).toHaveText("개발 항목 포함");
+  await expect(page.locator(".plan-document-status")).toHaveText("개발 항목 포함");
   await expect(page.locator("[data-approve-plan]")).toHaveCount(0);
   await expect(page.locator('.route-node[data-event="capability.scope_checked"]')).toContainText("개발 필요");
 });
@@ -273,8 +274,57 @@ test("missing game content is shown as a data gap without approval action", asyn
   const workflow = await result.json();
   expect(workflow.plan.runtime_eligible).toBe(false);
   await showWorkflow(page, workflow);
-  await expect(page.locator(".result-head h3")).toHaveText("데이터 확인 필요");
+  await expect(page.locator(".plan-document-status")).toHaveText("데이터 확인 필요");
   await expect(page.locator("[data-approve-plan]")).toHaveCount(0);
+});
+
+test("planner rewards can be revised, approved and applied without a localhost redirect", async ({ page }) => {
+  await openCreate(page);
+  const spaces = page.locator("[data-space-row]");
+  for (let index = 1; index < await spaces.count(); index++) {
+    await spaces.nth(index).locator('[name="space_enabled"]').uncheck();
+  }
+  await page.locator('textarea[name="objective"]').fill("수정 의견에 따른 보상 재검토와 게임 연결");
+  await page.getByRole("button", {name:/기획안 검증 시작/}).click();
+  await expect(page.locator("[data-open-revision]")).toBeVisible();
+  await page.locator("[data-open-revision]").click();
+  await page.locator("#revision-comment").fill("보상을 GOLD 2개로 변경해주세요");
+  const revisionResponse = page.waitForResponse(response => response.url().endsWith("/api/v1/decisions") && response.request().postDataJSON()?.action === "REQUEST_REVISION");
+  await page.locator("#revision-form button[type=submit]").click();
+  const response = await revisionResponse;
+  expect(response.status()).toBe(200);
+  const result = await response.json();
+  const child = result.workflow;
+  expect(child.plan.result_version).toBe(2);
+  expect(child.plan.rewards[0]).toMatchObject({item_id:"GOLD",quantity:2});
+  expect(child.current_status).toBe("WAITING_APPROVAL");
+  expect(child.decision).toBeNull();
+  const parent = await page.request.get(`/api/v1/workflows/${result.decision.workflow_id}`).then(response => response.json());
+  expect(parent.current_status).toBe("REVISION_REQUESTED");
+  expect(parent.supervisor_state.status).toBe("REVISION_REQUESTED");
+  expect(parent.reconciliation_required).toBe(false);
+  const replay = await page.request.post("/api/v1/decisions", {
+    headers:{"Idempotency-Key":response.request().headers()["idempotency-key"]},
+    data:response.request().postDataJSON(),
+  });
+  expect(replay.status()).toBe(200);
+  expect((await replay.json()).workflow.workflow_id).toBe(child.workflow_id);
+  await expect(page.locator(".plan-document")).toContainText("V2");
+  await expect(page.locator(".plan-reward")).toContainText("× 2");
+  await page.locator("[data-approve-plan]").click();
+  await expect(page.locator("[data-apply-plan]")).toBeVisible();
+  let popups = 0;
+  page.on("popup", () => popups++);
+  await page.locator("[data-apply-plan]").click();
+  await expect(page.getByText("Runtime 이벤트 등록 완료", {exact:true})).toBeVisible();
+  expect(popups).toBe(0);
+  const applied = await page.request.get(`/api/v1/workflows/${child.workflow_id}`).then(response => response.json());
+  expect(applied.current_status).toBe("APPLIED");
+  const event = await page.request.get(`/api/game/events/${applied.runtime_event.runtime_event_id}`).then(response => response.json());
+  expect(event.result_version).toBe(2);
+  expect(event.configuration.rewards[0]).toMatchObject({item_id:"GOLD",quantity:2});
+  const source = await page.request.get(`/api/game/sources/${child.task_id}`).then(response => response.json());
+  expect(source.result_version).toBe(2);
 });
 
 test("unlinked mission reward is rejected by the API contract", async ({ page }) => {
@@ -282,6 +332,8 @@ test("unlinked mission reward is rejected by the API contract", async ({ page })
   await page.route("**/api/v1/event-briefs", async (route) => {
     const request = route.request();
     const body = request.postDataJSON();
+    body.reward_selection = "explicit";
+    body.rewards = [{item_id:"GOLD",quantity:20}];
     body.mission_reward_links = [];
     await route.continue({ postData: JSON.stringify(body) });
   });
@@ -302,6 +354,9 @@ test("ambiguous reward links are rejected before planning", async ({ page }) => 
   await page.route("**/api/v1/event-briefs", async (route) => {
     const request = route.request();
     const body = request.postDataJSON();
+    body.reward_selection = "explicit";
+    body.rewards = [{item_id:"GOLD",quantity:20}];
+    body.mission_reward_links = [{action_index:0,reward_index:0}];
     const secondAction = {
       ...body.actions[0],
       action_type: "dungeon_clear",
@@ -340,7 +395,7 @@ test("prompt injection is rejected before a workflow result is shown", async ({ 
   });
   const securityNotice = page.getByRole("alert");
   await expect(securityNotice).toContainText("보안 정책에 의해 요청이 차단됐습니다.");
-  await expect(securityNotice).toContainText("이벤트 목표·대상·미션·보상에 집중해 다시 작성하세요.");
+  await expect(securityNotice).toContainText("퀘스트 목표·대상·미션·보상에 집중해 다시 작성하세요.");
   await expect(securityNotice).toContainText("차단된 요청은 저장하거나 실행하지 않았습니다.");
   await expect(securityNotice).not.toContainText("ignore previous instructions");
   await expect(page.locator("#toast")).toBeEmpty();
@@ -358,7 +413,7 @@ test("prompt injection is rejected before a workflow result is shown", async ({ 
   }
 });
 
-test("policy history stays compact and policy editors match the dark UI", async ({ page }) => {
+test("policy history stays compact and policy editors match the light UI", async ({ page }) => {
   await openCreate(page);
   await page.getByRole("button", { name: "복구 정책" }).click();
   await expect(page.locator(".page-intro .state-chip")).toContainText("ACTIVE v");
@@ -382,7 +437,7 @@ test("policy history stays compact and policy editors match the dark UI", async 
   }));
   const policyCodeWhiteSpace = await page.locator(".policy-error-label").first().evaluate((element) => getComputedStyle(element).whiteSpace);
   expect(auditMaxHeight).toBe("290px");
-  expect(editorStyle).toEqual({ background: "rgb(18, 27, 30)", colorScheme: "dark" });
+  expect(editorStyle).toEqual({ background: "rgb(255, 255, 255)", colorScheme: "light" });
   expect(policyCodeWhiteSpace).toBe("normal");
   const policyRows = page.locator("[data-policy-row]");
   const totalPolicyRows = await policyRows.count();

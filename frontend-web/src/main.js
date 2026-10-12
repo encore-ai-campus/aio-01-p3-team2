@@ -1,20 +1,26 @@
 import "./styles.css";
 import { renderWorkflowGraph } from "./workflow-progress.js";
 import { mountFaultLab, renderFaultLab } from "./fault-lab-topology.js";
+import { requestId } from "./request-id.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const app = $("#app");
+const demoActorId = "liveops01";
+let loggedIn = false;
 let activeView = "create";
 let currentRun = null;
-let userStartedCreating = false;
+let userStartedCreating = loggedIn;
 let workflowPollTimer = null;
 let workflowPollError = "";
-const workflowFinishedStates = new Set(["WAITING_APPROVAL", "WAITING_REVIEW", "SAFE_STOP", "COMPLETED", "CANCELLED", "REJECTED", "APPROVED", "APPLIED"]);
+const workflowFinishedStates = new Set(["WAITING_APPROVAL", "WAITING_REVIEW", "SAFE_STOP", "COMPLETED", "CANCELLED", "REJECTED", "REVISION_REQUESTED", "APPROVED", "APPLIED"]);
 let runtimeProgress = null;
 let runtimeProgressEventId = "";
 let runtimeProgressLoading = false;
 let runtimeProgressError = "";
 let faultRun = null;
+let planningDemoRun = null;
+let planningDemoPollTimer = null;
+let planningDemoPollError = "";
 let policyState = null;
 let policyPreview = null;
 const policyActionKeyStorage = "eventquest.policyActionKeys";
@@ -35,8 +41,13 @@ let briefError = "";
 let briefDraft = null;
 let activeToast = null;
 let activeToastTimer = null;
+let revisionOpen = false;
+let revisionSubmitting = false;
+let runtimeApplyPending = false;
 
 async function requestFingerprint(value) {
+  // Client equality key only; the API validates the authoritative request hash.
+  if (!crypto.subtle) return `json:${JSON.stringify(value)}`;
   const bytes = new TextEncoder().encode(JSON.stringify(value));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -46,7 +57,7 @@ function pendingRequestKey(operation, fingerprint, extra = {}) {
   const previous = pendingActionKeys.get(operation);
   const request = previous?.fingerprint === fingerprint
     ? previous
-    : { fingerprint, key: crypto.randomUUID(), ...extra };
+    : { fingerprint, key: requestId(), ...extra };
   pendingActionKeys.set(operation, request);
   sessionStorage.setItem(pendingActionKeyStorage, JSON.stringify([...pendingActionKeys]));
   return request;
@@ -65,11 +76,49 @@ const views = [
   ["logs", "운영 로그", "▤"],
 ];
 
+function loginScreen() {
+  app.innerHTML = `<main class="login-page"><div class="login-card">
+    <section class="login-story" aria-label="서비스 소개"><img class="login-logo" src="/event_quest_ai_logo_mascot_v3.png" alt="EventQuest AI · 게임 속 퀘스트를 설계, 검토하는 AI" />
+      <div class="login-story-copy"><p class="login-overline">OPONG HEROES · LIVE OPS</p><h1>게임 퀘스트 설계부터 검토까지<br><em>이제 AI에게 맡겨보세요</em></h1><p>게임 규칙 검증부터 오류 수정까지 AI가 완성해 드립니다.</p>
+      <div class="login-features" aria-label="서비스 기능"><div><span class="login-feature-icon blue" aria-hidden="true">✦</span><strong>AI 기반<br>퀘스트 설계</strong></div><div><span class="login-feature-icon green" aria-hidden="true">◆</span><strong>자동 검수 및<br>리스크 감지</strong></div><div><span class="login-feature-icon violet" aria-hidden="true">▮</span><strong>AutoHealing<br>안정적인 서비스 운영</strong></div></div></div>
+    </section>
+    <section class="login-entry" aria-labelledby="login-title"><div class="login-service">OPONG HEROES <span>│ LIVE OPS</span></div><div class="login-entry-body"><span class="login-overline">LIVE OPS DESK</span><h2 id="login-title">로그인</h2><p class="login-welcome">운영 시스템에 접속하세요.</p>
+      <form id="demo-login-form"><label for="demo-login-id">아이디</label><input id="demo-login-id" name="actor" value="${demoActorId}" readonly autocomplete="username" aria-describedby="demo-login-note" /><p id="demo-login-note">시연용 아이디가 미리 입력되어 있습니다.</p><button type="submit" class="login-submit">로그인 <span aria-hidden="true">→</span></button></form>
+      <p class="login-disclaimer">내부 시연용 데모 로그인 · 아이디만 확인하며 비밀번호 인증은 제공하지 않습니다.</p></div></section>
+  </div></main>`;
+  $("#demo-login-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    loggedIn = true;
+    activeView = "create";
+    userStartedCreating = false;
+    render();
+    restoreLatestWorkflow();
+  });
+}
+
+function logout() {
+  loggedIn = false;
+  clearTimeout(workflowPollTimer);
+  clearTimeout(planningDemoPollTimer);
+  localStorage.removeItem("eventquest.latestWorkflow");
+  currentRun = null;
+  briefDraft = null;
+  runtimeProgress = null;
+  runtimeProgressEventId = "";
+  faultRun = null;
+  planningDemoRun = null;
+  planningDemoPollError = "";
+  policyState = null;
+  logsState = null;
+  activeView = "create";
+  userStartedCreating = false;
+  loginScreen();
+}
+
 function shell() {
   app.innerHTML = `
     <aside class="rail">
-      <div class="brand-mark">EQ</div>
-      <div class="brand-copy"><b>EVENTQUEST</b><span>LIVEOPS DESK</span></div>
+      <img class="rail-logo" src="/event_quest_ai_logo_mascot_v3.png" alt="EventQuest AI · 게임 속 퀘스트를 설계, 검토하는 AI" />
       <div class="rail-divider"></div>
       <div class="nav-label">WORKSPACE</div>
       <nav>${views.map(([id, label, icon]) => `<button class="nav-item ${activeView === id ? "active" : ""}" data-view="${id}" aria-label="${label}" title="${label}"><i aria-hidden="true">${icon}</i><span>${label}</span></button>`).join("")}</nav>
@@ -77,11 +126,12 @@ function shell() {
       <div class="profile"><div class="avatar">L</div><div><b>LiveOps</b><span>단일 사용자 권한</span></div><span class="online-dot"></span></div>
     </aside>
     <main class="main-shell">
-      <header class="topbar"><div><span class="eyebrow">OPONG HEROES / PLANNING</span><h1 id="page-title"></h1></div><div class="top-meta"><span class="runtime-pill"><i></i> LOCAL RUNTIME</span><span class="version">CONSOLE 0.1</span></div></header>
+      <header class="topbar"><div><span class="eyebrow">OPONG HEROES / PLANNING</span><h1 id="page-title"></h1></div><div class="top-meta"><span class="runtime-pill"><i></i> LOCAL RUNTIME</span><span class="version">CONSOLE 0.1</span><button class="logout-button" id="demo-logout" type="button">로그아웃</button></div></header>
       <section id="view-root" class="view-root"></section>
     </main>
     <div id="toast" class="toast" role="status"></div>`;
   document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => { activeView = button.dataset.view; if (activeView === "create") userStartedCreating = true; render(); }));
+  $("#demo-logout").addEventListener("click", logout);
 }
 
 function toast(message, error = false) {
@@ -123,6 +173,7 @@ function workflowStatusLabel(status) {
     WAITING_REVIEW: "검토 대기",
     APPROVED: "승인 완료",
     REJECTED: "승인 거절",
+    REVISION_REQUESTED: "수정 요청 완료",
     APPLIED: "가상 게임 등록 완료",
     COMPLETED: "기획 검증 완료",
     FAILED: "안전 종료",
@@ -153,11 +204,14 @@ function traceEventLabel(event) {
     "supervisor.transition_decided": "Supervisor 상태 전이 결정",
     "supervisor.state_transition_decided": "Supervisor 상태 전이 결정",
     "planner.started": "Planner 기획 시작",
+    "planner.demo_contract_error_injected": "시연용 Planner 응답 오류 주입",
     "planner.output_validated": "기획 초안 검증",
     "capability.scope_checked": "게임 지원 범위 확인",
     "rule_balance.validation_completed": "게임 규칙·보상 검증",
     "critic.review_completed": "기획안 검토",
     "final_consistency.checked": "최종 일관성 확인",
+    "storage.result_persisted": "기획 결과·Trace 저장 완료",
+    "planning.record_persisted": "기획 결과·Trace 저장 완료",
     "approval.pending": "사용자 승인 대기",
     "approval.decision_recorded": "사용자 승인 결정",
     "runtime.event_registered": "가상 게임 이벤트 등록",
@@ -261,34 +315,39 @@ function safeStopSummary(errorCode) {
   return summaries[errorCode] ?? ["검증을 완료하지 못해 안전하게 중단했습니다.", "원인을 확인한 뒤 새 기획 요청으로 다시 검증할 수 있습니다."];
 }
 
+function eventDungeonName(template) {
+  return template?.template_id === "moon_rift_v1" ? "달빛 던전" : template?.name ?? "퀘스트 던전";
+}
+
 function createView() {
   if (!planningCatalog) {
-    return `<div class="page-intro"><div><span class="eyebrow">NEW EVENT BRIEF</span><h2>이벤트 던전 기획</h2><p>선택한 공간별 첫 클리어 미션과 보상을 구성합니다.</p></div></div><section class="panel">${planningCatalogLoading ? "이벤트 공간과 보상 목록을 불러오는 중입니다…" : escapeHtml(planningCatalogError || "게임 카탈로그를 불러오지 못했습니다.")} ${planningCatalogError ? `<button class="secondary-button" id="reload-planning-catalog">다시 시도</button>` : ""}</section>`;
+    return `<div class="page-intro"><div><span class="eyebrow">NEW QUEST BRIEF</span><h2>퀘스트 던전 기획</h2><p>선택한 공간별 첫 클리어 미션과 보상을 구성합니다.</p></div></div><section class="panel">${planningCatalogLoading ? "퀘스트 구간과 보상 목록을 불러오는 중입니다…" : escapeHtml(planningCatalogError || "게임 카탈로그를 불러오지 못했습니다.")} ${planningCatalogError ? `<button class="secondary-button" id="reload-planning-catalog">다시 시도</button>` : ""}</section>`;
   }
   const template = planningCatalog.templates[0];
-  const itemOptions = planningCatalog.items.map((item) => `<option value="${escapeHtml(item.item_id)}">${escapeHtml(item.name)}</option>`).join("");
+  const dungeonName = eventDungeonName(template);
   const spaceRows = template.spaces.map((space) => `<article class="space-mission-row" data-space-row data-space-id="${escapeHtml(space.id)}">
-    <label class="space-mission-enable"><input type="checkbox" name="space_enabled" value="${escapeHtml(space.id)}" checked /><span><b>${escapeHtml(space.name)}</b><small>이벤트 공간 · 입장 Lv.${space.entry_level}${space.is_boss ? " · 보스" : ""}</small></span></label>
-    <div class="space-mission-reward"><span class="space-clear-rule">이벤트 기간 중 첫 클리어</span><label>보상 아이템<select name="reward_item" required><option value="">보상 선택</option>${itemOptions}</select></label><label>수량<input name="reward_quantity" type="number" min="1" max="1000000" value="1" required /></label></div>
+    <label class="space-mission-enable"><input type="checkbox" name="space_enabled" value="${escapeHtml(space.id)}" checked /><span><b>${escapeHtml(space.name)}</b><small>던전 구간 · 입장 Lv.${space.entry_level}${space.is_boss ? " · 보스" : ""}</small></span></label>
   </article>`).join("");
   return `
-    <div class="page-intro"><div><span class="eyebrow">NEW EVENT BRIEF</span><h2>이벤트 공간별 보상을 설계합니다.</h2><p>선택한 공간을 이벤트 기간 중 처음 클리어했을 때 보상을 지급합니다.</p></div><div class="snapshot-card"><span>게임 데이터 기준</span><b>${escapeHtml(planningCatalog.versions.game_data_snapshot_id)}</b><small>${escapeHtml(template.name)} 공간·보상 카탈로그</small></div></div>
+    <div class="page-intro"><div><span class="eyebrow">NEW QUEST BRIEF</span><h2>퀘스트 목표를 정하고 도전 구간을 선택합니다.</h2><p>AI 에이전트가 게임 데이터에 맞춰 제안합니다.</p></div><div class="snapshot-card"><span>게임 데이터 기준</span><b>${escapeHtml(planningCatalog.versions.game_data_snapshot_id)}</b><small>${escapeHtml(dungeonName)} 공간·보상 카탈로그</small></div></div>
     <form id="brief-form" class="brief-layout" novalidate>
-      <section class="panel form-panel"><div class="panel-heading"><div><span class="step">01</span><h3>이벤트 방향</h3></div><span class="required-note">필수 입력</span></div>
-        <div class="fixed-event-venue"><span class="step">EVENT DUNGEON</span><b>${escapeHtml(template.name)}</b><small>현재 데모 게임에서 이벤트를 진행하는 공간</small></div>
-        <label>이벤트 목표<textarea name="objective" required maxlength="500" placeholder="예: 신규 유저가 월광 균열의 공간을 탐험하도록 돕는다"></textarea></label>
+      <section class="panel game-intro-panel" aria-labelledby="game-intro-title"><img src="/game-intro-play-loop-quest.png" alt="영웅이 전투하고 장비를 강화한 뒤 퀘스트 던전의 세 공간으로 향하는 그림" /><div class="game-intro-copy"><span class="eyebrow">GAME GUIDE</span><h3 id="game-intro-title">어떤 게임인가요?</h3><p>영웅을 키우며 스테이지와 던전을 도전하는 모바일 방치형 RPG입니다. 전투에서 얻은 자원으로 장비를 강화하고 다음 구역에 도전합니다.</p><div class="game-intro-flow"><span>전투로 자원 획득</span><span>장비 강화와 성장</span><span>퀘스트 던전 도전</span></div><p class="game-intro-task">여기서는 <b>‘${escapeHtml(dungeonName)}’</b>에서 열 공간을 선택합니다. 기획 에이전트가 각 공간의 첫 클리어 보상을 제안합니다.</p><small>이미지는 게임 진행을 설명하기 위한 시안입니다.</small></div></section>
+      <section class="panel form-panel event-direction-panel"><div class="panel-heading"><div><span class="step">01</span><h3>퀘스트 기본 정보 입력</h3></div><span class="required-note">필수 입력</span></div>
+        <label>기획 목표<textarea name="objective" required maxlength="500" placeholder="예: 신규 유저가 달빛 던전의 공간을 탐험하도록 돕는다"></textarea></label>
         <div class="field-grid"><label>대상 유저<select name="segment"><option value="new_user">신규 유저</option><option value="returning_user">복귀 유저</option></select></label><label>운영 방식<select name="operation_mode" id="operation-mode"><option value="finite">기간 한정</option><option value="ongoing">상시 운영</option></select></label></div>
-        <label><span id="duration-label">이벤트 기간 (일)</span><input name="duration" id="duration-days" type="number" min="1" max="7" value="3" required /><span class="field-hint" id="duration-hint">기간 한정 이벤트의 실제 운영 기간입니다.</span></label>
-      </section>
-      <section class="panel form-panel space-mission-panel"><div class="panel-heading"><div><span class="step">02</span><h3>공간별 첫 클리어 보상</h3></div><span class="link-badge">공간마다 1회 지급</span></div>
-        <p class="field-hint">이 이벤트에서 열 공간을 선택하고 각각의 보상을 정하세요. 선택한 공간은 순서와 관계없이 입장할 수 있습니다.</p>
+        <label><span id="duration-label">퀘스트 기간 (일)</span><input name="duration" id="duration-days" type="number" min="1" max="7" value="3" required /><span class="field-hint" id="duration-hint">기간 한정 퀘스트의 실제 운영 기간입니다.</span></label>
+        <div class="space-selection"><div class="panel-heading"><div><span class="step">02</span><h3>도전 구간 선택</h3></div></div>
+        <p class="field-hint">‘달빛 던전’에서 퀘스트에 사용할 구간을 선택하세요.</p>
         <div class="space-mission-list">${spaceRows}</div>
-        <label>기대 지표<input name="impact" value="이벤트 미션 참여율" required /><span class="field-hint">관측 근거가 없으면 결과를 임의 추정하지 않고 ‘근거 부족 · 미산출’로 표시합니다.</span></label>
+        <p class="field-hint">공간별 첫 클리어 보상 아이템·수량은 기획 에이전트가 제안하며, 게임 규칙 검증 후 기획안에 표시됩니다.</p></div>
+        <label>기대 지표<input name="impact" value="퀘스트 참여율" required /><span class="field-hint">관측 근거가 없으면 결과를 임의 추정하지 않고 ‘근거 부족 · 미산출’로 표시합니다.</span></label>
+        <label>실행 방식<select name="execution_mode"><option value="normal">일반 기획안 실행</option><option value="planner_output_invalid">시험: Planner 오류 1회 후 재시도</option><option value="planner_explanation_mismatch">시험: 검수 오류 1회 후 기획안 수정</option></select><span class="field-hint">시험 방식은 입력한 기획안을 격리 DB에서 실행합니다. 복구 과정은 진행 기록에서 확인할 수 있습니다.</span></label>
       </section>
       ${briefError ? `<div class="notice-list warning-note form-error" role="alert"><b>요청을 다시 확인하세요</b><p>${escapeHtml(briefError)}</p></div>` : ""}
       <div class="form-footer"><div class="privacy-note"><span>ⓘ</span><span>이 단계는 게임 데이터를 읽고 계획을 검증합니다.<br/>승인 전에는 게임 상태와 보상을 변경하지 않습니다.</span></div><button class="primary-button" type="submit" ${loading ? "disabled" : ""}>${loading ? "검증 중…" : "기획안 검증 시작"}<span>→</span></button></div>
     </form>`;
 }
+
 
 async function loadPlanningCatalog() {
   if (planningCatalogLoading || planningCatalog) return;
@@ -303,8 +362,8 @@ async function loadPlanningCatalog() {
     const [templateBody, itemBody] = await Promise.all([templateResponse.json(), itemResponse.json()]);
     if (!templateResponse.ok || !itemResponse.ok) throw new Error("게임 카탈로그를 불러오지 못했습니다.");
     const templates = templateBody.items ?? [];
-    const items = (itemBody.items ?? []).filter((item) => ["currency", "consumable", "skin"].includes(item.kind));
-    if (!templates.length || !templates[0].spaces?.length || !items.length) throw new Error("이벤트 공간 또는 보상 카탈로그가 비어 있습니다.");
+    const items = itemBody.items ?? [];
+    if (!templates.length || !templates[0].spaces?.length || !items.length) throw new Error("퀘스트 구간 또는 보상 카탈로그가 비어 있습니다.");
     planningCatalog = { templates, items, versions: templateBody.versions };
     planningCatalogError = "";
   } catch (error) {
@@ -344,26 +403,45 @@ function resultCard() {
   const resultExplanation = unreachableContent
     ? "대상 세그먼트의 최고 레벨보다 높은 콘텐츠입니다. 콘텐츠나 대상을 바꿔 다시 요청하세요."
     : tone === "success" ? "게임 규칙과 Runtime 지원 범위에서 검증되었습니다." : "지원 여부와 필요한 후속 작업을 확인하세요.";
-  const decisionActions = currentRun.reconciliation_required ? `<div class="notice-list warning-note"><b>승인·게임 등록 기록 확인 필요</b><p>아래 기록 재조정으로 실제 반영 근거와 진행 상태를 연결하세요.</p></div>` : plan.runtime_eligible && !decision ? `<div class="decision-actions"><span>승인하면 이 버전이 가상 게임 Runtime에 등록 가능합니다.</span><button class="primary-button" data-approve-plan>승인 후 Runtime 등록 준비 →</button><button class="secondary-button" data-reject-plan>거절</button></div>` : decision?.approval_status === "APPROVED" && !runtimeEvent ? `<div class="decision-actions"><span>승인 기록이 저장되었습니다. 요청한 게임 데이터 버전을 다시 검증해 등록합니다.</span><button class="primary-button" data-apply-plan>가상 게임에 이벤트 등록 →</button></div>` : decision?.approval_status === "APPROVED" && runtimeEvent && runtimeTraceMissing ? `<div class="notice-list warning-note"><b>Runtime 적용 완료 · Trace 복구 필요</b><p>${escapeHtml(runtimeEvent.runtime_event_id)} 이벤트는 저장됐지만 실행 기록 저장이 실패했습니다. 재시도해 Trace를 복구할 수 있습니다.</p><button class="secondary-button" data-apply-plan>Trace 저장 다시 시도 →</button></div>` : decision?.approval_status === "APPROVED" && runtimeEvent ? `<div class="notice-list success-note"><b>Runtime 이벤트 등록 완료</b><p>${escapeHtml(runtimeEvent.runtime_event_id)} · ${escapeHtml(runtimeEvent.status)}</p></div>` : decision?.approval_status === "REJECTED" ? `<span class="state-chip warning-chip">운영자가 거절한 버전</span>` : "";
+  const decisionActions = currentRun.reconciliation_required ? `<div class="notice-list warning-note"><b>승인·게임 등록 기록 확인 필요</b><p>아래 기록 재조정으로 실제 반영 근거와 진행 상태를 연결하세요.</p></div>` : !decision ? `<div class="decision-actions"><span>수정 의견을 남기면 AI가 기획안을 다시 작성하고 검토합니다.</span>${plan.runtime_eligible ? '<button class="primary-button" data-approve-plan>승인</button>' : ''}<button class="secondary-button" data-open-revision>수정 요청</button>${currentRun.current_status === "WAITING_APPROVAL" ? '<button class="secondary-button" data-reject-plan>거절</button>' : ""}${revisionOpen ? '<form id="revision-form" class="revision-form"><label for="revision-comment">수정 의견</label><textarea id="revision-comment" maxlength="500" required placeholder="변경할 내용과 이유를 적어주세요."></textarea><button class="primary-button" type="submit" '+(revisionSubmitting ? 'disabled' : '')+'>수정 요청 보내기</button></form>' : ''}</div>` : decision?.approval_status === "APPROVED" && !runtimeEvent ? `<div class="decision-actions"><span>승인 기록이 저장되었습니다. 요청한 게임 데이터 버전을 다시 검증해 등록합니다.</span><button class="primary-button" data-apply-plan>가상 게임에 퀘스트 등록</button></div>` : decision?.approval_status === "APPROVED" && runtimeEvent && runtimeTraceMissing ? `<div class="notice-list warning-note"><b>Runtime 적용 완료 · Trace 복구 필요</b><p>${escapeHtml(runtimeEvent.runtime_event_id)} 이벤트는 저장됐지만 실행 기록 저장이 실패했습니다. 재시도해 Trace를 복구할 수 있습니다.</p><button class="secondary-button" data-apply-plan>Trace 저장 다시 시도 →</button></div>` : decision?.approval_status === "APPROVED" && runtimeEvent ? `<div class="notice-list success-note"><b>Runtime 이벤트 등록 완료</b><p>${escapeHtml(runtimeEvent.runtime_event_id)} · ${escapeHtml(runtimeEvent.status)}</p></div>` : decision?.approval_status === "REJECTED" ? `<span class="state-chip warning-chip">운영자가 거절한 버전</span>` : decision?.approval_status === "REVISION_REQUESTED" ? `<div class="notice-list"><b>수정 요청 완료</b><p>${escapeHtml(decision.approval_comment ?? "")}</p>${decision.revised_workflow_id ? `<button class="secondary-button" data-revised-workflow="${escapeHtml(decision.revised_workflow_id)}">수정된 기획안 보기</button>` : ""}</div>` : "";
   const findings = plan.validation_summary.findings;
   const spaceNames = new Map((planningCatalog?.templates ?? []).flatMap((item) => item.spaces.map((space) => [space.id, space.name])));
   const itemNames = new Map((planningCatalog?.items ?? []).map((item) => [item.item_id, item.name]));
-  const missionRewards = plan.missions.map((mission) => {
-    const spaceId = mission.content_scope?.content_ids?.[0] ?? "";
-    const rewardLines = plan.rewards.filter((reward) => reward.mission_id === mission.mission_id)
-      .map((reward) => `${itemNames.get(reward.item_id) ?? reward.item_id} × ${reward.quantity}`);
-    return `<div class="space-plan-row"><div><b>${escapeHtml(spaceNames.get(spaceId) ?? spaceId ?? "이벤트 던전 공간")}</b><small>이벤트 기간 중 첫 클리어</small></div><span>${escapeHtml(rewardLines.join(" · ") || "연결된 보상 없음")}</span></div>`;
+  const supportLabels = { NEEDS_DEVELOPMENT: "추가 개발 필요", NEEDS_DATA: "데이터 확인 필요", UNSUPPORTED_BY_POLICY: "정책상 지원 불가" };
+  const missionRewards = plan.missions.map((mission, index) => {
+    const contentNames = (mission.content_scope?.content_ids ?? []).map((id) => spaceNames.get(id) ?? id);
+    const action = { special_dungeon_space_clear: "공간 클리어", stage_clear: "스테이지 클리어", dungeon_clear: "던전 클리어" }[mission.action_type] ?? mission.action_type;
+    const comparison = { gte: "이상", gt: "초과", eq: "달성", lte: "이하", lt: "미만" }[mission.goal?.operator] ?? mission.goal?.operator ?? "";
+    const goal = `${action} · ${mission.goal?.target ?? "미정"}${mission.goal?.metric === "count" ? "회" : ` (${mission.goal?.metric ?? "목표 미정"})`} ${comparison}`;
+    const rewardLines = plan.rewards.filter((reward) => reward.mission_id === mission.mission_id).map((reward) => {
+      const support = supportLabels[reward.support_status];
+      const policy = { once_per_user: "유저당 1회 지급", once_per_cycle: "주기당 1회 지급" }[reward.grant_policy] ?? reward.grant_policy ?? "지급 조건 확인 필요";
+      return `<div class="plan-reward"><b>${escapeHtml(itemNames.get(reward.item_id) ?? reward.item_id)} × ${escapeHtml(reward.quantity)}</b><small>${escapeHtml(policy)}${reward.max_grants_per_user != null ? ` · 유저당 최대 ${escapeHtml(reward.max_grants_per_user)}회` : ""}</small>${reward.design_rationale ? `<small>선정 이유: ${escapeHtml(reward.design_rationale)}</small>` : ""}${support ? `<span class="plan-support-note">${escapeHtml(support)}</span>` : ""}</div>`;
+    }).join("");
+    return `<div class="space-plan-row plan-mission"><span class="plan-mission-number">${String(index + 1).padStart(2, "0")}</span><div class="plan-mission-copy"><b>${escapeHtml(contentNames.join(" · ") || action)}</b><small>${escapeHtml(goal)}</small>${supportLabels[mission.support_status] ? `<span class="plan-support-note">${escapeHtml(supportLabels[mission.support_status])}</span>` : ""}</div><div class="plan-rewards">${rewardLines || "연결된 보상 없음"}</div></div>`;
   }).join("");
   const findingLines = [...new Set(findings.flatMap((item) => [
     `${findingLabel(item.code)} · ${item.message_safe}`,
     item.suggested_action,
   ].filter(Boolean)))];
-  return `<section class="panel result-panel ${tone}"><div class="result-head"><div><span class="eyebrow">PLAN ${plan.plan_id} · V${plan.result_version}</span><h3>${label}</h3><p>${resultExplanation}</p></div><span class="status-orb">${plan.runtime_eligible ? "✓" : "!"}</span></div><div class="result-grid"><div><small>상태</small><b>${planStatusLabel(plan)}</b></div><div><small>데이터 기준</small><b>${plan.game_context.game_data_snapshot_id}</b></div><div><small>미션 / 보상</small><b>${plan.missions.length} / ${plan.rewards.length}</b></div><div><small>요청 영향</small><b>${impactStatusLabel}</b></div></div><div class="space-plan-summary"><b>선택 공간별 달성·보상</b>${missionRewards}</div><div class="impact-assessments"><b>영향 근거</b>${impactRows}</div>${plan.development_requirements.length ? `<div class="notice-list"><b>추가 개발 필요</b>${plan.development_requirements.map((item) => `<p>${escapeHtml(formatDevelopmentBehavior(item.requested_behavior))} · ${escapeHtml(item.impact)}</p>`).join("")}</div>` : ""}${findingLines.length ? `<div class="notice-list"><b>검증 결과</b>${findingLines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}${decisionActions}<details><summary>근거와 진행 Trace 보기</summary><pre>${escapeHtml(JSON.stringify({ evidence_refs: plan.evidence_refs, impact_assessment: plan.impact_assessment, validation_findings: findings, agent_analysis: currentRun.agent_analysis, workflow: currentRun.trace, source: currentRun.execution_profile }, null, 2))}</pre></details></section>`;
+  const audience = (plan.audience?.segments ?? "").split(",").filter(Boolean).map((segment) => ({ new_user: "신규 유저", returning_user: "복귀 유저", all_user: "전체 유저" })[segment.trim()] ?? segment.trim()).join(" · ") || "대상 정보 없음";
+  const operation = { finite: "기간 한정", ongoing: "상시 운영" }[plan.operation_mode] ?? "운영 방식 확인 필요";
+  const duration = plan.operation_mode === "ongoing" ? "상시" : plan.schedule?.duration_days != null ? `${plan.schedule.duration_days}일` : "기간 미정";
+  const venue = (planningCatalog?.templates ?? []).find((item) => item.template_id === plan.venue?.template_id || item.id === plan.venue?.template_id);
+  const eventType = { special_dungeon: "특별 던전", growth_progression: "성장 이벤트", dungeon_challenge: "던전 도전" }[plan.event_type] ?? plan.event_type;
+  const status = decision?.approval_status ? workflowStatusLabel(decision.approval_status) : planStatusLabel(plan);
+  return `<section class="panel result-panel plan-document ${tone}" aria-label="생성된 이벤트 기획안">
+    <header class="result-head plan-document-head"><div><span class="eyebrow">기획안 결과 · V${escapeHtml(plan.result_version)}</span><h3>생성된 이벤트 기획안</h3><p>이벤트의 운영 방향과 참여 조건, 보상을 한눈에 확인하세요.</p></div><span class="plan-document-status ${tone}" role="status">${escapeHtml(status)}</span></header>
+    <section class="plan-document-section" aria-label="기획안 요약"><div class="plan-section-heading"><span>01</span><h4>기획안 요약</h4></div><p class="plan-objective">${escapeHtml(plan.objective || "기획 목표 정보가 없습니다.")}</p><dl class="plan-facts"><div><dt>대상 유저</dt><dd>${escapeHtml(audience)}</dd></div><div><dt>운영 방식</dt><dd>${escapeHtml(operation)}</dd></div><div><dt>운영 기간</dt><dd>${escapeHtml(duration)}</dd></div><div><dt>이벤트 유형</dt><dd>${escapeHtml(eventType)}</dd></div></dl></section>
+    <section class="plan-document-section" aria-label="기획안 상세 내용"><div class="plan-section-heading"><span>02</span><h4>기획안 상세 내용</h4></div><div class="plan-content-heading"><b>${escapeHtml(venue ? eventDungeonName(venue) : "참여 미션과 보상")}</b><span>미션 ${plan.missions.length}개 · 보상 ${plan.rewards.length}개</span></div><div class="space-plan-summary plan-missions">${missionRewards}</div></section>
+    <section class="plan-document-section plan-review" aria-label="검토 결과 및 보완 사항"><div class="plan-section-heading"><span>03</span><h4>검토 결과 및 보완 사항</h4></div><p class="plan-review-status"><b>${escapeHtml(label)}</b> · ${escapeHtml(resultExplanation)}</p><p class="plan-impact-summary">요청 영향: ${escapeHtml(impactStatusLabel)}</p>${plan.development_requirements.length ? `<div class="notice-list"><b>추가 개발 필요</b>${plan.development_requirements.map((item) => `<p>${escapeHtml(formatDevelopmentBehavior(item.requested_behavior))} · ${escapeHtml(item.impact)}</p>`).join("")}</div>` : ""}${findingLines.length ? `<div class="notice-list"><b>검증 결과</b>${findingLines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}${decisionActions}</section>
+    <section class="plan-document-section plan-evidence" aria-label="상세 근거"><div class="plan-section-heading"><span>04</span><h4>상세 근거</h4></div><button class="secondary-button trace-log-button" type="button" data-goto="logs">근거와 진행 Trace 보기</button><details><summary>데이터 기준과 영향 근거 보기</summary><p class="plan-source">기획안 ${escapeHtml(plan.plan_id)} · 데이터 기준 ${escapeHtml(plan.game_context.game_data_snapshot_id)}</p><div class="impact-assessments"><b>영향 근거</b>${impactRows}</div></details></section>
+  </section>`;
 }
 
 function impactMetricLabel(metric) {
   return ({
-    participation: "이벤트 미션 참여율",
+    participation: "퀘스트 참여율",
     mission_accessibility: "미션 콘텐츠 접근 가능성",
     mission_combat_feasibility: "기본 성장 전투 가능성",
   })[metric] ?? metric;
@@ -446,13 +524,43 @@ async function decideCurrentPlan(action) {
     const persisted = await workflowResponse.json();
     if (!workflowResponse.ok) throw new Error("저장된 Workflow 기록을 다시 읽지 못했습니다.");
     currentRun = persisted;
+    revisionOpen = false;
     clearPendingRequestKey("plan-decision");
     toast(action === "APPROVE" ? "승인 기록을 저장했습니다." : "기획안을 거절했습니다.");
   } catch (error) { toast(error.message, true); }
   render();
 }
 
+async function submitRevision(event) {
+  event.preventDefault();
+  if (revisionSubmitting || !currentRun?.plan) return;
+  const comment = $("#revision-comment")?.value.trim();
+  if (!comment) { toast("수정 의견을 입력해주세요.", true); return; }
+  const plan = currentRun.plan;
+  const requestBody = { workflow_id: currentRun.workflow_id, plan_id: plan.plan_id, result_version: plan.result_version, action: "REQUEST_REVISION", approval_comment: comment };
+  revisionSubmitting = true;
+  const submitButton = $("#revision-form button[type=submit]");
+  if (submitButton) submitButton.disabled = true;
+  try {
+    const fingerprint = await requestFingerprint(requestBody);
+    const request = pendingRequestKey("plan-revision", fingerprint);
+    const response = await fetch("/api/v1/decisions", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": request.key }, body: JSON.stringify(requestBody) });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.detail?.message ?? "수정 요청을 완료하지 못했습니다.");
+    if (!body.workflow?.plan) throw new Error("수정된 기획안을 불러오지 못했습니다.");
+    currentRun = body.workflow;
+    localStorage.setItem("eventquest.latestWorkflow", currentRun.workflow_id);
+    clearPendingRequestKey("plan-revision");
+    revisionOpen = false;
+    toast(`수정된 기획안 V${currentRun.plan.result_version}의 검토가 완료됐습니다.`);
+  } catch (error) { toast(error.message, true); }
+  finally { revisionSubmitting = false; render(); }
+}
+
 async function applyCurrentPlan() {
+  if (runtimeApplyPending) return;
+  runtimeApplyPending = true;
+  document.querySelector("[data-apply-plan]")?.setAttribute("disabled", "");
   try {
     const plan = currentRun.plan;
     const fingerprint = await requestFingerprint({ task_id: currentRun.task_id, plan_id: plan.plan_id, result_version: plan.result_version });
@@ -482,7 +590,6 @@ async function applyCurrentPlan() {
           };
           toast("Runtime 적용은 완료됐지만 Trace 상태를 다시 읽지 못했습니다.", true);
         }
-        render();
         return;
       }
       throw new Error(body.message ?? detail?.message ?? "Runtime 등록에 실패했습니다.");
@@ -494,7 +601,10 @@ async function applyCurrentPlan() {
     clearPendingRequestKey("runtime-apply");
     toast("승인된 이벤트를 가상 게임 Runtime에 등록했습니다.");
   } catch (error) { toast(error.message, true); }
-  render();
+  finally {
+    runtimeApplyPending = false;
+    render();
+  }
 }
 
 function escapeHtml(value) {
@@ -509,7 +619,7 @@ async function submitBrief(event) {
   formElement.querySelectorAll('[aria-invalid="true"]').forEach((node) => node.removeAttribute("aria-invalid"));
   const selectedSpaceRows = [...formElement.querySelectorAll("[data-space-row]")].filter((row) => row.querySelector('[name="space_enabled"]')?.checked);
   if (!selectedSpaceRows.length) {
-    briefError = "이벤트에서 열 공간을 하나 이상 선택하세요.";
+    briefError = "퀘스트에 사용할 도전 구간을 하나 이상 선택하세요.";
     render();
     return;
   }
@@ -518,50 +628,49 @@ async function submitBrief(event) {
     const message = document.createElement("span");
     message.className = "field-validation-error";
     message.setAttribute("role", "alert");
-    message.textContent = invalidField.name === "objective" ? "이벤트 목표를 입력하세요." : "입력값을 확인하세요.";
+    message.textContent = invalidField.name === "objective" ? "퀘스트 목표를 입력하세요." : "입력값을 확인하세요.";
     invalidField.setAttribute("aria-invalid", "true");
     invalidField.insertAdjacentElement("afterend", message);
     invalidField.focus();
     return;
   }
   const form = new FormData(formElement);
-  const selectedSpaces = selectedSpaceRows.map((row) => ({
-    space_id: row.dataset.spaceId,
-    item_id: row.querySelector('[name="reward_item"]').value,
-    quantity: Number(row.querySelector('[name="reward_quantity"]').value),
-  }));
+  const selectedSpaces = selectedSpaceRows.map((row) => ({ space_id: row.dataset.spaceId }));
   const inputData = {
-    ...Object.fromEntries([...form.entries()].filter(([key]) => !["space_enabled", "reward_item", "reward_quantity"].includes(key))),
+    ...Object.fromEntries([...form.entries()].filter(([key]) => !["space_enabled", "execution_mode"].includes(key))),
     spaces: selectedSpaces,
   };
-  const inputFingerprint = await requestFingerprint(inputData);
-  const previous = pendingActionKeys.get("event-brief");
-  const stableIds = previous?.fingerprint === inputFingerprint
-    ? previous
-    : {
-      requestId: crypto.randomUUID(),
-    };
-  const pending = pendingRequestKey("event-brief", inputFingerprint, stableIds);
   const template = planningCatalog.templates[0];
   const actions = selectedSpaces.map((space) => ({
     action_type: "special_dungeon_space_clear",
     content_scope: { content_ids: [space.space_id] },
     goal: { metric: "count", aggregation: "count", operator: "gte", target: 1 },
   }));
-  const rewards = selectedSpaces.map((space, index) => ({
-    item_id: space.item_id,
-    quantity: space.quantity,
-  }));
   const brief = {
     objective: form.get("objective"), target_segments: [form.get("segment")], event_type: "special_dungeon", operation_mode: form.get("operation_mode"),
     schedule: { timezone: "Asia/Seoul", duration_days: Number(form.get("duration")) },
     venue: { capability_id: `venue.${template.template_id}`, template_id: template.template_id },
     actions,
-    rewards,
-    mission_reward_links: actions.map((_, index) => ({ action_index: index, reward_index: index })),
+    reward_selection: "planner",
+    rewards: [],
+    mission_reward_links: [],
     impact_targets: [{ metric: form.get("impact"), unit: "users", measurement_time: "event_end", evidence_refs: [] }],
     source_game_version: planningCatalog.versions.game_data_snapshot_id,
   };
+  const executionMode = form.get("execution_mode");
+  if (executionMode !== "normal") {
+    await submitPlanningDemo(brief, executionMode);
+    return;
+  }
+  clearTimeout(planningDemoPollTimer);
+  planningDemoRun = null;
+  planningDemoPollError = "";
+  const inputFingerprint = await requestFingerprint(inputData);
+  const previous = pendingActionKeys.get("event-brief");
+  const stableIds = previous?.fingerprint === inputFingerprint
+    ? previous
+    : { requestId: requestId() };
+  const pending = pendingRequestKey("event-brief", inputFingerprint, stableIds);
   loading = true;
   render();
   try {
@@ -569,13 +678,14 @@ async function submitBrief(event) {
     const body = await response.json();
     if (!response.ok) {
       briefError = body.detail?.code === "ERR-SEC-INPUT-001"
-        ? "보안 정책에 의해 요청이 차단됐습니다. 이벤트 목표·대상·미션·보상에 집중해 다시 작성하세요. 차단된 요청은 저장하거나 실행하지 않았습니다."
+        ? "보안 정책에 의해 요청이 차단됐습니다. 퀘스트 목표·대상·미션·보상에 집중해 다시 작성하세요. 차단된 요청은 저장하거나 실행하지 않았습니다."
         : body.detail?.message ?? body.message ?? "요청을 처리하지 못했습니다.";
       if (body.detail?.code === "ERR-SEC-INPUT-001") clearPendingRequestKey("event-brief");
       throw new Error(briefError);
     }
     clearPendingRequestKey("event-brief");
     currentRun = body;
+    revisionOpen = false;
     localStorage.setItem("eventquest.latestWorkflow", body.workflow_id);
     activeView = "workflow";
     toast(response.status === 202 ? "요청을 접수했습니다. 진행 상태를 확인합니다." : body.workflow_status === "SAFE_STOP" ? "안전 종료 기록을 저장했습니다." : "기획안 검증이 완료되었습니다.", body.workflow_status === "SAFE_STOP");
@@ -587,6 +697,58 @@ async function submitBrief(event) {
     loading = false;
     render();
   }
+}
+
+async function submitPlanningDemo(brief, scenarioId) {
+  loading = true;
+  planningDemoPollError = "";
+  render();
+  try {
+    const statusResponse = await fetch("/api/test/fault-status");
+    if (!statusResponse.ok || (await statusResponse.json()).environment !== "isolated") {
+      throw new Error("격리 시험실이 연결되지 않았습니다. powershell -File infra/fault-lab-local.ps1 실행 후 다시 시도하세요.");
+    }
+    const requestBody = { scenario_id: scenarioId, pattern: "once", first_n: 1, profile: "retry_allowed", brief };
+    const fingerprint = await requestFingerprint(requestBody);
+    const pending = pendingRequestKey("planning-demo", fingerprint);
+    const response = await fetch("/api/test/fault-runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": pending.key },
+      body: JSON.stringify(requestBody),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.detail?.code ?? "복구 시험 요청에 실패했습니다.");
+    clearPendingRequestKey("planning-demo");
+    clearTimeout(planningDemoPollTimer);
+    planningDemoRun = body;
+    currentRun = null;
+    activeView = "workflow";
+    pollPlanningDemo(body.id);
+  } catch (error) {
+    briefError = error.message;
+    toast(error.message, true);
+  } finally {
+    loading = false;
+    render();
+  }
+}
+
+async function pollPlanningDemo(id) {
+  try {
+    const response = await fetch(`/api/test/fault-runs/${id}`);
+    if (!response.ok) throw new Error("격리 시험의 진행 상태를 읽지 못했습니다.");
+    const body = await response.json();
+    if (planningDemoRun?.id !== id) return;
+    planningDemoRun = body;
+    planningDemoPollError = "";
+    if (["QUEUED", "RUNNING"].includes(body.lifecycle)) {
+      planningDemoPollTimer = setTimeout(() => pollPlanningDemo(id), 800);
+    }
+  } catch (error) {
+    if (planningDemoRun?.id !== id) return;
+    planningDemoPollError = error.message;
+  }
+  if (activeView === "workflow") render();
 }
 
 function scheduleWorkflowPoll() {
@@ -609,7 +771,48 @@ function scheduleWorkflowPoll() {
   }, workflowPollError ? 3000 : 700);
 }
 
+function autoHealingPanel(run) {
+  const trace = Array.isArray(run.trace) ? run.trace : [];
+  const decisions = trace.filter((row) => /\.recovery_decided$/.test(row.event ?? ""));
+  const resolved = trace.filter((row) => /\.recovery_resolved$/.test(row.event ?? ""));
+  const revision = resolved.findLast((row) => row.recovery_kind === "PLAN_REVISION" && row.before_summary != null);
+  const error = decisions.find((row) => row.error_code) ?? trace.find((row) => row.event === "workflow.safe_stopped");
+  const demoError = trace.find((row) => row.event === "planner.demo_contract_error_injected" && row.demo_injected);
+  const status = run.current_status ?? run.workflow_status;
+  const finished = workflowFinishedStates.has(status);
+  const stopped = status === "SAFE_STOP" || status === "FAILED";
+  const heading = stopped ? "안전 종료" : !finished ? decisions.length ? "복구 진행 중" : "진행 중" : decisions.length ? "복구 완료 · 기획 정상 완료" : "정상 실행 · 복구 없음";
+  const actionNames = {RETRY:"재시도",RETRY_AGENT:"Agent 재시도",RETRY_OPERATION:"작업 재시도",RUN_AGENT:"기획안 재작성",REVISE_PLAN:"기획안 수정",REPLAN:"기획안 재작성",REVISE:"기획안 수정",TOOL_FALLBACK:"대체 조회",FALLBACK:"대체 경로 사용",SAFE_STOP:"안전 중단",STOP:"안전 중단"};
+  const actions = [...new Set(decisions.map((row) => actionNames[row.action ?? row.status] ?? row.action ?? row.status).filter(Boolean))];
+  const causeRecord = demoError ?? error;
+  const cause = causeRecord ? `${causeRecord.reason ?? run.error?.message ?? "오류가 감지되었습니다."}${causeRecord.error_code ? ` (${causeRecord.error_code})` : ""}` : finished ? "감지된 복구 대상 오류가 없습니다." : "실행 기록을 확인하는 중입니다.";
+  const response = actions.length ? actions.join(" → ") : stopped ? "안전 중단" : finished ? "별도 복구 조치 없이 진행했습니다." : "복구 결정 기록을 기다리고 있습니다.";
+  const finalState = status === "WAITING_APPROVAL" && finished ? "기획안 생성 완료 · 승인 대기" : finished ? workflowStatusLabel(status) : "실행 중";
+  let comparison = !finished ? "실행 기록을 확인하는 중입니다." : !decisions.length ? "오류가 없어 자동 복구나 수정이 필요하지 않았습니다." : stopped ? "기획안 자동 수정 없음 · 안전 종료했습니다." : "기획안 내용 수정 없이 오류에 대응했습니다.";
+  if (revision) comparison = `<div class="auto-healing-comparison"><div><b>수정 전 Planner 설명</b><p>${escapeHtml(revision.before_summary)}</p></div><div><b>재작성한 Planner 설명</b><p>${escapeHtml(revision.after_summary)}</p></div></div>${revision.review_reason ? `<p>수정 이유: ${escapeHtml(revision.review_reason)}</p>` : ""}`;
+  else if (demoError && resolved.length) comparison = "첫 응답: 미션 설명 목록 누락 → 재시도 응답: 출력 계약 통과. 기획안 입력은 변경하지 않았습니다.";
+  else if (resolved.some((row) => row.event === "mcp.recovery_resolved")) comparison = "게임 데이터 조회 오류 후 대체 조회로 진행했습니다. 기획안 입력은 변경하지 않았습니다.";
+  else if (resolved.length) comparison = "오류가 난 작업을 다시 실행했습니다. 기획안 입력은 변경하지 않았습니다.";
+  return `<section class="panel auto-healing-panel" aria-label="Auto Healing 실행 결과"><h2>Auto Healing</h2><h3>${escapeHtml(heading)}</h3><div class="auto-healing-facts"><div><b>발생한 문제</b><div class="auto-healing-value">${escapeHtml(cause)}</div></div><div><b>자동 대응</b><div class="auto-healing-value">${escapeHtml(response)}</div></div><div><b>대응 전후</b><div class="auto-healing-value">${comparison}</div></div><div><b>최종 상태</b><div class="auto-healing-value">${escapeHtml(finalState)}</div></div></div><p>실제 Workflow Trace에 기록된 단계만 표시합니다.</p></section>`;
+}
+
+function planningDemoView() {
+  const result = planningDemoRun.results?.at(-1);
+  const workflow = result?.workflow;
+  const lifecycle = planningDemoRun.lifecycle;
+  const completed = !["QUEUED", "RUNNING"].includes(lifecycle);
+  const outcome = result?.recovered ? "복구 완료" : result?.actual_terminal === "SAFE_STOP" ? "안전 종료" : result?.actual_terminal ?? "결과 확인 필요";
+  const banner = `<section class="panel planning-demo-banner"><div><span class="eyebrow">ISOLATED PLANNING RUN</span><h2>입력한 기획안의 복구 실행 기록</h2><p>격리 시험 DB에서 처리했습니다. 승인이나 게임 등록은 이 실행에서 사용할 수 없습니다.</p></div><span class="state-chip warning-chip">${escapeHtml(lifecycle)} · ${escapeHtml(completed ? outcome : "진행 중")}</span></section>`;
+  if (!workflow) return `${banner}<section class="panel planning-demo-wait" role="status"><h3>${completed ? "실행 결과를 확인할 수 없습니다" : "복구 실행 중"}</h3><p>${escapeHtml(planningDemoPollError || (completed ? planningDemoRun.error ?? "원본 실행 기록이 생성되지 않았습니다." : "오류 검출과 정책 대응이 끝나면 이곳에 실제 Trace와 기획안이 표시됩니다."))}</p>${planningDemoPollError ? '<button type="button" class="secondary-button" id="retry-planning-demo-poll">상태 다시 확인</button>' : ""}</section>`;
+  const graph = renderWorkflowGraph(workflow, { escapeHtml, traceEventLabel, traceStatusLabel, traceStatusTone, planStatusLabel });
+  const plan = workflow.plan;
+  const verdict = result.verdict === "PASS" ? "기대한 대응과 검증 기준에 일치" : "검증 항목 확인 필요";
+  const planSummary = plan ? `<section class="panel planning-demo-plan"><h3>생성된 기획안</h3><p>${escapeHtml(plan.objective ?? workflow.brief?.objective ?? "기획 목표 정보가 없습니다.")}</p><span class="state-chip">${escapeHtml(planStatusLabel(plan))}</span></section>` : `<section class="panel planning-demo-plan"><h3>기획안 생성 전 종료</h3><p>${escapeHtml(workflow.error?.message ?? "기획안 결과가 없습니다.")}</p></section>`;
+  return `${banner}${autoHealingPanel(workflow)}<section class="panel planning-demo-verdict"><b>시험 판정: ${escapeHtml(result.verdict ?? "판정 대기")}</b><p>${escapeHtml(verdict)} · 재시도 ${result.retries ?? 0}회 · 기획 수정 ${result.plan_revisions ?? 0}회</p></section><div class="workflow-grid workflow-progress"><section class="panel workflow-board"><div class="panel-heading"><div><span class="step">WORKFLOW MAP</span><h3>진행 기록</h3></div><span class="link-badge">격리 실행 이력</span></div>${graph}<details><summary>전체 Trace와 검증 항목</summary><pre>${escapeHtml(JSON.stringify({ trace: result.trace, checks: result.checks }, null, 2))}</pre></details></section>${planSummary}</div>`;
+}
+
 function workflowView() {
+  if (planningDemoRun) return planningDemoView();
   if (!currentRun) return `<div class="empty-state"><div class="empty-icon">⌁</div><h2>진행 기록이 없습니다.</h2><p>기획안 만들기에서 Brief를 제출하면 실제 workflow event와 검증 결과가 표시됩니다.</p><button class="secondary-button" data-goto="create">기획안 만들기 →</button></div>`;
   const graph = renderWorkflowGraph(currentRun, { escapeHtml, traceEventLabel, traceStatusLabel, traceStatusTone, planStatusLabel });
   const findings = currentRun.plan?.validation_summary?.findings ?? [];
@@ -627,7 +830,7 @@ function workflowView() {
     : !workflowFinishedStates.has(currentRun.current_status ?? currentRun.workflow_status)
       ? `<button class="secondary-button" id="cancel-workflow">진행 취소</button>` : "";
 
-  return '<div class="page-intro"><div><span class="eyebrow">WORKFLOW ' + escapeHtml(currentRun.workflow_id) + '</span><h2>실제 검증 경로와 결과</h2><p>주 흐름에서 갈라지는 검증·평가와 조정·복구 경로를 함께 확인하세요.</p></div><span class="state-chip">' + workflowStatusLabel(currentRun.current_status ?? currentRun.workflow_status) + '</span></div><div class="workflow-grid workflow-progress"><section class="panel workflow-board"><div class="panel-heading"><div><span class="step">WORKFLOW MAP</span><h3>진행 기록</h3></div><span class="link-badge">실행 이력</span></div><div class="route-legend"><span class="route-legend-process">실행 순서 · 분기 · 합류</span><span class="route-legend-control">Supervisor 조정·복구</span><span class="route-legend-spine">주 흐름 기준선</span></div>' + graph + '<details><summary>실행 정보와 전체 Trace</summary><pre>' + escapeHtml(JSON.stringify({ workflow_id: currentRun.workflow_id, execution_profile: currentRun.execution_profile, recovery_policy_version: currentRun.recovery_policy_version, snapshot_digest: currentRun.snapshot_digest, created_at: currentRun.created_at, trace: currentRun.trace }, null, 2)) + '</pre></details><div class="workflow-review-summary">' + reviewSummary + '</div></section><section class="panel plan-mini ' + (runtimePanel ? "has-runtime-progress" : "") + '">' + outcome + controlPanel + runtimePanel + '</section></div>';
+  return '<div class="page-intro"><div><span class="eyebrow">WORKFLOW ' + escapeHtml(currentRun.workflow_id) + '</span><h2>실제 검증 경로와 결과</h2><p>주 흐름에서 갈라지는 검증·평가와 조정·복구 경로를 함께 확인하세요.</p></div><span class="state-chip">' + workflowStatusLabel(currentRun.current_status ?? currentRun.workflow_status) + '</span></div>' + autoHealingPanel(currentRun) + '<div class="workflow-grid workflow-progress"><section class="panel workflow-board"><div class="panel-heading"><div><span class="step">WORKFLOW MAP</span><h3>진행 기록</h3></div><span class="link-badge">실행 이력</span></div><div class="route-legend"><span class="route-legend-process">실행 순서 · 분기 · 합류</span><span class="route-legend-control">Supervisor 조정·복구</span><span class="route-legend-spine">주 흐름 기준선</span></div>' + graph + '<details><summary>실행 정보와 전체 Trace</summary><pre>' + escapeHtml(JSON.stringify({ workflow_id: currentRun.workflow_id, execution_profile: currentRun.execution_profile, recovery_policy_version: currentRun.recovery_policy_version, snapshot_digest: currentRun.snapshot_digest, created_at: currentRun.created_at, trace: currentRun.trace }, null, 2)) + '</pre></details><div class="workflow-review-summary">' + reviewSummary + '</div></section><section class="panel plan-mini ' + (runtimePanel ? "has-runtime-progress" : "") + '">' + outcome + controlPanel + runtimePanel + '</section></div>';
 }
 
 function compatiblePolicyRoutes(version) {
@@ -695,7 +898,7 @@ async function policyAction(path, body = null) {
     const requestBody = body ? JSON.stringify(body) : null;
     const fingerprint = requestBody ?? "";
     const previous = policyActionKeys.get(path);
-    const idempotencyKey = previous?.fingerprint === fingerprint ? previous.key : crypto.randomUUID();
+    const idempotencyKey = previous?.fingerprint === fingerprint ? previous.key : requestId();
     policyActionKeys.set(path, { fingerprint, key: idempotencyKey });
     sessionStorage.setItem(policyActionKeyStorage, JSON.stringify([...policyActionKeys]));
     const response = await fetch(`/api/v1/recovery-policies${path}`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, ...(requestBody ? { body: requestBody } : {}) });
@@ -750,7 +953,7 @@ async function runFaultScenario() {
       duration: 2,
       objective: "허용된 오류 복구 경로와 안전 종료를 확인한다.",
       game_source: "opong",
-      idempotency_key: crypto.randomUUID(),
+      idempotency_key: requestId(),
       fault_type: selectedFault,
     };
     const response = await fetch("/api/test/events/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -769,14 +972,14 @@ async function runFaultScenario() {
 }
 
 function logsView() {
-  const rows = logsState ?? [];
+  const rows = [...(logsState ?? [])].sort((a, b) => String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")));
   const query = logsFilter.trim().toLocaleLowerCase();
-  const visibleRows = query ? rows.filter((row) => [row.workflow_id, row.task_id, row.brief?.objective].some((value) => value?.toLocaleLowerCase().includes(query))) : rows;
+  const visibleRows = (query ? rows.filter((row) => [row.workflow_id, row.task_id, row.brief?.objective].some((value) => value?.toLocaleLowerCase().includes(query))) : rows).slice(0, 10);
   const logList = visibleRows.length
     ? `<div class="log-table"><div class="log-row header"><span>Workflow</span><span>기획 목표</span><span>상태</span></div>${visibleRows.map((row) => `<button class="log-row workflow-log-row" data-workflow-id="${escapeHtml(row.workflow_id)}"><span>${escapeHtml(row.workflow_id)}</span><span>${escapeHtml(row.brief.objective)}</span><span>${workflowStatusLabel(row.current_status ?? row.decision?.approval_status ?? row.workflow_status)}</span></button>`).join("")}</div>`
     : `<div class="empty-state"><div class="empty-icon">▤</div><h2>${query ? "최근 기록에서 검색 결과가 없습니다." : "표시할 기록이 없습니다."}</h2><p>${query ? "Workflow ID, Task ID 또는 기획 목표를 확인해 다시 검색하세요." : "기획 Workflow를 실행하면 저장 기록이 표시됩니다."}</p></div>`;
-  const selectedTrace = currentRun ? `<section class="panel"><div class="panel-heading"><div><span class="step">SELECTED TRACE</span><h3>선택한 실행 기록</h3></div><span class="link-badge">${currentRun.workflow_id}</span></div><div class="log-table"><div class="log-row header"><span>순서</span><span>이벤트</span><span>결과</span></div>${currentRun.trace.map((row) => `<div class="log-row"><span>${row.sequence}</span><span>${escapeHtml(traceEventLabel(row.event))}</span><span>${escapeHtml(traceStatusLabel(row.status))}</span></div>`).join("")}</div>${supervisorDecisionDetails(currentRun.trace)}<details><summary>원문 Trace와 실행 정보</summary><pre>${escapeHtml(JSON.stringify({snapshot_digest:currentRun.snapshot_digest,recovery_policy_version:currentRun.recovery_policy_version,trace:currentRun.trace},null,2))}</pre></details></section>` : "";
-  return `<div class="page-intro"><div><span class="eyebrow">OPERATIONS / AUDIT</span><h2>운영 기록</h2><p>최근 50건에서 Workflow ID, Task ID 또는 기획 목표를 찾습니다.</p></div><button class="secondary-button" id="refresh-logs">새로고침</button></div>${logsState === null ? `<section class="panel"><p>저장 기록을 불러오는 중입니다…</p></section>` : logsError ? `<section class="panel"><p>${escapeHtml(logsError)}</p><button class="secondary-button" id="refresh-logs">다시 시도</button></section>` : `<section class="panel"><form id="log-search-form" class="log-search"><label for="workflow-search">Workflow 검색</label><div><input id="workflow-search" name="query" value="${escapeHtml(logsFilter)}" placeholder="Workflow ID, Task ID, 기획 목표" /><button class="secondary-button" type="submit">검색</button>${logsFilter ? `<button class="text-button" type="button" id="clear-log-search">초기화</button>` : ""}</div></form>${logList}</section>${selectedTrace}`}`;
+  const selectedTrace = currentRun ? `<section class="panel"><div class="panel-heading"><div><span class="step">SELECTED TRACE</span><h3>선택한 TRACE 기록</h3></div><span class="link-badge">${currentRun.workflow_id}</span></div><div class="log-table"><div class="log-row header"><span>순서</span><span>이벤트</span><span>결과</span></div>${currentRun.trace.map((row) => `<div class="log-row"><span>${row.sequence}</span><span>${escapeHtml(traceEventLabel(row.event))}</span><span>${escapeHtml(traceStatusLabel(row.status))}</span></div>`).join("")}</div>${supervisorDecisionDetails(currentRun.trace)}<details><summary>원문 Trace와 실행 정보</summary><pre>${escapeHtml(JSON.stringify({snapshot_digest:currentRun.snapshot_digest,recovery_policy_version:currentRun.recovery_policy_version,trace:currentRun.trace},null,2))}</pre></details></section>` : "";
+  return `<div class="page-intro"><div><span class="eyebrow">OPERATIONS / AUDIT</span><h2>운영 기록</h2><p>최근 50건에서 Workflow ID, Task ID 또는 기획 목표를 찾습니다.</p></div><button class="secondary-button" id="refresh-logs">새로고침</button></div>${selectedTrace}${logsState === null ? `<section class="panel"><p>저장 기록을 불러오는 중입니다…</p></section>` : logsError ? `<section class="panel"><p>${escapeHtml(logsError)}</p><button class="secondary-button" id="refresh-logs">다시 시도</button></section>` : `<section class="panel"><form id="log-search-form" class="log-search"><h3 class="log-search-title"><label for="workflow-search">이전 기획안 검색</label></h3><div><input id="workflow-search" name="query" value="${escapeHtml(logsFilter)}" placeholder="Workflow ID, Task ID, 기획 목표" /><button class="secondary-button" type="submit">검색</button>${logsFilter ? `<button class="text-button" type="button" id="clear-log-search">초기화</button>` : ""}</div></form>${logList}</section>`}`;
 }
 
 function supervisorDecisionDetails(trace) {
@@ -832,6 +1035,9 @@ async function selectLoggedWorkflow(workflowId) {
     const body = await response.json();
     if (!response.ok) throw new Error("선택한 Workflow를 읽지 못했습니다.");
     currentRun = body;
+    clearTimeout(planningDemoPollTimer);
+    planningDemoRun = null;
+    revisionOpen = false;
     localStorage.setItem("eventquest.latestWorkflow", body.workflow_id);
     scheduleWorkflowPoll();
   } catch (error) { toast(error.message, true); }
@@ -848,10 +1054,10 @@ async function restoreLatestWorkflow() {
     const body = Array.isArray(recent) ? recent[0] : null;
     if (!body?.workflow_id) throw new Error("최근 Workflow가 없습니다.");
     localStorage.setItem("eventquest.latestWorkflow", body.workflow_id);
-    if (!currentRun && activeView === "create" && !userStartedCreating) {
+    if (!currentRun) {
       currentRun = body;
-      activeView = "workflow";
-      render();
+      if (activeView === "create" && !userStartedCreating) activeView = "workflow";
+      if (activeView === "workflow") render();
     }
   } catch (error) {
     if (!savedWorkflowId) return;
@@ -859,24 +1065,26 @@ async function restoreLatestWorkflow() {
       const response = await fetch(`/api/v1/workflows/${encodeURIComponent(savedWorkflowId)}`);
       const body = await response.json();
       if (!response.ok) throw new Error("저장된 Workflow를 복원하지 못했습니다.");
-      if (!currentRun && activeView === "create" && !userStartedCreating) {
+      if (!currentRun) {
         currentRun = body;
-        activeView = "workflow";
-        render();
+        if (activeView === "create" && !userStartedCreating) activeView = "workflow";
+        if (activeView === "workflow") render();
       }
     } catch (restoreError) { toast(restoreError.message, true); }
   }
 }
 
 function render() {
+  if (!loggedIn) {
+    loginScreen();
+    return;
+  }
   const existingForm = $("#brief-form");
   if (existingForm && activeView === "create") {
     briefDraft = {
       fields: Object.fromEntries(new FormData(existingForm)),
       spaces: [...existingForm.querySelectorAll("[data-space-row]")].map((row) => ({
         id: row.dataset.spaceId, enabled: row.querySelector('[name="space_enabled"]').checked,
-        item: row.querySelector('[name="reward_item"]').value,
-        quantity: row.querySelector('[name="reward_quantity"]').value,
       })),
     };
   }
@@ -885,8 +1093,9 @@ function render() {
   scheduleWorkflowPoll();
   const content = { create: createView, workflow: workflowView, policies: policiesView, fault: faultView, logs: logsView }[activeView]();
   $("#view-root").innerHTML = content;
+  $("#view-root").dataset.view = activeView;
   if (activeView === "create" && briefDraft && $("#brief-form")) {
-    for (const name of ["objective", "segment", "operation_mode", "duration", "impact"]) {
+    for (const name of ["objective", "segment", "operation_mode", "duration", "impact", "execution_mode"]) {
       const field = $(`[name="${name}"]`);
       if (field && briefDraft.fields[name] !== undefined) field.value = briefDraft.fields[name];
     }
@@ -894,11 +1103,11 @@ function render() {
       const row = [...document.querySelectorAll("[data-space-row]")].find((item) => item.dataset.spaceId === saved.id);
       if (!row) continue;
       row.querySelector('[name="space_enabled"]').checked = saved.enabled;
-      row.querySelector('[name="reward_item"]').value = saved.item;
-      row.querySelector('[name="reward_quantity"]').value = saved.quantity;
+      row.classList.toggle("disabled", !saved.enabled);
     }
   }
   $("#brief-form")?.addEventListener("submit", submitBrief);
+  $("#retry-planning-demo-poll")?.addEventListener("click", () => pollPlanningDemo(planningDemoRun.id));
   $("#brief-form")?.addEventListener("input", (event) => {
     userStartedCreating = true;
     const field = event.target;
@@ -909,17 +1118,19 @@ function render() {
   $("#brief-form")?.querySelectorAll('[name="space_enabled"]').forEach((checkbox) => checkbox.addEventListener("change", () => {
     const row = checkbox.closest("[data-space-row]");
     row.classList.toggle("disabled", !checkbox.checked);
-    row.querySelectorAll("select,input[type=number]").forEach((control) => { control.disabled = !checkbox.checked; });
   }));
   $("#operation-mode")?.addEventListener("change", (event) => {
     const ongoing = event.currentTarget.value === "ongoing";
-    $("#duration-label").textContent = ongoing ? "달성 가능성 평가 기간 (일)" : "이벤트 기간 (일)";
-    $("#duration-hint").textContent = ongoing ? "상시 이벤트의 달성 가능성을 평가할 기준 기간입니다. Runtime은 종료 시각 없이 운영합니다." : "기간 한정 이벤트의 실제 운영 기간입니다.";
+    $("#duration-label").textContent = ongoing ? "달성 가능성 평가 기간 (일)" : "퀘스트 기간 (일)";
+    $("#duration-hint").textContent = ongoing ? "상시 퀘스트의 달성 가능성을 평가할 기준 기간입니다. Runtime은 종료 시각 없이 운영합니다." : "기간 한정 퀘스트의 실제 운영 기간입니다.";
   });
   $("#reload-planning-catalog")?.addEventListener("click", () => { planningCatalogError = ""; loadPlanningCatalog(); });
   $("#run-fault")?.addEventListener("click", runFaultScenario);
   if (activeView === "fault") mountFaultLab();
   document.querySelector("[data-approve-plan]")?.addEventListener("click", () => decideCurrentPlan("APPROVE"));
+  document.querySelector("[data-open-revision]")?.addEventListener("click", () => { revisionOpen = !revisionOpen; render(); $("#revision-comment")?.focus(); });
+  document.querySelector("#revision-form")?.addEventListener("submit", submitRevision);
+  document.querySelector("[data-revised-workflow]")?.addEventListener("click", (event) => selectLoggedWorkflow(event.currentTarget.dataset.revisedWorkflow));
   document.querySelector("[data-reject-plan]")?.addEventListener("click", () => decideCurrentPlan("REJECT"));
   document.querySelector("[data-apply-plan]")?.addEventListener("click", applyCurrentPlan);
   document.querySelector("[data-refresh-runtime-progress]")?.addEventListener("click", () => {
@@ -969,4 +1180,4 @@ function render() {
 }
 
 render();
-restoreLatestWorkflow();
+if (loggedIn) restoreLatestWorkflow();

@@ -189,13 +189,13 @@ def preview_approved_event(task_id: str) -> dict[str, Any]:
             raise
         from backend.app.services.canonical_planning import approved_plan_for_task
 
-        approved = approved_plan_for_task(task_id, 1)
+        approved = approved_plan_for_task(task_id, None)
         if approved is None:
             raise
         plan = approved["record"]["plan"]
         return {
             "task_id": task_id,
-            "result_version": 1,
+            "result_version": plan["result_version"],
             "event_name": plan["objective"][:100],
             "duration": plan["schedule"].get("duration_days"),
             "mission_count": len(plan["missions"]),

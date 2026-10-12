@@ -1,3 +1,5 @@
+param([switch]$DemoRecoveryOnce)
+
 $ErrorActionPreference = "Stop"
 $postgresName = "ikonly-test-postgres-1"
 $expectedDatabase = "eventquest_test"
@@ -40,7 +42,7 @@ $apiStarted = $false
 try {
     $encodedPassword = [uri]::EscapeDataString($password)
     $databaseUrl = "postgresql+psycopg://${user}:${encodedPassword}@postgres:5432/${database}"
-    @(
+    $apiEnv = @(
         "DATABASE_URL=$databaseUrl"
         "POSTGRES_TEST_URL=$databaseUrl"
         "WORKFLOW_ENGINE=backend_b_mock"
@@ -52,7 +54,11 @@ try {
         # The host binding remains loopback-only and the database is the dedicated test database.
         "GAME_RUNTIME_ALLOW_REMOTE=true"
         "LLM_MAX_OUTPUT_TOKENS=512"
-    ) | Set-Content -LiteralPath $envFile.FullName -Encoding ascii
+    )
+    if ($DemoRecoveryOnce) {
+        $apiEnv += "EVENTQUEST_LOCAL_DEMO_HEAL_ONCE=1"
+    }
+    $apiEnv | Set-Content -LiteralPath $envFile.FullName -Encoding ascii
 
     $seedArgs = @(
         "run", "--rm", "--network", $network,

@@ -34,7 +34,7 @@ def migration_database():
         admin.dispose()
 
 
-@pytest.mark.parametrize("purpose,count", [("main", 18), ("fault", 19)])
+@pytest.mark.parametrize("purpose,count", [("main", 19), ("fault", 20)])
 def test_fresh_migration_reapply_identity_and_checksum(migration_database, purpose, count):
     engine = migration_database
     assert len(apply_migrations(engine, "migration-test", purpose)) == count
@@ -87,7 +87,7 @@ def test_migration_failure_rolls_back_and_concurrent_calls_serialize(
         results = list(
             pool.map(lambda _: apply_migrations(engine, "migration-test", "main"), range(2))
         )
-    assert sorted(len(result) for result in results) == [0, 18]
+    assert sorted(len(result) for result in results) == [0, 19]
 
 
 def test_untracked_database_is_preserved(migration_database):
@@ -108,7 +108,7 @@ def test_tracked_previous_baseline_upgrades_without_reset(migration_database, mo
     from backend.app.deployment import migrate
 
     plan = migrate.migration_plan("main")
-    monkeypatch.setattr(migrate, "migration_plan", lambda _: plan[:-1])
+    monkeypatch.setattr(migrate, "migration_plan", lambda _: plan[:-2])
     assert len(apply_migrations(migration_database, "migration-test", "main")) == 17
     with migration_database.begin() as connection:
         connection.exec_driver_sql(
@@ -116,7 +116,8 @@ def test_tracked_previous_baseline_upgrades_without_reset(migration_database, mo
         )
     monkeypatch.setattr(migrate, "migration_plan", lambda _: plan)
     assert apply_migrations(migration_database, "migration-test", "main") == [
-        "017_deployment_maintenance.sql"
+        "017_deployment_maintenance.sql",
+        "018_canonical_plan_revision.sql",
     ]
     with migration_database.connect() as connection:
         assert (
@@ -128,3 +129,59 @@ def test_tracked_previous_baseline_upgrades_without_reset(migration_database, mo
             is False
         )
     assert apply_migrations(migration_database, "migration-test", "main") == []
+
+
+def test_revision_upgrade_and_atomic_failure_preserve_parent(migration_database, monkeypatch):
+    from backend.app.schemas.planning import EventBriefInput
+    from backend.app.services import canonical_planning as planning
+    from backend.scripts.apply_game_data_catalog import apply_catalog
+    from backend.scripts.seed_game_runtime import seed
+    from backend.tests.support.fault_lab_runner import brief_fixture
+
+    url = migration_database.url.render_as_string(hide_password=False)
+    apply_migrations(migration_database, "migration-test", "main")
+    apply_catalog(url)
+    seed(url)
+    monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.setenv("POSTGRES_TEST_URL", url)
+    payload = brief_fixture() | {
+        "reward_selection": "planner",
+        "rewards": [],
+        "mission_reward_links": [],
+    }
+    parent = planning.create_event_workflow(EventBriefInput.model_validate(payload), str(uuid4()))
+    before = planning.get_workflow(parent["workflow_id"])
+    original = planning.append_workflow_lifecycle_event
+
+    def fail_audit(*args, **kwargs):
+        if args[1] == "approval.decision_recorded":
+            raise RuntimeError("revision audit failure")
+        return original(*args, **kwargs)
+
+    key = str(uuid4())
+    arguments = (parent["workflow_id"], parent["plan"]["plan_id"], 1, "보상을 GOLD 2개로", key)
+    monkeypatch.setattr(planning, "append_workflow_lifecycle_event", fail_audit)
+    with pytest.raises(RuntimeError, match="revision audit failure"):
+        planning.request_plan_revision(*arguments)
+    assert planning.get_workflow(parent["workflow_id"]) == before
+    assert planning.get_plan(parent["plan"]["plan_id"])["result_version"] == 1
+    monkeypatch.setattr(planning, "append_workflow_lifecycle_event", original)
+    result = planning.request_plan_revision(*arguments)
+    assert result["workflow"]["plan"]["result_version"] == 2
+    assert (
+        planning.get_workflow(parent["workflow_id"])["supervisor_state"]["status"]
+        == "REVISION_REQUESTED"
+    )
+    assert (
+        planning.request_plan_revision(*arguments)["workflow"]["workflow_id"]
+        == result["workflow"]["workflow_id"]
+    )
+    with migration_database.connect() as connection:
+        assert (
+            connection.execute(text("SELECT count(*) FROM canonical_planning_runs")).scalar_one()
+            == 2
+        )
+        assert (
+            connection.execute(text("SELECT action FROM canonical_planning_decisions")).scalar_one()
+            == "REQUEST_REVISION"
+        )

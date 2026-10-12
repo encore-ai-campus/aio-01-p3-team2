@@ -40,6 +40,7 @@ MIGRATIONS = [
         "014_canonical_workflow_state_version.sql",
         "015_task_trace_state_version_cas.sql",
         "016_workflow_execution_reservations.sql",
+        "018_canonical_plan_revision.sql",
     )
 ]
 

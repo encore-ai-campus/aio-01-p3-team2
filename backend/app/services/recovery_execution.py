@@ -6,7 +6,7 @@ from backend.app.agents.supervisor import Supervisor, SupervisorWorkflowState
 from backend.app.faults.error_catalog import error_definition
 from backend.app.orchestration.retry import wait_before_retry
 from backend.app.services.recovery_policy import pinned_policy_version
-from backend.app.services.workflow_execution import publish_decision
+from backend.app.services.workflow_execution import append_recovery_event, publish_decision
 
 
 class MCPRecoveryUnavailable(RuntimeError):
@@ -46,7 +46,8 @@ async def _run_mcp_read_async(
         try:
             result = await operation()
             if retry_count:
-                recovery_events.append(
+                append_recovery_event(
+                    recovery_events,
                     {
                         "event": "mcp.recovery_resolved",
                         "status": "SUCCESS",
@@ -54,7 +55,7 @@ async def _run_mcp_read_async(
                         "tool": tool_name,
                         "retry_count": retry_count,
                         "policy_version": pinned_policy_version(),
-                    }
+                    },
                 )
             return result, recovery_events
         except MCPTimeoutError as exc:
@@ -85,7 +86,8 @@ async def _run_mcp_read_async(
             publish_decision(decision)
             state_cursor[0] = decision.state
             recovery_events.append(decision.to_trace())
-        recovery_events.append(
+        append_recovery_event(
+            recovery_events,
             {
                 "event": "mcp.recovery_decided",
                 "status": route.action,
@@ -97,7 +99,7 @@ async def _run_mcp_read_async(
                 "matched_rule_id": definition.code,
                 "reason_code": f"RECOVERY_{route.action}",
                 "reason": route.reason,
-            }
+            },
         )
         if route.action == "RETRY":
             retry_count = route.retry_count

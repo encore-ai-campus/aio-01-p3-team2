@@ -6,6 +6,7 @@ test("production planning form reads actual catalog through authenticated HTTPS"
   const errors = [];
   page.on("pageerror", e => errors.push(e.message));
   await page.goto(settings.plan);
+  await page.locator(".login-submit").click();
   await expect(page.locator("[data-space-row]").first()).toBeVisible();
   await expect(page.locator("[data-space-row]")).toHaveCount(3);
   await page.locator('textarea[name="objective"]').fill("운영 이미지 입력 검증");
@@ -15,6 +16,7 @@ test("production planning form reads actual catalog through authenticated HTTPS"
 
 test("production policy and isolated recovery UI use separate real APIs", async ({ page }) => {
   await page.goto(settings.plan);
+  await page.locator(".login-submit").click();
   const readPolicies = () => page.evaluate(async () => {
     const response = await fetch("/api/v1/recovery-policies");
     if (!response.ok) throw new Error("Policy API failed");

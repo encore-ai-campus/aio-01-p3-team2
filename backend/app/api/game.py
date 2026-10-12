@@ -138,7 +138,7 @@ def _apply_approved_event(request: ApplyEventRequest) -> dict:
         workflow_id_for_task,
     )
 
-    workflow_id = workflow_id_for_task(request.task_id)
+    workflow_id = workflow_id_for_task(request.task_id, request.result_version)
     runtime_event_id = result.get("runtime_event_id")
     if workflow_id and runtime_event_id:
         workflow = get_workflow(workflow_id) or {}

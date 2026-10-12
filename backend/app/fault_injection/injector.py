@@ -176,6 +176,21 @@ def observe_exception(exc: Exception) -> None:
     )
 
 
+def observe_execution_event(event: dict) -> None:
+    """Observe an already committed execution event in the run's causal journal."""
+    state = _ACTIVE.get()
+    if state is None or not enabled():
+        return
+    state["journal"](
+        {
+            "kind": "execution",
+            "run_id": state["run_id"],
+            "trace_event": dict(event),
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+    )
+
+
 def observe_transition(decision) -> None:
     """Observe a committed state publication, never decide or mutate a state."""
     state = _ACTIVE.get()

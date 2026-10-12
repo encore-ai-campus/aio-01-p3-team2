@@ -642,7 +642,8 @@ def test_canonical_mcp_exhaustion_persists_safe_stop_and_recovery_trace(monkeypa
     assert result["workflow_status"] == "SAFE_STOP"
     assert result["error"]["code"] == "ERR-DEP-MCP-001"
     assert any(row["event"] == "mcp.recovery_decided" for row in result["trace"])
-    assert result["trace"][-1]["event"] == "workflow.safe_stopped"
+    assert result["trace"][-2]["event"] == "workflow.safe_stopped"
+    assert result["trace"][-1]["event"] == "storage.result_persisted"
     assert get_workflow(result["workflow_id"])["workflow_status"] == "SAFE_STOP"
 
 
@@ -959,7 +960,8 @@ def test_safe_stop_is_persisted_and_queryable(monkeypatch) -> None:
     assert persisted["error"]["code"] == "ERR-CTRL-BUDGET-001"
     assert persisted["llm_usage"] == {"calls": 1}
     assert persisted["decision"] is None
-    assert persisted["trace"][-1]["event"] == "workflow.safe_stopped"
+    assert persisted["trace"][-2]["event"] == "workflow.safe_stopped"
+    assert persisted["trace"][-1]["event"] == "storage.result_persisted"
 
 
 def test_only_exact_eligible_plan_version_can_be_approved_once() -> None:

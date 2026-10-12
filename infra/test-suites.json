@@ -2,6 +2,30 @@
   "version": 1,
   "python": [
     {
+      "file": "backend/tests/unit/test_planning_revision.py",
+      "suite": "core",
+      "reason": "Revision lineage, Supervisor state, duplicate requests and atomic parent/child persistence.",
+      "test_functions": [
+        "test_revision_owns_state_and_preserves_version_lineage",
+        "test_revision_replay_does_not_regenerate",
+        "test_revision_failure_rolls_back_child_decision_and_trace",
+        "test_approved_version_cannot_be_revised",
+        "test_revision_invalid_feedback_has_no_effect"
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_fault_execution_path.py",
+      "suite": "core",
+      "reason": "Fault injection and recovery path preserve committed execution order and pinned topology.",
+      "test_functions": [
+        "test_observed_path_preserves_injection_detection_retry_and_reload",
+        "test_projection_keeps_unmapped_events_and_excludes_non_applied_calls",
+        "test_projection_marks_repeated_rule_validation_as_revalidation",
+        "test_failed_result_save_never_publishes_approval",
+        "test_result_write_flush_precedes_completion_and_rolls_back"
+      ]
+    },
+    {
       "file": "backend/tests/integration/test_canonical_mcp_http_failure.py",
       "suite": "postgres",
       "reason": "Canonical MCP HTTP failures are retried, safe-stopped, and persisted.",
@@ -109,7 +133,7 @@
     {
       "file": "backend/tests/test_backend_b_llm_live.py",
       "suite": "external",
-      "reason": "\uc2e4\uc81c OpenAI \uc751\ub2f5\uc73c\ub85c Backend B\uc758 LLM Agent \uacbd\ub85c\ub97c \uac80\uc99d\ud55c\ub2e4.",
+      "reason": "실제 OpenAI 응답으로 Backend B의 LLM Agent 경로를 검증한다.",
       "test_functions": [
         "test_planner_selects_ids_from_planning_context",
         "test_live_llm_workflow_reaches_approval_candidate",
@@ -119,7 +143,7 @@
     {
       "file": "backend/tests/test_backend_b_mcp_live.py",
       "suite": "external",
-      "reason": "\uc2e4\uc81c MCP \uc11c\ubc84\uc640 Backend B MCPClient\uc758 \uc5f0\uacb0\uc744 \uac80\uc99d\ud55c\ub2e4.",
+      "reason": "실제 MCP 서버와 Backend B MCPClient의 연결을 검증한다.",
       "test_functions": [
         "test_planning_context_tool_returns_typed_catalog",
         "test_planning_context_precedes_live_validation_queries",
@@ -133,7 +157,7 @@
     {
       "file": "backend/tests/test_backend_b_recovery_evaluation.py",
       "suite": "core",
-      "reason": "\uc2e4\uc81c Backend API \uc751\ub2f5\uacfc Trace\ub85c \ubc18\ubcf5 \ud3c9\uac00\uc758 \ubd84\ubaa8\u00b7\uc21c\uc11c\ub97c \uac80\uc99d\ud55c\ub2e4.",
+      "reason": "실제 Backend API 응답과 Trace로 반복 평가의 분모·순서를 검증한다.",
       "test_functions": [
         "test_repeated_api_scenarios_report_recovery_and_safe_stop",
         "test_trace_gap_and_missing_time_cannot_pass_evaluation",
@@ -143,7 +167,7 @@
     {
       "file": "backend/tests/test_backend_b_recovery_persistence.py",
       "suite": "postgres",
-      "reason": "\uc804\uc6a9 PostgreSQL\uc5d0\uc11c Backend B \ubcf5\uad6c Trace\uc758 \ud504\ub85c\uc138\uc2a4 \uc7ac\uc2dc\uc791 \ubcf4\uc874\uc744 \uac80\uc99d\ud55c\ub2e4.",
+      "reason": "전용 PostgreSQL에서 Backend B 복구 Trace의 프로세스 재시작 보존을 검증한다.",
       "test_functions": [
         "test_recovery_scenarios_survive_api_process_restart"
       ]
@@ -151,7 +175,7 @@
     {
       "file": "backend/tests/test_backend_b_rules.py",
       "suite": "core",
-      "reason": "Mock \uc131\uc7a5 \uae30\uc900\uacfc \uac8c\uc784 \uaddc\uce59\uc758 \ud575\uc2ec \ud310\uc815 \uc0ac\ub840\ub97c \uac80\uc99d\ud55c\ub2e4.",
+      "reason": "Mock 성장 기준과 게임 규칙의 핵심 판정 사례를 검증한다.",
       "test_functions": [
         "test_new_user_day_seven_cannot_enter_raid",
         "test_returning_user_day_five_can_enter_raid",
@@ -164,7 +188,7 @@
     {
       "file": "backend/tests/test_backend_b_transports.py",
       "suite": "core",
-      "reason": "\uc2e4\uc81c API \ud638\ucd9c \uc5c6\uc774 LLM\u00b7MCP SDK \uc804\uc1a1 \uc5b4\ub311\ud130\uc758 \uacbd\uacc4\ub97c \uc2dc\ud5d8\ud55c\ub2e4.",
+      "reason": "실제 API 호출 없이 LLM·MCP SDK 전송 어댑터의 경계를 시험한다.",
       "test_functions": [
         "test_planning_context_tool_uses_backend_permission",
         "test_openai_transport_requests_strict_json_schema",
@@ -410,7 +434,7 @@
       "suite": "core",
       "reason": "Lab guards, catalog, independent oracle and request-scoped isolation.",
       "test_functions": [
-        "test_registry_covers_every_code_and_real_callable",
+        "test_registry_covers_selectable_codes_and_real_callable",
         "test_request_cannot_choose_environment_or_identity",
         "test_guard_rejects_non_lab_database",
         "test_default_api_does_not_register_lab",
@@ -805,7 +829,8 @@
         "test_fresh_migration_reapply_identity_and_checksum",
         "test_migration_failure_rolls_back_and_concurrent_calls_serialize",
         "test_untracked_database_is_preserved",
-        "test_tracked_previous_baseline_upgrades_without_reset"
+        "test_tracked_previous_baseline_upgrades_without_reset",
+        "test_revision_upgrade_and_atomic_failure_preserve_parent"
       ]
     },
     {
@@ -935,6 +960,21 @@
     }
   ],
   "javascript": [
+    {
+      "file": "frontend-web/e2e/fault-path-real.spec.js",
+      "suite": "fault_acceptance",
+      "reason": "Opt-in real isolated PostgreSQL/MCP fault injection validates UI event order, revalidation, fallback, safe stop, and reload."
+    },
+    {
+      "file": "frontend-web/e2e/fault-path-sync.spec.js",
+      "suite": "core",
+      "reason": "Mocked isolated run transport checks polling, causal path rendering, and reload on desktop and mobile."
+    },
+    {
+      "file": "frontend-web/tests/fault-lab-path.test.js",
+      "suite": "core",
+      "reason": "Observed recovery paths preserve injection order, repeated visits, and unmapped events."
+    },
     {
       "file": "frontend-web/e2e/fault-lab.spec.js",
       "suite": "fault_acceptance",

@@ -58,6 +58,7 @@ _TERMINAL = {
     "COMPLETED",
     "CANCELLED",
     "REJECTED",
+    "REVISION_REQUESTED",
     "APPLIED",
 }
 WORKFLOW_DEADLINE_SECONDS = 180
@@ -137,6 +138,9 @@ def _write(
         for container in containers:
             trace = container.setdefault("trace", [])
             trace.append({**row, "sequence": len(trace) + 1})
+        from backend.app.fault_injection.injector import observe_execution_event
+
+        observe_execution_event(row)
 
     while True:
         try:
@@ -263,9 +267,8 @@ def finalize_execution(record: dict[str, Any]):
         if annotation is not None:
             annotations.remove(annotation)
         actual.append({**(annotation or {}), **item})
-    record["trace"] = [
-        {**item, "sequence": index} for index, item in enumerate([*actual, *annotations], 1)
-    ]
+    combined_trace = [*actual, *annotations]
+    record["trace"] = [{**item, "sequence": index} for index, item in enumerate(combined_trace, 1)]
     record["operation_status"] = "FINISHED"
     record["current_status"] = record["supervisor_state"]["status"]
 
@@ -316,6 +319,7 @@ def publish_decision(decision: Any) -> None:
             {"sequence": len(execution["payload"]["trace"]) + 1, **decision.to_trace()},
         ],
     }
+    committed_event = payload["trace"][-1]
     _write(
         execution["key"],
         execution["owner"],
@@ -324,8 +328,9 @@ def publish_decision(decision: Any) -> None:
     )
     execution["payload"] = payload
 
-    from backend.app.fault_injection.injector import observe_transition
+    from backend.app.fault_injection.injector import observe_execution_event, observe_transition
 
+    observe_execution_event(committed_event)
     observe_transition(decision)
 
 
@@ -348,6 +353,7 @@ def record_handoff(handoff: Any, event: str) -> None:
             },
         ],
     }
+    committed_event = payload["trace"][-1]
     _write(
         execution["key"],
         execution["owner"],
@@ -355,6 +361,9 @@ def record_handoff(handoff: Any, event: str) -> None:
         expected_version=payload["supervisor_state"]["state_version"],
     )
     execution["payload"] = payload
+    from backend.app.fault_injection.injector import observe_execution_event
+
+    observe_execution_event(committed_event)
 
 
 def record_observation(event: str, status: str, **attributes: Any) -> None:
@@ -377,6 +386,7 @@ def record_observation(event: str, status: str, **attributes: Any) -> None:
             },
         ],
     }
+    committed_event = payload["trace"][-1]
     _write(
         execution["key"],
         execution["owner"],
@@ -384,6 +394,19 @@ def record_observation(event: str, status: str, **attributes: Any) -> None:
         expected_version=payload["supervisor_state"]["state_version"],
     )
     execution["payload"] = payload
+    from backend.app.fault_injection.injector import observe_execution_event
+
+    observe_execution_event(committed_event)
+
+
+def append_recovery_event(events: list[dict[str, Any]], event: dict[str, Any]) -> None:
+    """Keep recovery details at their occurrence, before the next attempt or terminal state."""
+    events.append(event)
+    record_observation(
+        str(event["event"]),
+        str(event["status"]),
+        **{key: value for key, value in event.items() if key not in {"event", "status"}},
+    )
 
 
 def validate_handoff(handoff: Any, **kwargs: Any) -> None:

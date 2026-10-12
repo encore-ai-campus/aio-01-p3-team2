@@ -98,6 +98,7 @@ for (const kind of ["success", "review", "blocked", "recovery", "safe-stop", "ap
       return route.fulfill({ json: body });
     });
     await page.goto("/");
+  await page.locator(".login-submit").click();
     await expect(page.locator(".workflow-board")).toHaveCount(1);
     await expect(page.locator(".route-node")).toHaveCount(graph.nodes.length);
     await expect(page.locator(".route-edge")).toHaveCount(graph.edges.length);
@@ -141,6 +142,7 @@ test("Planner start and recorded failure remain visible on the main flow", async
   expect(buildWorkflowGraph({ ...legacy, llm_usage: undefined }).nodes.some((node) => node.event === "planner.execution_recorded")).toBe(false);
   await page.route("**/api/**", (route) => route.fulfill({ json: route.request().url().includes("/workflows") ? [run] : { items: [], templates: [], versions: {} } }));
   await page.goto("/");
+  await page.locator(".login-submit").click();
   await expect(page.locator('.route-node[data-lane="main"][data-event="planner.started"]')).toContainText("Planner 기획 시작");
   await expect(page.locator('.route-node[data-event="planner.output_validated"]')).toHaveCount(0);
 });
@@ -166,9 +168,11 @@ test("live progress resumes polling after reload and renders Supervisor event al
     return route.fulfill({ json: body });
   });
   await page.goto("/");
+  await page.locator(".login-submit").click();
   await expect(page.getByText("기획안을 처리하고 있습니다", { exact: true })).toBeVisible();
   await expect(page.locator('.route-node[data-lane="supervisor"]')).toHaveCount(2);
   await page.reload();
+  await page.locator(".login-submit").click();
   await expect(page.getByText("기획안을 처리하고 있습니다", { exact: true })).toBeVisible();
   finish = true;
   await expect(page.locator("[data-approve-plan]")).toBeVisible();

@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "test:path:real": "playwright test --config=playwright.real-path.config.js",
+    "test:path": "playwright test --config=playwright.path.config.js",
     "test:proxy": "node --test tests/proxy-routing.test.js",
     "test:unified": "playwright test --config=playwright.unified.config.js",
     "dev": "vite --host 127.0.0.1",

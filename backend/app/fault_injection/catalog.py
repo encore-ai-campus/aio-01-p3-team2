@@ -1,11 +1,11 @@
-"""Single authority for selectable boundaries and complete error coverage."""
+"""Single authority for selectable fault-lab boundaries and scenarios."""
 
 from dataclasses import asdict
 from itertools import pairwise
 
 from backend.app.faults.error_catalog import ERROR_CATALOG
 
-VERSION = "fault-lab-v1"
+VERSION = "fault-lab-v1.4"
 BOUNDARIES = {
     "legacy.planner.response": "backend.app.services.llm_service.LLMService.generate",
     "workflow.cas": "backend.app.services.workflow_execution.cancel",
@@ -176,7 +176,7 @@ def catalog() -> dict:
                 "kind": kind,
                 "target_ids": targets,
                 "observed_events": {
-                    "input": ["brief.accepted"],
+                    "input": [],
                     "validation": [
                         "capability.scope_checked",
                         "rule_balance.validation_completed",
@@ -185,12 +185,14 @@ def catalog() -> dict:
                     "approval": ["approval.pending", "workflow.safe_stopped"],
                     "planner": ["planner.started", "planner.output_validated"],
                     "critic": ["critic.review_started", "critic.review_completed"],
+                    "store": ["storage.result_persisted", "planning.record_persisted"],
                     "mcp": [
                         "runtime.evidence_collected",
                         "mcp.recovery_decided",
                         "mcp.recovery_resolved",
                     ],
                     "supervisor": [
+                        "brief.accepted",
                         "supervisor.state_transition_decided",
                         "agent.recovery_decided",
                         "agent.recovery_resolved",
@@ -212,7 +214,6 @@ def catalog() -> dict:
             )
         ]
         + [
-            {"from": "input", "to": "supervisor", "kind": "control"},
             {"from": "critic", "to": "planner", "kind": "revision"},
             {"from": "supervisor", "to": "planner", "kind": "recovery"},
             {"from": "supervisor", "to": "mcp", "kind": "recovery"},
@@ -356,7 +357,7 @@ def _fixed_graphs(data: dict) -> None:
     """Presentation coordinates remain unchanged across requests and retries."""
     canonical = data["topologies"][0]
     labels = {
-        "input": "요청 확인",
+        "input": "요청·보안 확인",
         "mcp": "게임 데이터 조회",
         "handoff": "권한·컨텍스트·인계",
         "planner": "기획안 작성",
@@ -389,16 +390,16 @@ def _fixed_graphs(data: dict) -> None:
     ]
     positions = {
         "input": (24, 64),
-        "mcp": (24, 192),
-        "handoff": (24, 320),
-        "planner": (24, 448),
-        "validation": (348, 448),
-        "critic": (348, 576),
-        "final": (24, 704),
-        "store": (24, 832),
-        "approval": (24, 960),
-        "supervisor": (672, 320),
-        "safe_stop": (672, 832),
+        "mcp": (24, 150),
+        "handoff": (24, 236),
+        "planner": (24, 322),
+        "validation": (348, 322),
+        "critic": (348, 408),
+        "final": (24, 494),
+        "store": (24, 580),
+        "approval": (24, 666),
+        "supervisor": (672, 236),
+        "safe_stop": (672, 580),
     }
     flow = [
         "input",
@@ -430,7 +431,7 @@ def _fixed_graphs(data: dict) -> None:
         topology["layout"] = {
             "version": "fixed-graph-2",
             "width": 980,
-            "height": 1100 if topology is canonical else 64 + 128 * len(topology["nodes"]),
+            "height": 758 if topology is canonical else 64 + 86 * len(topology["nodes"]),
             "lanes": [
                 {"x": 24, "label": "주 흐름"},
                 {"x": 348, "label": "검증·평가"},
@@ -438,11 +439,11 @@ def _fixed_graphs(data: dict) -> None:
             ],
         }
         for i, node in enumerate(topology["nodes"]):
-            x, y = positions[node["node_id"]] if topology is canonical else (24, 64 + i * 128)
-            node["position"] = {"x": x, "y": y, "width": 280, "height": 96}
+            x, y = positions[node["node_id"]] if topology is canonical else (24, 64 + i * 86)
+            node["position"] = {"x": x, "y": y, "width": 280, "height": 68}
     target_labels = {
-        "input.validate": "요청 형식 검사",
-        "input.guard": "요청 보안 검사",
+        "input.validate": "요청 형식 검사 · 진입 전 차단",
+        "input.guard": "요청 보안 검사 · 진입 전 차단",
         "workflow.execute": "Workflow 실행",
         "workflow.deadline": "전체 실행 시간 제한",
         "workflow.cas": "상태 전이 충돌 검사",

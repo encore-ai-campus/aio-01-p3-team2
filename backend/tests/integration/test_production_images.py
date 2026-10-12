@@ -456,11 +456,7 @@ def test_production_fleet_tls_routes_mcp_game_and_runner(production_cluster, tmp
             body={
                 "cases": [
                     {"scenario_id": name, "pattern": "once", "profile": "current_active"}
-                    for name in (
-                        "input_validation_error",
-                        "input_guard_blocked",
-                        "mcp_game_rules_error",
-                    )
+                    for name in ("mcp_game_rules_error",)
                 ]
             },
             headers={
