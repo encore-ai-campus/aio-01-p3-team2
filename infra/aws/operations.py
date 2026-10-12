@@ -215,6 +215,7 @@ def main():
     parser.add_argument("--directory", type=Path)
     parser.add_argument("--run-id", type=int)
     parser.add_argument("--env-file", type=Path)
+    parser.add_argument("--resume-from", type=Path)
     parser.add_argument("--policy-file", type=Path)
     parser.add_argument("--approved-policy-sha256")
     parser.add_argument("--approve-impact-sha256")
@@ -222,6 +223,12 @@ def main():
     parser.add_argument("--confirm-environment")
     parser.add_argument("--lock-token")
     args = parser.parse_args()
+    if args.resume_from and (
+        args.operation != "initial" or args.output.resolve() == args.resume_from.resolve()
+    ):
+        raise ValueError("Initial resume needs a separate output directory")
+    if args.operation == "initial" and os.getenv("GITHUB_ACTIONS") == "true":
+        raise ValueError("Initial deployment requires the operator's local key supply")
     if args.operation == "reset" and os.getenv("GITHUB_ACTIONS") == "true":
         raise ValueError("Reset requires the operator's local persistent evidence directory")
     config = validate_config(json.loads(args.config.read_text(encoding="utf-8")))
@@ -310,6 +317,7 @@ def main():
                     args.policy_file,
                     args.approved_policy_sha256,
                     args.output,
+                    resume_from=args.resume_from,
                 )
                 write(
                     args.output / "result.json",

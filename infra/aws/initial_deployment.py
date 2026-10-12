@@ -14,8 +14,8 @@ from dotenv import dotenv_values
 from infra.aws.export_environment import export
 from infra.aws.fleet_release import deploy
 from infra.aws.host_release import run
-from infra.aws.iac import ROLES, logical
-from infra.aws.infrastructure import owned_stack, plan, review
+from infra.aws.iac import PREFIX, ROLES, ROOT, generated, logical
+from infra.aws.infrastructure import digest, owned_stack, plan, review
 from infra.aws.operation_state import commit_state, write
 from infra.aws.publish_release import publish
 from infra.aws.put_parameters import import_values
@@ -30,7 +30,77 @@ def stack_outputs(aws, stage):
     return {x["OutputKey"]: x["OutputValue"] for x in value.get("Outputs", [])}
 
 
-def create_stack(aws, config, stage, parameters, output):
+def resume_records(aws, config, folder, stacks):
+    folder = Path(folder)
+    marker = json.loads((folder / "initial-start.json").read_text())
+    identity = json.loads((folder / "identity.json").read_text())
+    previous_lock = json.loads((folder / "lock.json").read_text())
+    if (
+        not marker.get("baseline_empty")
+        or marker["lock_token"] != previous_lock["token"]
+        or identity["config_sha256"] != digest(config)
+        or (folder / "execution.json").exists()
+        or not stacks
+        or any(
+            s["StackName"]
+            not in {
+                "ikonly-demo-" + x
+                for x in ("network", "access", "data", "application", "observability")
+            }
+            for s in stacks
+        )
+    ):
+        raise ValueError("Resume is limited to this recorded initial pre-service infrastructure")
+    result = {}
+    parameters = aws(
+        "ssm",
+        "describe-parameters",
+        "--parameter-filters",
+        "Key=Name,Option=BeginsWith,Values=" + PREFIX,
+    )
+    if parameters.get("NextToken") or {p["Name"] for p in parameters["Parameters"]} != {
+        PREFIX + "operations/master-password"
+    }:
+        raise ValueError("Resume is limited to pre-service master configuration")
+    for stack in stacks:
+        owned_stack(stack)
+        if (
+            stack["StackStatus"] not in ("CREATE_IN_PROGRESS", "CREATE_COMPLETE")
+            or stack.get("RoleARN") != config["cloudformation_role_arn"]
+        ):
+            raise ValueError("Resume requires the original initial creation and service role")
+        stage = stack["StackName"].removeprefix("ikonly-demo-")
+        record = json.loads((folder / (stage + "-plan.json")).read_text())
+        reviewed = json.loads((folder / (stage + "-review.json")).read_text())
+        if (
+            stack["StackId"] != record["stack_id"]
+            or reviewed["stack_id"] != record["stack_id"]
+            or any(c["ResourceChange"]["Action"] != "Add" for c in reviewed["changes"])
+            or record["template_sha256"]
+            != hashlib.sha256(
+                (ROOT / "stacks" / (stage + ".yml")).read_text(encoding="utf-8").encode()
+            ).hexdigest()
+        ):
+            raise ValueError("Resume stack differs from its reviewed creation record")
+        template = aws("cloudformation", "get-template", "--stack-name", stack["StackId"])[
+            "TemplateBody"
+        ]
+        if isinstance(template, str):
+            template = json.loads(template)
+        if template != generated()["stacks/" + stage + ".yml"]:
+            raise ValueError("Resume template differs from current reviewed infrastructure")
+        result[stage] = (record, reviewed)
+    return result
+
+
+def create_stack(aws, config, stage, parameters, output, *, existing=None):
+    if existing is not None:
+        record, reviewed = existing
+        if record["requested_parameters"] != {k: str(v) for k, v in parameters.items()}:
+            raise ValueError("Resume parameters differ from the reviewed creation")
+        write(output / (stage + "-plan.json"), record)
+        write(output / (stage + "-review.json"), reviewed)
+        return wait_stack(aws, stage, record, output)
     record = plan(aws, config, stage, parameters)
     write(output / (stage + "-plan.json"), record)
     deadline = time.monotonic() + 300
@@ -48,6 +118,10 @@ def create_stack(aws, config, stage, parameters, output):
         raise ValueError("First deployment refuses modifications to existing resources")
     write(output / (stage + "-review.json"), reviewed)
     aws("cloudformation", "execute-change-set", "--change-set-name", reviewed["change_set_id"])
+    return wait_stack(aws, stage, record, output)
+
+
+def wait_stack(aws, stage, record, output):
     deadline = time.monotonic() + 3600
     while time.monotonic() < deadline:
         current = aws("cloudformation", "describe-stacks", "--stack-name", record["stack_id"])[
@@ -140,16 +214,30 @@ def host_configs(config, outputs, web, endpoint, env):
     return result
 
 
-def initial(aws, config, directory, run_id, env_file, policy_file, approved_policy_hash, output):
+def initial(
+    aws,
+    config,
+    directory,
+    run_id,
+    env_file,
+    policy_file,
+    approved_policy_hash,
+    output,
+    *,
+    resume_from=None,
+):
     output = Path(output)
-    if any(
-        s["StackName"].startswith("ikonly-demo-")
+    stacks = [
+        s
         for s in aws("cloudformation", "describe-stacks")["Stacks"]
-    ):
+        if s["StackName"].startswith("ikonly-demo-")
+    ]
+    resumed = resume_records(aws, config, resume_from, stacks) if resume_from else {}
+    if stacks and not resumed:
         raise ValueError("First deployment requires reset of existing owned application stacks")
     from infra.aws.cleanup import verify_reset
 
-    if any(verify_reset(aws).values()):
+    if not resumed and any(verify_reset(aws).values()):
         raise ValueError("First deployment refuses leftover application resources")
     if not config.get("cloudformation_role_arn"):
         raise ValueError("First deployment requires the bootstrapped CloudFormation service role")
@@ -202,15 +290,46 @@ def initial(aws, config, directory, run_id, env_file, policy_file, approved_poli
             "CI candidate predates the selective deployment protocol; build the current source"
         )
     lock = json.loads((output / "lock.json").read_text())
-    write(output / "initial-start.json", {"baseline_empty": True, "lock_token": lock["token"]})
+    write(
+        output / "initial-start.json",
+        {
+            "baseline_empty": True,
+            "lock_token": lock["token"],
+            "source_sha": candidate["source_sha"],
+            "run_id": run_id,
+            "resumed_from": str(resume_from) if resume_from else None,
+        },
+    )
     network = create_stack(
-        aws, config, "network", {"OperatorCidr": config["operator_cidr"]}, output
+        aws,
+        config,
+        "network",
+        {"OperatorCidr": config["operator_cidr"]},
+        output,
+        existing=resumed.get("network"),
     )
     access = create_stack(
-        aws, config, "access", {"EnableGithubRoles": "false", "GithubOidcProviderArn": ""}, output
+        aws,
+        config,
+        "access",
+        {"EnableGithubRoles": "false", "GithubOidcProviderArn": ""},
+        output,
+        existing=resumed.get("access"),
     )
-    master = secrets.token_urlsafe(32)
-    import_values(aws, config, {"operations/master-password": master})
+    if resumed:
+        parameter = aws(
+            "ssm",
+            "get-parameter",
+            "--name",
+            PREFIX + "operations/master-password",
+            "--with-decryption",
+        )["Parameter"]
+        if parameter["Type"] != "SecureString" or parameter["Version"] != 1:
+            raise ValueError("Resume requires the original pinned master parameter")
+        master = parameter["Value"]
+    else:
+        master = secrets.token_urlsafe(32)
+        import_values(aws, config, {"operations/master-password": master})
     engine = config.get("engine_version", "16.15")
     data = create_stack(
         aws,
@@ -224,9 +343,11 @@ def initial(aws, config, directory, run_id, env_file, policy_file, approved_poli
             "MasterPasswordVersion": 1,
         },
         output,
+        existing=resumed.get("data"),
     )
     ami = (
-        config.get("ami_id")
+        (resumed.get("application") or ({},))[0].get("requested_parameters", {}).get("AmiId")
+        or config.get("ami_id")
         or aws(
             "ssm",
             "get-parameter",
@@ -238,7 +359,9 @@ def initial(aws, config, directory, run_id, env_file, policy_file, approved_poli
     for role in ROLES:
         for suffix, source in (("Sg", network), ("Profile", access)):
             parameters[logical(role) + suffix] = source[logical(role) + suffix]
-    outputs = create_stack(aws, config, "application", parameters, output)
+    outputs = create_stack(
+        aws, config, "application", parameters, output, existing=resumed.get("application")
+    )
     create_stack(
         aws,
         config,
@@ -248,6 +371,7 @@ def initial(aws, config, directory, run_id, env_file, policy_file, approved_poli
             **{logical(role) + "Instance": outputs[logical(role)] for role in ROLES},
         },
         output,
+        existing=resumed.get("observability"),
     )
     web = endpoints(aws, config)
     config = web["config"]

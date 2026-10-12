@@ -85,3 +85,9 @@ backend/.venv/Scripts/python.exe -m infra.aws.download_artifact --artifact-id <i
 전체 초기화는 사용자 승인에 따른 DB 전체 삭제다. 신규 data stack의 `DeletionPolicy=Delete`로 초기화 때 최종 snapshot을 새로 만들었다가 바로 삭제하는 대기를 줄인다. 기존 manual snapshot과 automated backup도 잔존 검사·삭제 대상으로 관리한다. migration 전 암호화 snapshot 및 `UpdateReplacePolicy=Snapshot`은 유지한다. 이미 삭제 진행 중인 구 stack은 기존 Snapshot 정책으로 처리되며 중간에 정책을 바꾸지 않는다. reset 진입 전 로컬 시험 증거/로그/저널/S3 보관은 동일하게 수행한다.
 
 수동 workflow update/full은 `impact_approval_sha256` 입력으로 기록된 정확한 검토 hash를 전달할 수 있다. 64자 hex 검사를 거치고 실제 배포 baseline/후보 diff의 hash와 일치할 때만 승인한다. push의 기본 입력은 빈 값이므로 수동 검토를 우회하지 않는다.
+
+## 서비스 시작 전 첫 배포 이어받기
+
+코디네이터가 중단됐을 때 원래 프로세스가 종료됐음을 확인하고 원래 token으로 lock을 해제한다. `initial`의 기존 인수에 `--resume-from <원래-출력-directory>`를 추가하고 새 출력 directory를 사용한다. 원래 빈 baseline marker/token·config hash·CREATE 검토 기록·실제 stack ID/role/template/parameters가 일치해야 한다. 앱 accepted state가 없고 앱 Parameter가 원래 master 하나뿐인 서비스 시작 전 단계만 허용한다. master 값/버전을 새로 쓰지 않고 기존 네트워크·IAM·RDS·EC2를 재사용한다. 앱 키 공급/DB bootstrap 이후에는 이 명령으로 이어받지 않고 기록된 상태에 따른 recover/reset을 사용한다.
+
+API/MCP는 private IP에 publish하므로 수용 검사도 실제 private IP를 사용한다. 웹 TLS 검사는 loopback 연결과 실제 공개 hostname 검증을 사용한다.

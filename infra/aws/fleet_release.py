@@ -97,7 +97,8 @@ if role.endswith('web'):
   req=urllib.request.Request(url,headers={'X-Eventquest-Proxy':role,'X-Eventquest-Proxy-Key':key})
   with urllib.request.urlopen(req,timeout=20) as r: assert r.status==200;json.load(r)
 else:
- url='http://127.0.0.1:'+('8010' if role.endswith('mcp') else '8000')+'/health/ready'
+ private=json.loads(Path('/etc/eventquest/deployment.json').read_text())['private_ip']
+ url='http://'+private+':'+('8010' if role.endswith('mcp') else '8000')+'/health/ready'
  with urllib.request.urlopen(url,timeout=20) as r: assert r.status==200 and json.load(r)['status']=='ready'
 print('Image identity, health and dependency acceptance passed')
 """

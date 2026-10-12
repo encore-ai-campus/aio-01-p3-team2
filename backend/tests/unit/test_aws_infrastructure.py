@@ -636,3 +636,76 @@ def test_https_origin_accepts_exact_ip_and_rejects_url_fields():
         "https://8.8.8.8\\evil",
     ):
         assert not valid_https_origin(value)
+
+
+@pytest.mark.parametrize("role,port", [("main-api", 8000), ("fault-mcp", 8010)])
+def test_fleet_acceptance_checks_actual_private_bind(monkeypatch, role, port):
+    import io
+    import subprocess
+    import urllib.request
+
+    from infra.aws.fleet_release import acceptance_script
+
+    service = {"source_sha": "a" * 40, "digest": "sha256:" + "b" * 64}
+    inspected = {
+        "State": {"Health": {"Status": "healthy"}},
+        "Config": {
+            "Labels": {"org.opencontainers.image.revision": service["source_sha"]},
+            "Image": "registry/image@" + service["digest"],
+            "Env": [],
+        },
+    }
+    monkeypatch.setattr(
+        subprocess,
+        "check_output",
+        lambda args, **kw: "container" if args[1] == "ps" else json.dumps([inspected]),
+    )
+    original_read = Path.read_text
+    monkeypatch.setattr(
+        Path,
+        "read_text",
+        lambda path, *args, **kw: (
+            json.dumps({"private_ip": "10.40.1.12"})
+            if path == Path("/etc/eventquest/deployment.json")
+            else original_read(path, *args, **kw)
+        ),
+    )
+    urls = []
+
+    def ready(url, **kw):
+        urls.append(url)
+        result = io.BytesIO(b'{"status":"ready"}')
+        result.status = 200
+        return result
+
+    monkeypatch.setattr(urllib.request, "urlopen", ready)
+    script = acceptance_script(role, service)
+    python = script.split("<<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    exec(compile(python, "<private-readiness-check>", "exec"), {})  # noqa: S102 - repository-generated script with isolated IO.
+    assert urls == [f"http://10.40.1.12:{port}/health/ready"]
+
+
+def test_initial_resume_refuses_app_parameters_and_mismatched_origin(tmp_path):
+    from infra.aws.initial_deployment import resume_records
+    from infra.aws.operation_state import write
+
+    config = valid_config()
+    write(tmp_path / "initial-start.json", {"baseline_empty": True, "lock_token": "original"})
+    write(tmp_path / "lock.json", {"token": "original"})
+    write(tmp_path / "identity.json", {"config_sha256": digest(config)})
+    stacks = [{"StackName": "ikonly-demo-network"}]
+
+    class ParametersOnly:
+        def __call__(self, *args):
+            assert args[:2] == ("ssm", "describe-parameters")
+            return {
+                "Parameters": [
+                    {"Name": "/multi-agent-autohealing/ikonly-demo/shared/openai-api-key"}
+                ]
+            }
+
+    with pytest.raises(ValueError, match="pre-service master"):
+        resume_records(ParametersOnly(), config, tmp_path, stacks)
+    write(tmp_path / "lock.json", {"token": "different-owner"})
+    with pytest.raises(ValueError, match="recorded initial"):
+        resume_records(ParametersOnly(), config, tmp_path, stacks)

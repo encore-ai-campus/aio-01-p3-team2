@@ -913,7 +913,9 @@
         "test_aws_payload_file_avoids_windows_argv_limit_and_is_deleted",
         "test_ip_config_can_plan_before_allocation_and_requires_distinct_public_ips",
         "test_ip_eip_binding_verifies_ownership_and_builds_site_specific_origins",
-        "test_https_origin_accepts_exact_ip_and_rejects_url_fields"
+        "test_https_origin_accepts_exact_ip_and_rejects_url_fields",
+        "test_fleet_acceptance_checks_actual_private_bind",
+        "test_initial_resume_refuses_app_parameters_and_mismatched_origin"
       ]
     },
     {
