@@ -83,6 +83,12 @@ def main():
                 processes.append(api)
                 wait(8015, "/health/ready")
             current = {**env, "CI_UI_PHASE": phase}
+            if phase == "fault-display":
+                from backend.app.fault_injection.catalog import catalog
+
+                fixture = ROOT / "test-results/fault-display-catalog.json"
+                write(fixture, catalog())
+                current["FAULT_DISPLAY_CATALOG"] = str(fixture)
             command = [
                 "node",
                 "node_modules/@playwright/test/cli.js",

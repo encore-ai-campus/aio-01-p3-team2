@@ -1,4 +1,16 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+async function mockFaultDisplayEnvironment(page) {
+  const path = process.env.FAULT_DISPLAY_CATALOG;
+  if (process.env.CI_UI_PHASE === "fault-display" && !path) throw new Error("CI fault display catalog fixture is required");
+  if (!path) return;
+  const catalog = JSON.parse(readFileSync(path, "utf8"));
+  await page.route("**/api/test/fault-status", route => route.fulfill({json:{
+    environment:"isolated",database:"UI fixture (no database)",state:"CLEAN",active_policy_version:1,
+  }}));
+  await page.route("**/api/test/fault-catalog", route => route.fulfill({json:catalog}));
+}
 
 test("actual live experiment reports match saved workflow evidence without replay",async({page,request})=>{
   const ids=(process.env.LIVE_EXPERIMENT_RUN_IDS ?? "").split(",").filter(Boolean);
@@ -81,6 +93,7 @@ test("last saved record restores without posting or rerunning",async({page})=>{
 });
 
 test("live report presentation uses a synthetic UI fixture without executing LLM",async({page})=>{
+  await mockFaultDisplayEnvironment(page);
   const id="11111111-1111-4111-8111-111111111111";
   let posts=0;
   page.on("request",r=>{if(r.method()==="POST")posts++;});
@@ -103,6 +116,7 @@ test("live report presentation uses a synthetic UI fixture without executing LLM
 });
 
 test("live human review terminal is explicit without replaying the experiment",async({page})=>{
+  await mockFaultDisplayEnvironment(page);
   const id="22222222-2222-4222-8222-222222222222";
   const record={id,kind:"run",lifecycle:"COMPLETED",verdict:"FAIL",results:[{
     provider_mode:"live",experiment_kind:"normal",verdict:"FAIL",actual_terminal:"WAITING_REVIEW",
