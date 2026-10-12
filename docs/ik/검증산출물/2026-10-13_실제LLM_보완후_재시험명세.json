@@ -1,0 +1,529 @@
+{
+  "campaign": {
+    "campaign_id": "00e0b553-2b5c-4445-b3d5-05016cc86348",
+    "max_calls": 90,
+    "max_cost": "3.00",
+    "started_at": "2026-10-12T20:31:19.500586+00:00",
+    "cases": [
+      "normal_unsupported",
+      "normal_unsupported",
+      "normal_unsupported",
+      "normal_single",
+      "normal_single",
+      "normal_single",
+      "normal_multi",
+      "normal_multi",
+      "normal_multi",
+      "planner_format_once",
+      "planner_explanation_once",
+      "llm_timeout_once",
+      "planner_format_always",
+      "llm_timeout_always",
+      "mcp_503_once",
+      "mcp_disconnect_once",
+      "mcp_delay_once",
+      "mcp_503_always",
+      "normal_single"
+    ]
+  },
+  "rows": [
+    {
+      "index": 1,
+      "case": "normal_unsupported",
+      "returncode": 0,
+      "run_id": "b7308a6e-aed2-491c-92a1-ceba0c752ae8",
+      "verdict": "PASS",
+      "terminal": "COMPLETED",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_business_result",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 2,
+      "case": "normal_unsupported",
+      "returncode": 0,
+      "run_id": "89a3f9c7-3498-45c9-9fdc-148d7a36ca1e",
+      "verdict": "PASS",
+      "terminal": "COMPLETED",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_business_result",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 3,
+      "case": "normal_unsupported",
+      "returncode": 0,
+      "run_id": "1d2aebab-a981-4d23-93f9-0fd28f18fb5f",
+      "verdict": "PASS",
+      "terminal": "COMPLETED",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_business_result",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 4,
+      "case": "normal_single",
+      "returncode": 0,
+      "run_id": "3b9e9f9e-67df-4c48-b689-e6079a50a6e4",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_normal_request",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 5,
+      "case": "normal_single",
+      "returncode": 0,
+      "run_id": "9a2b4b96-8aad-40a6-80b4-847d9357dc42",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_normal_request",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 6,
+      "case": "normal_single",
+      "returncode": 0,
+      "run_id": "e70ec13a-35ef-471c-82d0-64507209a3d2",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_normal_request",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 7,
+      "case": "normal_multi",
+      "returncode": 0,
+      "run_id": "b9cbd559-2797-48f2-bd5e-2c12140e8b89",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_normal_request",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 8,
+      "case": "normal_multi",
+      "returncode": 0,
+      "run_id": "845f60a3-d23b-441a-9082-96d8aca27044",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_normal_request",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 9,
+      "case": "normal_multi",
+      "returncode": 0,
+      "run_id": "5285173c-fd5b-4fb8-a63f-4d3d6120b087",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_normal_request",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    },
+    {
+      "index": 10,
+      "case": "planner_format_once",
+      "returncode": 0,
+      "run_id": "2e54943b-9720-4f84-a5e1-f1b2c04d6e64",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 3,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "recovery_expected_fault",
+      "recovered": true,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 11,
+      "case": "planner_explanation_once",
+      "returncode": 0,
+      "run_id": "dcf504aa-5dfb-42d2-89a4-b6c2bdbdd0b6",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 4,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "recovery_expected_fault",
+      "recovered": true,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 12,
+      "case": "llm_timeout_once",
+      "returncode": 0,
+      "run_id": "c49553a8-d514-413d-aa86-61cd09c1b960",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "recovery_expected_fault",
+      "recovered": true,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 13,
+      "case": "planner_format_always",
+      "returncode": 0,
+      "run_id": "9e95f50d-7ecf-4972-8ded-edda7a9f459e",
+      "verdict": "PASS",
+      "terminal": "SAFE_STOP",
+      "cleanup_ok": true,
+      "provider_calls": 4,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "safe_stop_expected_fault",
+      "recovered": false,
+      "safe_stopped": true,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 14,
+      "case": "llm_timeout_always",
+      "returncode": 0,
+      "run_id": "323d4373-b1e2-423a-be86-6da54b0e41d4",
+      "verdict": "PASS",
+      "terminal": "SAFE_STOP",
+      "cleanup_ok": true,
+      "provider_calls": 0,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "safe_stop_expected_fault",
+      "recovered": false,
+      "safe_stopped": true,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 15,
+      "case": "mcp_503_once",
+      "returncode": 0,
+      "run_id": "0998cc19-b3e2-4c9d-b66b-d76abff50efb",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "recovery_expected_fault",
+      "recovered": true,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 16,
+      "case": "mcp_disconnect_once",
+      "returncode": 0,
+      "run_id": "8d96262b-62f4-4eef-82fa-91d349ead4c0",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "recovery_expected_fault",
+      "recovered": true,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 17,
+      "case": "mcp_delay_once",
+      "returncode": 0,
+      "run_id": "fd51a620-447b-4a66-8431-ac010678b832",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "recovery_expected_fault",
+      "recovered": true,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 18,
+      "case": "mcp_503_always",
+      "returncode": 0,
+      "run_id": "c6d04585-deb6-4112-becf-40a28af78205",
+      "verdict": "PASS",
+      "terminal": "SAFE_STOP",
+      "cleanup_ok": true,
+      "provider_calls": 0,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "safe_stop_expected_fault",
+      "recovered": false,
+      "safe_stopped": true,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": true
+    },
+    {
+      "index": 19,
+      "case": "normal_single",
+      "returncode": 0,
+      "run_id": "9cf72936-3014-4e17-b63b-6aae4c596ee6",
+      "verdict": "PASS",
+      "terminal": "WAITING_APPROVAL",
+      "cleanup_ok": true,
+      "provider_calls": 2,
+      "failed_checks": [],
+      "error": null,
+      "metric_population": "non_fault_normal_request",
+      "recovered": false,
+      "safe_stopped": false,
+      "manual_recovery_intervention": false,
+      "automatic_recovery_rate_denominator": false
+    }
+  ],
+  "evidence": {
+    "runs": 19,
+    "source_digest": "176bd0d2d377589f8a91a01fbc20bd6efe4b9786b0477f9dc9aeccb14685167a",
+    "terminal_states": {
+      "COMPLETED": 3,
+      "WAITING_APPROVAL": 13,
+      "SAFE_STOP": 3
+    },
+    "recovered": 6,
+    "recovery_mean_seconds": 5.963666666667753,
+    "database": {
+      "records": 39,
+      "input_tokens": 185265,
+      "output_tokens": 8228,
+      "encrypted_records": 39
+    },
+    "environment": {
+      "id": 1,
+      "state": "CLEAN",
+      "owner": null,
+      "heartbeat": "2026-10-12 20:35:19.419381+00:00",
+      "detail": {
+        "api_pid": 7240,
+        "case_index": 0,
+        "runner_pid": 15356,
+        "timeout_seconds": 240
+      }
+    },
+    "phase_cost_usd": "0.0872708",
+    "cumulative_calls": 53,
+    "cumulative_reserved_usd": "1.7122816",
+    "cumulative_measured_usd": "0.1183372",
+    "pricing": {
+      "model": "gpt-4.1-mini",
+      "pricing_version": "openai-standard-2026-10-11-gpt-4.1-mini",
+      "input_limit": 48000,
+      "output_limit": 8192,
+      "input_price": "0.40",
+      "output_price": "1.60",
+      "max_calls": 90,
+      "max_cost": "3.00",
+      "max_reserved_input_tokens": 4320000,
+      "max_reserved_output_tokens": 737280
+    },
+    "normal_policy_preserved": true,
+    "test_game_preserved": true,
+    "test_policy_preserved": true,
+    "normal_policy": {
+      "version": 167,
+      "hash": "802b1206d426022aa9805980486832ab5ded5ae85a2941a77080b39784fdfe34",
+      "hard_limit_version": "6bb403920a2bfb5e8ddc7e46585d8aef21963828db4b76bf8fb6d19be8ebd7a2"
+    },
+    "normal_policy_metadata_digest_matches_earlier_deterministic_run": false
+  },
+  "metrics": {
+    "version": "guide-recovery-metrics-2026-10-13-v1",
+    "guide_reference": "../pre/멀티_에이전트_협업_및_서비스_운영_가이드.md#4-결과-지표-작성-예시",
+    "scope": "Only the 19 runs in this post-fix phase; repeated executions count separately; earlier phases are not merged.",
+    "rates": {
+      "test_pass_rate": {
+        "numerator": 19,
+        "denominator": 19,
+        "percent": 100.0
+      },
+      "automatic_recovery_rate": {
+        "numerator": 6,
+        "denominator": 9,
+        "percent": 66.7,
+        "denominator_definition": "All injected fault executions, including persistent faults expected to stop safely."
+      },
+      "recovery_success_rate": {
+        "numerator": 6,
+        "denominator": 6,
+        "percent": 100.0,
+        "denominator_definition": "Fault executions expected to recover before the experiment; failures remain in this denominator."
+      },
+      "safe_stop_policy_compliance_rate": {
+        "numerator": 3,
+        "denominator": 3,
+        "percent": 100.0
+      },
+      "safe_stop_share_of_faults": {
+        "numerator": 3,
+        "denominator": 9,
+        "percent": 33.3
+      }
+    },
+    "populations": {
+      "all_fault_run_ids": [
+        "2e54943b-9720-4f84-a5e1-f1b2c04d6e64",
+        "dcf504aa-5dfb-42d2-89a4-b6c2bdbdd0b6",
+        "c49553a8-d514-413d-aa86-61cd09c1b960",
+        "9e95f50d-7ecf-4972-8ded-edda7a9f459e",
+        "323d4373-b1e2-423a-be86-6da54b0e41d4",
+        "0998cc19-b3e2-4c9d-b66b-d76abff50efb",
+        "8d96262b-62f4-4eef-82fa-91d349ead4c0",
+        "fd51a620-447b-4a66-8431-ac010678b832",
+        "c6d04585-deb6-4112-becf-40a28af78205"
+      ],
+      "recovery_expected_run_ids": [
+        "2e54943b-9720-4f84-a5e1-f1b2c04d6e64",
+        "dcf504aa-5dfb-42d2-89a4-b6c2bdbdd0b6",
+        "c49553a8-d514-413d-aa86-61cd09c1b960",
+        "0998cc19-b3e2-4c9d-b66b-d76abff50efb",
+        "8d96262b-62f4-4eef-82fa-91d349ead4c0",
+        "fd51a620-447b-4a66-8431-ac010678b832"
+      ],
+      "safe_stop_expected_run_ids": [
+        "9e95f50d-7ecf-4972-8ded-edda7a9f459e",
+        "323d4373-b1e2-423a-be86-6da54b0e41d4",
+        "c6d04585-deb6-4112-becf-40a28af78205"
+      ],
+      "excluded_runs": [
+        {
+          "run_id": "b7308a6e-aed2-491c-92a1-ceba0c752ae8",
+          "case": "normal_unsupported",
+          "reason": "No fault injected; capability/business result."
+        },
+        {
+          "run_id": "89a3f9c7-3498-45c9-9fdc-148d7a36ca1e",
+          "case": "normal_unsupported",
+          "reason": "No fault injected; capability/business result."
+        },
+        {
+          "run_id": "1d2aebab-a981-4d23-93f9-0fd28f18fb5f",
+          "case": "normal_unsupported",
+          "reason": "No fault injected; capability/business result."
+        },
+        {
+          "run_id": "3b9e9f9e-67df-4c48-b689-e6079a50a6e4",
+          "case": "normal_single",
+          "reason": "No fault injected; normal request."
+        },
+        {
+          "run_id": "9a2b4b96-8aad-40a6-80b4-847d9357dc42",
+          "case": "normal_single",
+          "reason": "No fault injected; normal request."
+        },
+        {
+          "run_id": "e70ec13a-35ef-471c-82d0-64507209a3d2",
+          "case": "normal_single",
+          "reason": "No fault injected; normal request."
+        },
+        {
+          "run_id": "b9cbd559-2797-48f2-bd5e-2c12140e8b89",
+          "case": "normal_multi",
+          "reason": "No fault injected; normal request."
+        },
+        {
+          "run_id": "845f60a3-d23b-441a-9082-96d8aca27044",
+          "case": "normal_multi",
+          "reason": "No fault injected; normal request."
+        },
+        {
+          "run_id": "5285173c-fd5b-4fb8-a63f-4d3d6120b087",
+          "case": "normal_multi",
+          "reason": "No fault injected; normal request."
+        },
+        {
+          "run_id": "9cf72936-3014-4e17-b63b-6aae4c596ee6",
+          "case": "normal_single",
+          "reason": "No fault injected; normal request."
+        }
+      ]
+    },
+    "manual_recovery_interventions": 0,
+    "manual_intervention_scope": "During individual workflow executions; pre-experiment code fixes and service startup are preparation, not automatic recovery.",
+    "recovery_time": {
+      "sample_count": 6,
+      "missing_measurements": 0,
+      "mean_seconds": 5.963666666667753,
+      "definition": "Monotonic first fault detection to validated normal workflow completion; safe-stop and total elapsed times are excluded."
+    },
+    "interpretation": "PASS includes correct safe stops and business results; it does not mean automatic recovery. These are local scenario measurements, not production incident statistics."
+  }
+}
