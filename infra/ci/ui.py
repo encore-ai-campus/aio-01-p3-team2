@@ -41,7 +41,7 @@ def main():
     }
     api = None
     try:
-        for phase in ("connected", "restart", "game", "mcp503"):
+        for phase in ("connected", "restart", "game", "fault-display", "mcp503"):
             if phase != "game":
                 stop(api)
                 if phase == "restart":

@@ -989,7 +989,7 @@
     {
       "file": "frontend-web/e2e/fault-lab.spec.js",
       "suite": "fault_acceptance",
-      "reason": "Opt-in fault UI acceptance: saved experiment evidence, deterministic UI fixtures, and owned isolated fault server"
+        "reason": "Opt-in saved/isolated fault acceptance; the two provider/WAITING_REVIEW display fixtures are also mandatory in the CI fault-display phase without live LLM calls"
     },
     {
       "file": "frontend-web/e2e/planning-flow.spec.js",
