@@ -299,3 +299,25 @@ body{background:radial-gradient(ellipse at 88% 2%,#edf4ff 0,transparent 40%),var
 #fault-lab .fault-node.selected{border-color:#3975a3;box-shadow:inset 0 0 0 2px #3975a326}
 #fault-lab .fault-node.fault-detected.selected,#fault-lab .fault-node.stopped.selected{border-color:#c65043;box-shadow:inset 0 0 0 2px #c6504326}
 #fault-lab .lab-edge.trace-visited,#fault-lab .lab-edge.trace-current{stroke:#3975a3}
+
+/* Actual planning Workflow: show the recovery outcome beside the result. */
+.auto-healing-panel{padding:22px 24px;margin-bottom:24px}
+.auto-healing-panel h2{margin:0 0 7px;color:#102044;font:800 clamp(24px,3vw,32px)/1.2 Manrope,sans-serif}
+.auto-healing-panel h3{margin:0 0 17px;color:#1d5fc4;font:700 17px/1.4 Manrope,sans-serif}
+.auto-healing-facts{display:grid;gap:9px}
+.auto-healing-facts>div{display:grid;grid-template-columns:140px minmax(0,1fr);gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;align-items:start}
+.auto-healing-facts b{color:#102044}.auto-healing-value{color:#43577b;overflow-wrap:anywhere;line-height:1.6;min-width:0}
+.auto-healing-panel>p{margin:14px 0 0;color:var(--muted);font-size:11px}
+.auto-healing-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.auto-healing-comparison>div{padding:10px;border:1px solid #d7e2f2;border-radius:7px;background:#f7faff}
+.auto-healing-comparison p{margin:6px 0 0;overflow-wrap:anywhere}
+@media(max-width:600px){.auto-healing-facts>div,.auto-healing-comparison{grid-template-columns:1fr}}
+.planning-demo-banner{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:22px 24px;margin:24px 0}
+.planning-demo-banner h2{margin:6px 0;color:#102044;font:800 clamp(21px,2.7vw,28px)/1.25 Manrope,sans-serif}
+.planning-demo-banner p,.planning-demo-verdict p,.planning-demo-plan p,.planning-demo-wait p{color:#43577b;line-height:1.6}
+.planning-demo-banner .state-chip{white-space:nowrap}
+.planning-demo-wait,.planning-demo-verdict,.planning-demo-plan{padding:22px 24px}
+.planning-demo-verdict{margin-bottom:20px;border-color:#e4d5ad;background:#fff9e9}
+.planning-demo-verdict b{color:#102044}
+.planning-demo-plan h3,.planning-demo-wait h3{margin-top:0;color:#102044}
+@media(max-width:600px){.planning-demo-banner{display:block}.planning-demo-banner .state-chip{margin-top:10px}}

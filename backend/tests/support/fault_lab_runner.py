@@ -95,6 +95,7 @@ def oracle(
     workflow: dict,
     before: dict,
     after: dict,
+    brief_data: dict,
 ) -> dict:
     """Compare observed behavior against independently declared policy limits."""
     applied = [row for row in journal if row.get("applied")]
@@ -261,7 +262,7 @@ def oracle(
         )
     result_brief = workflow.get("brief")
     if result_brief and scenario["target_id"] != "scope.fixture":
-        fixed = EventBriefInput.model_validate(brief_fixture()).model_dump(mode="json")
+        fixed = EventBriefInput.model_validate(brief_data).model_dump(mode="json")
         checks.append(
             {
                 "name": "fixed_request",
@@ -293,7 +294,15 @@ def oracle(
                 },
             }
         )
-        for field in ("actions", "rewards"):
+        fixed_fields = (
+            ("actions",)
+            if fixed["reward_selection"] == "planner"
+            else (
+                "actions",
+                "rewards",
+            )
+        )
+        for field in fixed_fields:
             expected = [
                 {k: v for k, v in row.items() if k not in {"action_id", "reward_id"}}
                 for row in fixed[field]
@@ -309,7 +318,26 @@ def oracle(
             (action_ids.index(row["action_id"]), reward_ids.index(row["reward_id"]))
             for row in result_brief["mission_reward_links"]
         ]
-        checks.append({"name": "fixed_reward_links", "expected": [(0, 0)], "actual": links})
+        if fixed["reward_selection"] == "planner":
+            valid_links = (
+                bool(reward_ids)
+                and len(links) == len(reward_ids)
+                and {reward_index for _, reward_index in links} == set(range(len(reward_ids)))
+            )
+            checks.append(
+                {
+                    "name": "planner_reward_links_valid",
+                    "expected": True,
+                    "actual": valid_links,
+                }
+            )
+        else:
+            expected_links = [
+                (row["action_index"], row["reward_index"]) for row in fixed["mission_reward_links"]
+            ]
+            checks.append(
+                {"name": "fixed_reward_links", "expected": expected_links, "actual": links}
+            )
     topology = next(t for t in catalog()["topologies"] if t["route"] == scenario["route"])
     mapped_events = {event for node in topology["nodes"] for event in node["observed_events"]}
     # Known metadata has no graph node. Error-bearing rows are never downgraded.
@@ -453,6 +481,7 @@ def run_case(id_: str, index: int) -> dict:
     record = store.read(id_)
     request = record["request"].get("cases", [record["request"]])[index]
     scenario = validate_request(request)
+    brief_data = request.get("brief") or brief_fixture()
     original = next(v for v in policies.list_policies()["versions"] if v["status"] == "ACTIVE")
     started = time.monotonic()
     journal = []
@@ -498,7 +527,7 @@ def run_case(id_: str, index: int) -> dict:
             policies.activate_version(version, idempotency_key=f"lab-activate-{id_}-{index}")
             changed = True
         before = runtime_snapshot()
-        brief = EventBriefInput.model_validate(brief_fixture())
+        brief = EventBriefInput.model_validate(brief_data)
         with policies.pin_active_policy() as pinned:
             with injection_context(id_, request, scenario["target_id"], emit):
                 if scenario["route"] == "legacy_task":
@@ -573,6 +602,7 @@ def run_case(id_: str, index: int) -> dict:
                 workflow,
                 before,
                 after,
+                brief_data,
             )
             if scenario["route"] == "canonical_planning" and not scenario["target_id"].startswith(
                 "input."
@@ -620,10 +650,24 @@ def run_case(id_: str, index: int) -> dict:
                 if not same or persisted != expected_rows:
                     result.update(verdict="FAIL", recovered=False)
             result["fixture_digest"] = hashlib.sha256(
-                json.dumps(brief_fixture(), sort_keys=True).encode()
+                json.dumps(brief_data, sort_keys=True).encode()
             ).hexdigest()
             result["scenario"] = scenario
             result["recovery_comparison"] = recovery_comparison(result, workflow)
+            if request.get("brief") is not None:
+                result["workflow"] = {
+                    key: workflow.get(key)
+                    for key in (
+                        "workflow_id",
+                        "workflow_status",
+                        "current_status",
+                        "trace",
+                        "plan",
+                        "error",
+                        "brief",
+                        "agent_analysis",
+                    )
+                }
             detected_times = [
                 row["elapsed_monotonic_seconds"]
                 for row in journal

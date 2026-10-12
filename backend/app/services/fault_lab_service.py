@@ -44,6 +44,11 @@ def validate_request(request: dict) -> dict:
         raise store.LabError("UNKNOWN_SCENARIO", 422)
     if scenario["readiness"] != "ready":
         raise store.LabError("SCENARIO_EXTERNAL_RUNNER_REQUIRED", 422)
+    if request.get("brief") is not None and scenario["fault_id"] not in {
+        "planner_output_invalid",
+        "planner_explanation_mismatch",
+    }:
+        raise store.LabError("CUSTOM_BRIEF_SCENARIO_UNSUPPORTED", 422)
     if (
         request["pattern"] not in scenario["patterns"]
         or request["profile"] not in scenario["profiles"]
