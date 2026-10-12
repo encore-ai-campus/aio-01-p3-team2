@@ -475,13 +475,19 @@ def test_actual_infrastructure_query_requires_ssm_online_and_opposite_parameter_
                 "EvaluationResults": [
                     {
                         "EvalActionName": action,
-                        "EvalResourceName": arn,
-                        "EvalDecision": "allowed"
-                        if invalid_scope or arn.split(PREFIX)[1] in PARAMETERS[role]
-                        else "implicitDeny",
+                        "EvalResourceName": "arn:aws:ssm:${Region}:${Account}:${RelativeId}",
+                        "EvalDecision": "implicitDeny",
+                        "ResourceSpecificResults": [
+                            {
+                                "EvalResourceName": arn,
+                                "EvalResourceDecision": "allowed"
+                                if invalid_scope or arn.split(PREFIX)[1] in PARAMETERS[role]
+                                else "implicitDeny",
+                            }
+                            for arn in payload["ResourceArns"]
+                        ],
                     }
                     for action in payload["ActionNames"]
-                    for arn in payload["ResourceArns"]
                 ]
             }
         if operation == ("rds", "describe-db-instances"):

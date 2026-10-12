@@ -74,3 +74,75 @@ def test_local_ssm_operations_require_owned_running_instance_and_hide_output():
     with pytest.raises(ValueError):
         send(aws, config, "i-fixture", ["true"])
     assert len(requests) == 1
+
+
+def test_publication_rejects_failed_or_untrusted_ci_before_loading_images(tmp_path):
+    from infra.aws.publish_release import verify
+
+    candidate = {"version": 1, "source_sha": "a" * 40, "ci_run_id": "123", "ci_attempt": 1}
+    (tmp_path / "candidate.json").write_text(json.dumps(candidate))
+    (tmp_path / "ci-verified.json").write_text(json.dumps({**candidate, "ci_verified": True}))
+    run_metadata = {
+        "head_branch": "ikonly",
+        "event": "push",
+        "path": ".github/workflows/ikonly-ci.yml",
+        "status": "completed",
+        "conclusion": "failure",
+        "head_sha": "a" * 40,
+        "id": 123,
+        "run_attempt": 1,
+        "head_repository": {"full_name": "ik-e/multi-agent-autohealing"},
+    }
+    with pytest.raises(ValueError, match="provenance"):
+        verify(tmp_path, run_metadata, [])
+    run_metadata["conclusion"] = "success"
+    with pytest.raises(ValueError, match="remote CI job"):
+        verify(tmp_path, run_metadata, [{"name": "release-gate", "conclusion": "success"}])
+
+
+def test_archive_identity_accepts_config_and_manifest_ids_without_rebuild(tmp_path):
+    import io
+    import tarfile
+
+    from infra.aws.publish_release import archive_identity
+
+    sha = "a" * 40
+    config = json.dumps(
+        {
+            "os": "linux",
+            "architecture": "amd64",
+            "config": {"Labels": {"org.opencontainers.image.revision": sha}},
+        }
+    ).encode()
+    config_digest = "sha256:" + hashlib.sha256(config).hexdigest()
+    manifest = json.dumps({"config": {"digest": config_digest}}).encode()
+    manifest_digest = "sha256:" + hashlib.sha256(manifest).hexdigest()
+    metadata = {"tag": "ikonly-application:ci", "image_id": config_digest}
+    members = {
+        "manifest.json": json.dumps(
+            [{"Config": "config.json", "RepoTags": [metadata["tag"]]}]
+        ).encode(),
+        "config.json": config,
+        "index.json": json.dumps({"manifests": [{"digest": manifest_digest}]}).encode(),
+        "blobs/sha256/" + manifest_digest.split(":")[1]: manifest,
+    }
+    path = tmp_path / "application.tar"
+    with tarfile.open(path, "w") as archive:
+        for name, content in members.items():
+            item = tarfile.TarInfo(name)
+            item.size = len(content)
+            archive.addfile(item, io.BytesIO(content))
+    assert archive_identity(path, metadata, sha) == {config_digest, manifest_digest}
+    with pytest.raises(ValueError):
+        archive_identity(path, {**metadata, "image_id": "sha256:" + "b" * 64}, sha)
+
+
+def test_compose_web_tmpfs_is_one_mount_and_ca_volumes_are_persistent():
+    import yaml
+    from infra.aws.iac import ROOT
+
+    web = yaml.safe_load((ROOT / "compose.web.yml").read_text())["services"]["web"]
+    assert web["tmpfs"] == ["/tmp:size=32m,mode=1777"]
+    assert web["read_only"] is True
+    assert "/var/lib/eventquest/caddy-data:/data" in web["volumes"]
+    assert "/var/lib/eventquest/caddy-config:/config" in web["volumes"]

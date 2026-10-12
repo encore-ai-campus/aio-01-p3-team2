@@ -90,7 +90,16 @@ def verify(aws, config, manifest):
             if response.get("IsTruncated"):
                 raise ValueError("Incomplete IAM simulation")
             for row in response["EvaluationResults"]:
-                decisions[(row["EvalActionName"], row["EvalResourceName"])] = row["EvalDecision"]
+                specific = row.get("ResourceSpecificResults")
+                if specific:
+                    for item in specific:
+                        decisions[(row["EvalActionName"], item["EvalResourceName"])] = item[
+                            "EvalResourceDecision"
+                        ]
+                else:
+                    decisions[(row["EvalActionName"], row["EvalResourceName"])] = row[
+                        "EvalDecision"
+                    ]
         for name, arn in zip(all_names, all_arns, strict=True):
             for action in ("ssm:GetParameter", "ssm:GetParameters"):
                 decision = decisions.get((action, arn))
