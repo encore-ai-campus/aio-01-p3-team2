@@ -3,6 +3,7 @@
   "roles": ["plan-web", "game-web", "main-api", "fault-api", "main-mcp", "fault-mcp"],
   "rules": [
     {"id": "docs", "patterns": ["docs/**", "*.md", "**/*.md"], "targets": [], "ci": false},
+    {"id": "repository-hygiene", "patterns": [".gitignore"], "targets": [], "ci": true},
     {"id": "runtime-runner", "patterns": ["backend/tests/support/**"], "targets": ["main-api", "fault-api"], "ci": true},
     {"id": "tests", "patterns": ["backend/tests/**", "mcp_server/tests/**", "demo-game/tests/**", "frontend-web/e2e/**", "frontend-web/game-e2e/**", "frontend-web/tests/**", "frontend-web/playwright*.js", "backend/testing/**", "conftest.py"], "targets": [], "ci": true},
     {"id": "shared-contract", "patterns": ["backend/app/game/**", "backend/app/schemas/**", "backend/data/**", "mcp_server/data/**"], "targets": ["plan-web", "game-web", "main-api", "fault-api", "main-mcp", "fault-mcp"], "ci": true},

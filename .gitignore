@@ -26,6 +26,8 @@ env/
 htmlcov/
 /frontend-web/test-results/
 /test-results/
+/backend/test-results/
+/.vite/
 
 # Build and packaging artifacts
 build/

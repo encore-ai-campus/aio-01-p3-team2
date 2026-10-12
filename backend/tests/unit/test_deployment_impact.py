@@ -29,6 +29,7 @@ from pydantic import ValidationError
         ("backend/tests/unit/test_x.py", []),
         ("frontend-web/e2e/test.spec.js", []),
         ("docs/ik/README.md", []),
+        (".gitignore", []),
         ("frontend/app.py", []),
     ],
 )
@@ -41,6 +42,8 @@ def test_classified_roles(path, targets):
 def test_non_runtime_and_unknown_paths():
     assert not classify(["docs/ik/plan.md"])["ci_required"]
     assert classify(["backend/tests/unit/test_x.py"])["ci_required"]
+    assert classify([".gitignore"])["ci_required"]
+    assert not classify([".gitignore"])["migration_required"]
     assert classify(["infra/aws/stacks/network.yml"])["manual_review_required"]
     assert classify(["infra/test-suites.json"])["targets"] == []
     unknown = classify(["new-runtime.py"])
