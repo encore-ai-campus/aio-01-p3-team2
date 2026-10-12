@@ -234,6 +234,7 @@ def test_review_binds_account_stack_parameters_template_and_complete_changes():
         "change_set_id": change_id,
         "requested_parameters": {"OperatorCidr": config["operator_cidr"]},
     }
+    placeholder = False
 
     def fake_aws(*args, **kwargs):
         operation = args[:2]
@@ -244,6 +245,8 @@ def test_review_binds_account_stack_parameters_template_and_complete_changes():
         if operation == ("cloudformation", "get-template"):
             return {"TemplateBody": network()}
         if operation == ("cloudformation", "describe-stacks"):
+            if placeholder:
+                return {"Stacks": [{"StackStatus": "REVIEW_IN_PROGRESS", "Tags": []}]}
             return {
                 "Stacks": [
                     {
@@ -257,6 +260,19 @@ def test_review_binds_account_stack_parameters_template_and_complete_changes():
         pytest.fail("Unexpected operation " + str(operation))
 
     assert review(fake_aws, config, copy.deepcopy(record))["status"] == "REVIEWED"
+    placeholder = True
+    with pytest.raises(ValueError):
+        review(fake_aws, config, copy.deepcopy(record))
+    response["Tags"] = [
+        {"Key": "Environment", "Value": "ikonly-demo"},
+        {"Key": "ManagedBy", "Value": "ikonly-iac"},
+    ]
+    assert review(fake_aws, config, copy.deepcopy(record))["status"] == "REVIEWED"
+    response["Changes"][0]["ResourceChange"]["Action"] = "Modify"
+    with pytest.raises(ValueError):
+        review(fake_aws, config, copy.deepcopy(record))
+    response["Changes"][0]["ResourceChange"]["Action"] = "Add"
+    placeholder = False
     response["NextToken"] = "more"
     with pytest.raises(ValueError):
         review(fake_aws, config, copy.deepcopy(record))

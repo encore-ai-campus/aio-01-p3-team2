@@ -327,9 +327,17 @@ def review(aws, config, record):
         actual_template = json.loads(actual_template)
     if digest(actual_template) != digest(generated()["stacks/" + record["stage"] + ".yml"]):
         raise ValueError("AWS change-set template differs from the current reviewed source")
-    owned_stack(
-        aws("cloudformation", "describe-stacks", "--stack-name", record["stack_id"])["Stacks"][0]
-    )
+    stack = aws("cloudformation", "describe-stacks", "--stack-name", record["stack_id"])["Stacks"][
+        0
+    ]
+    if stack.get("StackStatus") == "REVIEW_IN_PROGRESS" and not stack.get("Tags"):
+        # A CREATE change set has the tags; its unexecuted placeholder stack has none.
+        # Account, exact StackId, source template and parameters were checked above.
+        if any(change["ResourceChange"]["Action"] != "Add" for change in response["Changes"]):
+            raise ValueError("Initial stack must contain only new resources")
+        owned_stack(response)
+    else:
+        owned_stack(stack)
     if (
         response["Status"] != "CREATE_COMPLETE"
         or response["ExecutionStatus"] != "AVAILABLE"
