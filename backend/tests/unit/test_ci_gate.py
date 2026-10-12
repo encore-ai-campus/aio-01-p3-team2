@@ -4,6 +4,22 @@ import pytest
 from infra.ci import gate
 
 
+def test_operational_dispatch_does_not_replace_pending_pipeline():
+    import yaml
+
+    workflow = yaml.safe_load((gate.ROOT / ".github/workflows/ikonly-ci.yml").read_text())
+    group = workflow["concurrency"]["group"]
+    assert "inputs.operation == 'recover'" in group
+    assert "inputs.operation == 'oidc-check'" in group
+    assert "'operations' || 'pipeline'" in group
+    assert workflow["concurrency"]["cancel-in-progress"] is False
+    for job in ("deploy", "operations"):
+        assert workflow["jobs"][job]["concurrency"] == {
+            "group": "ikonly-demo-lifecycle",
+            "cancel-in-progress": False,
+        }
+
+
 def test_profile_selection_preserves_pytest_builtin_ignore():
     from types import SimpleNamespace
 

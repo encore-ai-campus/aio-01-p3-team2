@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ikonly-ci-${{ github.ref }}
+  group: ikonly-ci-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && (inputs.operation == 'recover' || inputs.operation == 'oidc-check') && 'operations' || 'pipeline' }}
   cancel-in-progress: false
 
 env:

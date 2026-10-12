@@ -911,7 +911,8 @@
         "test_candidate_paths_cannot_escape_bundle",
         "test_empty_skip_failed_reports_cannot_be_evidence",
         "test_function_coverage_is_required",
-        "test_missing_parameter_is_rejected_even_when_function_passed"
+        "test_missing_parameter_is_rejected_even_when_function_passed",
+        "test_operational_dispatch_does_not_replace_pending_pipeline"
       ]
     },
     {
@@ -989,7 +990,7 @@
     {
       "file": "frontend-web/e2e/fault-lab.spec.js",
       "suite": "fault_acceptance",
-        "reason": "Opt-in saved/isolated fault acceptance; the two provider/WAITING_REVIEW display fixtures are also mandatory in the CI fault-display phase without live LLM calls"
+      "reason": "Opt-in saved/isolated fault acceptance; the two provider/WAITING_REVIEW display fixtures are also mandatory in the CI fault-display phase without live LLM calls"
     },
     {
       "file": "frontend-web/e2e/planning-flow.spec.js",
