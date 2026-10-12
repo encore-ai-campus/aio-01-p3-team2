@@ -25,7 +25,7 @@
 | host 이미지 교체 | `host_release.py`에 digest/revision 확인·Compose up·health 검사 있음 |
 | 전체 fleet 업데이트 자동 실행·수용 | 코드 연결 완료: immutable 배치→점검/drain→선택 SSM→전체 연결 수용→baseline 기록. 실제 first-deploy/rollback/GitHub full 수용 PASS |
 | ikonly push → 자동 CD | workflow/IAM/OIDC 실제 인증 PASS, CD 활성화. ABSENT push는 INACTIVE로 자원 재생성 없음 |
-| 전체 초기화 | 로컬 operations reset 연결: 증거 다운로드·SHA 확인→역순 stack 삭제→보존 자원 삭제→잔존 검사. 실제 first-deploy/rollback/GitHub full 수용 PASS |
+| 전체 초기화 | 로컬 operations reset 연결: 증거 다운로드·SHA 확인→역순 stack 삭제→보존 자원 삭제→잔존 검사. 실제 full/empty 반복 reset PASS |
 
 ## 3. 시스템별 업데이트 계약
 
