@@ -34,6 +34,21 @@ gh workflow run ikonly-ci.yml --repo ik-e/multi-agent-autohealing --ref ikonly -
 
 필수 CI·이미지 승인 검사가 모두 통과한 같은 run의 immutable 이미지 tar만 배포한다. 현재 deploy job의 run이 아직 진행 중이어도 선행 CI job/gate 성공을 모두 확인한다. 실패한 CI 이미지는 배포하지 않는다. 전체 workflow 실패가 배포 job에서만 발생했다면 성공한 선행 CI artifact를 복구 재시도에 사용할 수 있다.
 
+CI의 pipeline 대기열과 `recover/oidc-check` 운영 대기열은 분리한다. GitHub의 한 concurrency group당 pending slot 제한 때문에 운영 점검이 대기 중인 push를 교체하지 않도록 한 것이다. 실제 deploy/operations job은 공통 `ikonly-demo-lifecycle` concurrency와 AWS 작업 lock을 계속 공유한다. 같은 pipeline group의 중간 pending push가 최신 push로 교체될 수 있으므로 취소된 run은 성공 artifact로 사용하지 않고 최종 SHA의 완료 run을 확인한다.
+
+## 현재 검증된 첫 배포 후보
+
+2026-10-13 완료 run은 `38308564165`, source는 `a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05`, attempt는 `1`이다. 필수 CI·이미지·승인 게이트가 모두 성공했고 자동 CD는 빈 환경을 확인해 INACTIVE로 종료했다. 앱 재생성은 하지 않았다. 이번 기능/검사 source 뒤의 문서만 바뀐 커밋은 이 검증 source를 새 이미지로 표현하지 않는다.
+
+첫 배포 후보를 받으려면 아래 두 artifact를 같은 directory에 다운로드한다. 기존 큰 artifact 이어받기 방법은 아래 절을 따른다. artifact 만료 시 새 CI run을 사용한다.
+
+```powershell
+gh run download 38308564165 --repo ik-e/multi-agent-autohealing --name images-a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05-1 --dir test-results/aws-current-candidate
+gh run download 38308564165 --repo ik-e/multi-agent-autohealing --name verified-a78f68f3493ffc6f4d4dfc578d635c2aecf7ba05-1 --dir test-results/aws-current-candidate
+```
+
+다운로드 후 아래 `initial` 명령에 `--directory test-results/aws-current-candidate --run-id 38308564165`를 사용한다. 실제 생성에는 로컬 AWS 인증, 기존 operation config, `backend/.env`, 승인 정책 파일과 hash가 필요하다. config의 현재 접근 허용 IPv4 /32도 확인한다. CI 승인 자체는 첫 배포의 사용자 승인이나 정책 승인을 대신하지 않는다. 현재 source의 새 AWS 서비스 수용은 첫 배포 후 별도로 기록한다.
+
 ## 로컬 실행 명령
 
 `<...>`는 실제 값으로 바꾼다. artifact directory는 성공 run의 CI/image/verified 파일이 모인 경로다. 키 원문·비밀번호·개인 `.env`·인증서 파일은 커밋하지 않는다.
