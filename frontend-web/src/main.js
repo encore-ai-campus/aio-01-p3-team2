@@ -4,9 +4,12 @@ import { mountFaultLab, renderFaultLab } from "./fault-lab-topology.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const app = $("#app");
+const demoLoginStorage = "eventquest.demoLogin";
+const demoActorId = "liveops01";
+let loggedIn = sessionStorage.getItem(demoLoginStorage) === demoActorId;
 let activeView = "create";
 let currentRun = null;
-let userStartedCreating = false;
+let userStartedCreating = loggedIn;
 let workflowPollTimer = null;
 let workflowPollError = "";
 const workflowFinishedStates = new Set(["WAITING_APPROVAL", "WAITING_REVIEW", "SAFE_STOP", "COMPLETED", "CANCELLED", "REJECTED", "APPROVED", "APPLIED"]);
@@ -65,6 +68,43 @@ const views = [
   ["logs", "운영 로그", "▤"],
 ];
 
+function loginScreen() {
+  app.innerHTML = `<main class="login-page"><div class="login-card">
+    <section class="login-story" aria-label="서비스 소개"><img class="login-logo" src="/event_quest_ai_logo.png" alt="EventQuest AI · 게임 이벤트를 기획하는 AI" />
+      <div class="login-story-copy"><p class="login-overline">OPONG HEROES · LIVE OPS</p><h1>게임 이벤트 기획부터 검수까지,<br><em>AI와 함께하세요.</em></h1><p>게임 데이터를 바탕으로 이벤트 기획안을 만들고, 게임 규칙과 보상을 검토합니다.</p>
+      <div class="login-features"><span>✦ AI 기반 이벤트 기획</span><span>✓ 규칙·보상 검토</span><span>↗ 진행 기록 확인</span></div></div>
+    </section>
+    <section class="login-entry" aria-labelledby="login-title"><div class="login-service">OPONG HEROES <span>│ LIVE OPS</span></div><div class="login-entry-body"><span class="login-overline">LIVE OPS DESK</span><h2 id="login-title">로그인</h2><p class="login-welcome">운영 시스템에 접속하세요.</p>
+      <form id="demo-login-form"><label for="demo-login-id">아이디</label><input id="demo-login-id" name="actor" value="${demoActorId}" readonly autocomplete="username" aria-describedby="demo-login-note" /><p id="demo-login-note">시연용 아이디가 미리 입력되어 있습니다.</p><button type="submit" class="login-submit">로그인 <span aria-hidden="true">→</span></button></form>
+      <p class="login-disclaimer">내부 시연용 데모 로그인 · 아이디만 확인하며 비밀번호 인증은 제공하지 않습니다.</p></div></section>
+  </div></main>`;
+  $("#demo-login-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    sessionStorage.setItem(demoLoginStorage, demoActorId);
+    loggedIn = true;
+    activeView = "create";
+    userStartedCreating = true;
+    render();
+  });
+}
+
+function logout() {
+  loggedIn = false;
+  sessionStorage.removeItem(demoLoginStorage);
+  clearTimeout(workflowPollTimer);
+  localStorage.removeItem("eventquest.latestWorkflow");
+  currentRun = null;
+  briefDraft = null;
+  runtimeProgress = null;
+  runtimeProgressEventId = "";
+  faultRun = null;
+  policyState = null;
+  logsState = null;
+  activeView = "create";
+  userStartedCreating = false;
+  loginScreen();
+}
+
 function shell() {
   app.innerHTML = `
     <aside class="rail">
@@ -77,11 +117,12 @@ function shell() {
       <div class="profile"><div class="avatar">L</div><div><b>LiveOps</b><span>단일 사용자 권한</span></div><span class="online-dot"></span></div>
     </aside>
     <main class="main-shell">
-      <header class="topbar"><div><span class="eyebrow">OPONG HEROES / PLANNING</span><h1 id="page-title"></h1></div><div class="top-meta"><span class="runtime-pill"><i></i> LOCAL RUNTIME</span><span class="version">CONSOLE 0.1</span></div></header>
+      <header class="topbar"><div><span class="eyebrow">OPONG HEROES / PLANNING</span><h1 id="page-title"></h1></div><div class="top-meta"><span class="runtime-pill"><i></i> LOCAL RUNTIME</span><span class="version">CONSOLE 0.1</span><button class="logout-button" id="demo-logout" type="button">로그아웃</button></div></header>
       <section id="view-root" class="view-root"></section>
     </main>
     <div id="toast" class="toast" role="status"></div>`;
   document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => { activeView = button.dataset.view; if (activeView === "create") userStartedCreating = true; render(); }));
+  $("#demo-logout").addEventListener("click", logout);
 }
 
 function toast(message, error = false) {
@@ -275,7 +316,7 @@ function createView() {
     <div class="page-intro"><div><span class="eyebrow">NEW EVENT BRIEF</span><h2>이벤트 공간별 보상을 설계합니다.</h2><p>선택한 공간을 이벤트 기간 중 처음 클리어했을 때 보상을 지급합니다.</p></div><div class="snapshot-card"><span>게임 데이터 기준</span><b>${escapeHtml(planningCatalog.versions.game_data_snapshot_id)}</b><small>${escapeHtml(template.name)} 공간·보상 카탈로그</small></div></div>
     <form id="brief-form" class="brief-layout" novalidate>
       <section class="panel form-panel"><div class="panel-heading"><div><span class="step">01</span><h3>이벤트 방향</h3></div><span class="required-note">필수 입력</span></div>
-        <div class="fixed-event-venue"><span class="step">EVENT DUNGEON</span><b>${escapeHtml(template.name)}</b><small>현재 데모 게임에서 이벤트를 진행하는 공간</small></div>
+        <div class="fixed-event-venue"><span class="step">이벤트가 열리는 곳</span><b>게임 속 도전 구역 ‘${escapeHtml(template.name)}’</b><small>이곳에서 유저가 도전할 퀘스트와 완료 시 받을 보상을 정합니다.</small></div>
         <label>이벤트 목표<textarea name="objective" required maxlength="500" placeholder="예: 신규 유저가 월광 균열의 공간을 탐험하도록 돕는다"></textarea></label>
         <div class="field-grid"><label>대상 유저<select name="segment"><option value="new_user">신규 유저</option><option value="returning_user">복귀 유저</option></select></label><label>운영 방식<select name="operation_mode" id="operation-mode"><option value="finite">기간 한정</option><option value="ongoing">상시 운영</option></select></label></div>
         <label><span id="duration-label">이벤트 기간 (일)</span><input name="duration" id="duration-days" type="number" min="1" max="7" value="3" required /><span class="field-hint" id="duration-hint">기간 한정 이벤트의 실제 운영 기간입니다.</span></label>
@@ -348,17 +389,36 @@ function resultCard() {
   const findings = plan.validation_summary.findings;
   const spaceNames = new Map((planningCatalog?.templates ?? []).flatMap((item) => item.spaces.map((space) => [space.id, space.name])));
   const itemNames = new Map((planningCatalog?.items ?? []).map((item) => [item.item_id, item.name]));
-  const missionRewards = plan.missions.map((mission) => {
-    const spaceId = mission.content_scope?.content_ids?.[0] ?? "";
-    const rewardLines = plan.rewards.filter((reward) => reward.mission_id === mission.mission_id)
-      .map((reward) => `${itemNames.get(reward.item_id) ?? reward.item_id} × ${reward.quantity}`);
-    return `<div class="space-plan-row"><div><b>${escapeHtml(spaceNames.get(spaceId) ?? spaceId ?? "이벤트 던전 공간")}</b><small>이벤트 기간 중 첫 클리어</small></div><span>${escapeHtml(rewardLines.join(" · ") || "연결된 보상 없음")}</span></div>`;
+  const supportLabels = { NEEDS_DEVELOPMENT: "추가 개발 필요", NEEDS_DATA: "데이터 확인 필요", UNSUPPORTED_BY_POLICY: "정책상 지원 불가" };
+  const missionRewards = plan.missions.map((mission, index) => {
+    const contentNames = (mission.content_scope?.content_ids ?? []).map((id) => spaceNames.get(id) ?? id);
+    const action = { special_dungeon_space_clear: "공간 클리어", stage_clear: "스테이지 클리어", dungeon_clear: "던전 클리어" }[mission.action_type] ?? mission.action_type;
+    const comparison = { gte: "이상", gt: "초과", eq: "달성", lte: "이하", lt: "미만" }[mission.goal?.operator] ?? mission.goal?.operator ?? "";
+    const goal = `${action} · ${mission.goal?.target ?? "미정"}${mission.goal?.metric === "count" ? "회" : ` (${mission.goal?.metric ?? "목표 미정"})`} ${comparison}`;
+    const rewardLines = plan.rewards.filter((reward) => reward.mission_id === mission.mission_id).map((reward) => {
+      const support = supportLabels[reward.support_status];
+      const policy = { once_per_user: "유저당 1회 지급", once_per_cycle: "주기당 1회 지급" }[reward.grant_policy] ?? reward.grant_policy ?? "지급 조건 확인 필요";
+      return `<div class="plan-reward"><b>${escapeHtml(itemNames.get(reward.item_id) ?? reward.item_id)} × ${escapeHtml(reward.quantity)}</b><small>${escapeHtml(policy)}${reward.max_grants_per_user != null ? ` · 유저당 최대 ${escapeHtml(reward.max_grants_per_user)}회` : ""}</small>${support ? `<span class="plan-support-note">${escapeHtml(support)}</span>` : ""}</div>`;
+    }).join("");
+    return `<div class="space-plan-row plan-mission"><span class="plan-mission-number">${String(index + 1).padStart(2, "0")}</span><div class="plan-mission-copy"><b>${escapeHtml(contentNames.join(" · ") || action)}</b><small>${escapeHtml(goal)}</small>${supportLabels[mission.support_status] ? `<span class="plan-support-note">${escapeHtml(supportLabels[mission.support_status])}</span>` : ""}</div><div class="plan-rewards">${rewardLines || "연결된 보상 없음"}</div></div>`;
   }).join("");
   const findingLines = [...new Set(findings.flatMap((item) => [
     `${findingLabel(item.code)} · ${item.message_safe}`,
     item.suggested_action,
   ].filter(Boolean)))];
-  return `<section class="panel result-panel ${tone}"><div class="result-head"><div><span class="eyebrow">PLAN ${plan.plan_id} · V${plan.result_version}</span><h3>${label}</h3><p>${resultExplanation}</p></div><span class="status-orb">${plan.runtime_eligible ? "✓" : "!"}</span></div><div class="result-grid"><div><small>상태</small><b>${planStatusLabel(plan)}</b></div><div><small>데이터 기준</small><b>${plan.game_context.game_data_snapshot_id}</b></div><div><small>미션 / 보상</small><b>${plan.missions.length} / ${plan.rewards.length}</b></div><div><small>요청 영향</small><b>${impactStatusLabel}</b></div></div><div class="space-plan-summary"><b>선택 공간별 달성·보상</b>${missionRewards}</div><div class="impact-assessments"><b>영향 근거</b>${impactRows}</div>${plan.development_requirements.length ? `<div class="notice-list"><b>추가 개발 필요</b>${plan.development_requirements.map((item) => `<p>${escapeHtml(formatDevelopmentBehavior(item.requested_behavior))} · ${escapeHtml(item.impact)}</p>`).join("")}</div>` : ""}${findingLines.length ? `<div class="notice-list"><b>검증 결과</b>${findingLines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}${decisionActions}<details><summary>근거와 진행 Trace 보기</summary><pre>${escapeHtml(JSON.stringify({ evidence_refs: plan.evidence_refs, impact_assessment: plan.impact_assessment, validation_findings: findings, agent_analysis: currentRun.agent_analysis, workflow: currentRun.trace, source: currentRun.execution_profile }, null, 2))}</pre></details></section>`;
+  const audience = (plan.audience?.segments ?? "").split(",").filter(Boolean).map((segment) => ({ new_user: "신규 유저", returning_user: "복귀 유저", all_user: "전체 유저" })[segment.trim()] ?? segment.trim()).join(" · ") || "대상 정보 없음";
+  const operation = { finite: "기간 한정", ongoing: "상시 운영" }[plan.operation_mode] ?? "운영 방식 확인 필요";
+  const duration = plan.operation_mode === "ongoing" ? "상시" : plan.schedule?.duration_days != null ? `${plan.schedule.duration_days}일` : "기간 미정";
+  const venue = (planningCatalog?.templates ?? []).find((item) => item.template_id === plan.venue?.template_id || item.id === plan.venue?.template_id);
+  const eventType = { special_dungeon: "특별 던전", growth_progression: "성장 이벤트", dungeon_challenge: "던전 도전" }[plan.event_type] ?? plan.event_type;
+  const status = decision?.approval_status ? workflowStatusLabel(decision.approval_status) : planStatusLabel(plan);
+  return `<section class="panel result-panel plan-document ${tone}" aria-label="생성된 이벤트 기획안">
+    <header class="result-head plan-document-head"><div><span class="eyebrow">기획안 결과 · V${escapeHtml(plan.result_version)}</span><h3>생성된 이벤트 기획안</h3><p>이벤트의 운영 방향과 참여 조건, 보상을 한눈에 확인하세요.</p></div><span class="plan-document-status ${tone}" role="status">${escapeHtml(status)}</span></header>
+    <section class="plan-document-section" aria-label="기획안 요약"><div class="plan-section-heading"><span>01</span><h4>기획안 요약</h4></div><p class="plan-objective">${escapeHtml(plan.objective || "기획 목표 정보가 없습니다.")}</p><dl class="plan-facts"><div><dt>대상 유저</dt><dd>${escapeHtml(audience)}</dd></div><div><dt>운영 방식</dt><dd>${escapeHtml(operation)}</dd></div><div><dt>운영 기간</dt><dd>${escapeHtml(duration)}</dd></div><div><dt>이벤트 유형</dt><dd>${escapeHtml(eventType)}</dd></div></dl></section>
+    <section class="plan-document-section" aria-label="기획안 상세 내용"><div class="plan-section-heading"><span>02</span><h4>기획안 상세 내용</h4></div><div class="plan-content-heading"><b>${escapeHtml(venue?.name ?? "참여 미션과 보상")}</b><span>미션 ${plan.missions.length}개 · 보상 ${plan.rewards.length}개</span></div><div class="space-plan-summary plan-missions">${missionRewards}</div></section>
+    <section class="plan-document-section plan-review" aria-label="검토 결과 및 보완 사항"><div class="plan-section-heading"><span>03</span><h4>검토 결과 및 보완 사항</h4></div><p class="plan-review-status"><b>${escapeHtml(label)}</b> · ${escapeHtml(resultExplanation)}</p><p class="plan-impact-summary">요청 영향: ${escapeHtml(impactStatusLabel)}</p>${plan.development_requirements.length ? `<div class="notice-list"><b>추가 개발 필요</b>${plan.development_requirements.map((item) => `<p>${escapeHtml(formatDevelopmentBehavior(item.requested_behavior))} · ${escapeHtml(item.impact)}</p>`).join("")}</div>` : ""}${findingLines.length ? `<div class="notice-list"><b>검증 결과</b>${findingLines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}</div>` : ""}${decisionActions}</section>
+    <section class="plan-document-section plan-evidence" aria-label="상세 근거"><div class="plan-section-heading"><span>04</span><h4>상세 근거</h4></div><details><summary>데이터 기준과 영향 근거 보기</summary><p class="plan-source">기획안 ${escapeHtml(plan.plan_id)} · 데이터 기준 ${escapeHtml(plan.game_context.game_data_snapshot_id)}</p><div class="impact-assessments"><b>영향 근거</b>${impactRows}</div></details><details><summary>근거와 진행 Trace 보기</summary><pre>${escapeHtml(JSON.stringify({ evidence_refs: plan.evidence_refs, impact_assessment: plan.impact_assessment, validation_findings: findings, agent_analysis: currentRun.agent_analysis, workflow: currentRun.trace, source: currentRun.execution_profile }, null, 2))}</pre></details></section>
+  </section>`;
 }
 
 function impactMetricLabel(metric) {
@@ -869,6 +929,10 @@ async function restoreLatestWorkflow() {
 }
 
 function render() {
+  if (!loggedIn) {
+    loginScreen();
+    return;
+  }
   const existingForm = $("#brief-form");
   if (existingForm && activeView === "create") {
     briefDraft = {
@@ -885,6 +949,7 @@ function render() {
   scheduleWorkflowPoll();
   const content = { create: createView, workflow: workflowView, policies: policiesView, fault: faultView, logs: logsView }[activeView]();
   $("#view-root").innerHTML = content;
+  $("#view-root").dataset.view = activeView;
   if (activeView === "create" && briefDraft && $("#brief-form")) {
     for (const name of ["objective", "segment", "operation_mode", "duration", "impact"]) {
       const field = $(`[name="${name}"]`);
@@ -969,4 +1034,4 @@ function render() {
 }
 
 render();
-restoreLatestWorkflow();
+if (loggedIn) restoreLatestWorkflow();
