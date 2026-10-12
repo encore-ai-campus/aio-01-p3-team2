@@ -83,3 +83,5 @@ backend/.venv/Scripts/python.exe -m infra.aws.download_artifact --artifact-id <i
 ## 전체 초기화와 snapshot
 
 전체 초기화는 사용자 승인에 따른 DB 전체 삭제다. 신규 data stack의 `DeletionPolicy=Delete`로 초기화 때 최종 snapshot을 새로 만들었다가 바로 삭제하는 대기를 줄인다. 기존 manual snapshot과 automated backup도 잔존 검사·삭제 대상으로 관리한다. migration 전 암호화 snapshot 및 `UpdateReplacePolicy=Snapshot`은 유지한다. 이미 삭제 진행 중인 구 stack은 기존 Snapshot 정책으로 처리되며 중간에 정책을 바꾸지 않는다. reset 진입 전 로컬 시험 증거/로그/저널/S3 보관은 동일하게 수행한다.
+
+수동 workflow update/full은 `impact_approval_sha256` 입력으로 기록된 정확한 검토 hash를 전달할 수 있다. 64자 hex 검사를 거치고 실제 배포 baseline/후보 diff의 hash와 일치할 때만 승인한다. push의 기본 입력은 빈 값이므로 수동 검토를 우회하지 않는다.

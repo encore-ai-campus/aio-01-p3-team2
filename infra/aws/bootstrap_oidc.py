@@ -363,11 +363,29 @@ def policies(account):
                 "s3:GetBucketLocation",
                 "s3:PutBucketOwnershipControls",
                 "s3:GetBucketOwnershipControls",
-                "s3:DeleteBucketOwnershipControls",
                 "s3:PutBucketVersioning",
                 "s3:GetBucketVersioning",
                 "s3:GetBucketAcl",
                 "s3:GetBucketPolicyStatus",
+                # Registry AWS::S3::Bucket read-handler permissions, scoped to
+                # the evidence bucket; CFN reads the full resource model.
+                "s3:GetAccelerateConfiguration",
+                "s3:GetAnalyticsConfiguration",
+                "s3:GetBucketCORS",
+                "s3:GetInventoryConfiguration",
+                "s3:GetBucketLogging",
+                "s3:GetMetricsConfiguration",
+                "s3:GetBucketNotification",
+                "s3:GetReplicationConfiguration",
+                "s3:GetBucketWebsite",
+                "s3:GetBucketObjectLockConfiguration",
+                "s3:ListTagsForResource",
+                "s3:GetBucketAbac",
+                "s3:GetIntelligentTieringConfiguration",
+                "s3:GetBucketMetadataTableConfiguration",
+                "s3:ListBucket",
+                "s3:TagResource",
+                "s3:UntagResource",
             ],
             "arn:aws:s3:::ikonly-demo-observability-evidence-*",
         ),
@@ -451,6 +469,20 @@ def bootstrap(config, output, *, apply=False):
     write(Path(output).parent / "operation-config.json", record["operation_config"])
     if not apply:
         return record
+    record["policy_validation"] = {}
+    for name, value in record["roles"].items():
+        validation = aws(
+            "accessanalyzer",
+            "validate-policy",
+            payload={
+                "policyDocument": json.dumps(value["policy"]),
+                "policyType": "IDENTITY_POLICY",
+            },
+        )
+        record["policy_validation"][name] = validation["findings"]
+        write(output, record)
+        if any(f["findingType"] == "ERROR" for f in validation["findings"]):
+            raise ValueError("IAM policy validation failed before role mutation")
     existing = {x["RoleName"]: x for x in aws("iam", "list-roles")["Roles"]}
     for name, value in record["roles"].items():
         if name in existing:

@@ -10,6 +10,11 @@ on:
         type: choice
         options: [ci, update, full, recover, oidc-check]
         default: ci
+      impact_approval_sha256:
+        description: 'Reviewed impact SHA256 for a manual update/full operation'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -333,6 +338,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CONFIG_JSON: ${{ vars.IKONLY_CONFIG }}
           OPERATION: ${{ inputs.operation == 'full' && 'full' || 'update' }}
+          IMPACT_APPROVAL_SHA256: ${{ inputs.impact_approval_sha256 }}
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -341,7 +347,12 @@ jobs:
           Path('test-results/deployment').mkdir(parents=True,exist_ok=True)
           Path('test-results/deployment/config.json').write_text(os.environ['CONFIG_JSON'])
           PY
-          python -m infra.aws.operations "$OPERATION" --config test-results/deployment/config.json --directory test-results/deploy-candidate --run-id "$GITHUB_RUN_ID" --allow-current-run --output test-results/deployment/update
+          approval_args=()
+          if [ -n "$IMPACT_APPROVAL_SHA256" ]; then
+            [[ "$IMPACT_APPROVAL_SHA256" =~ ^[a-f0-9]{64}$ ]]
+            approval_args+=(--approve-impact-sha256 "$IMPACT_APPROVAL_SHA256")
+          fi
+          python -m infra.aws.operations "$OPERATION" --config test-results/deployment/config.json --directory test-results/deploy-candidate --run-id "$GITHUB_RUN_ID" --allow-current-run --output test-results/deployment/update "${approval_args[@]}"
       - name: Retain non-secret deployment metadata
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
