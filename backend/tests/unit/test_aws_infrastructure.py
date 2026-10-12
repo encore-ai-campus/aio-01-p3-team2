@@ -761,7 +761,7 @@ def test_explicit_service_update_preserves_other_versions_and_requires_dependenc
     selected = release_plan.build(candidate, previous, services=["game-web"])
     assert selected["targets"] == ["game-web"]
     for role in set(ROLES) - {"game-web"}:
-        assert selected["release"]["services"][role] == previous["services"][role]
+        assert selected["release"]["services"][role] == {"version": 1, **previous["services"][role]}
     paired = release_plan.build(candidate, previous, services=["main-api"])
     assert paired["targets"] == ["main-api", "fault-api"]
     candidate["schema_checksum"] = "sha256:" + "d" * 64
