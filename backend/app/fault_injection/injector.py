@@ -150,6 +150,13 @@ def perturb(target: str, value=None):
             reason="고정된 요청에 맞춰 설명을 수정하세요.",
             review_note="보상 근거를 다시 설명하세요.",
             repairability="PLANNER_EXPLANATION",
+            findings=[
+                {
+                    "kind": "SEMANTIC",
+                    "field_path": "planner_output.summary",
+                    "reason": "고정 요청과 설명의 의미 불일치",
+                }
+            ],
         )
         return result
     return value

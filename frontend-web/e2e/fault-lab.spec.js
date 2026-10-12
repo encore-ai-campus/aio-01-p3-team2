@@ -102,6 +102,26 @@ test("live report presentation uses a synthetic UI fixture without executing LLM
   expect(posts).toBe(0);
 });
 
+test("live human review terminal is explicit without replaying the experiment",async({page})=>{
+  const id="22222222-2222-4222-8222-222222222222";
+  const record={id,kind:"run",lifecycle:"COMPLETED",verdict:"FAIL",results:[{
+    provider_mode:"live",experiment_kind:"normal",verdict:"FAIL",actual_terminal:"WAITING_REVIEW",
+    cleanup_ok:true,policy_ref:{version:1},provider_attempts:[],checks:[],trace:[],
+    scenario:{scenario_id:"normal_unsupported",target_id:"planner.response",route:"canonical_planning"},
+  }]};
+  let posts=0;
+  page.on("request",r=>{if(r.method()==="POST")posts++;});
+  await page.route(`**/api/test/fault-runs/${id}`,route=>route.fulfill({json:record}));
+  await page.addInitScript(id=>sessionStorage.setItem("eventquest.faultLabRun",JSON.stringify({kind:"run",id})),id);
+  await page.goto("/");
+  await page.locator(".login-submit").click();
+  await page.getByRole("button",{name:"복구 시연",exact:true}).click();
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("사람 검토 대기");
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("FAIL");
+  await expect(page.getByLabel("시험 결과 설명")).not.toContainText("확인 불가");
+  expect(posts).toBe(0);
+});
+
 test("known trace metadata is explained separately from mapping warnings",async({page,request})=>{
   const id=process.env.FAULT_LAB_METADATA_RUN_ID;
   test.skip(!id,"Set FAULT_LAB_METADATA_RUN_ID to the completed metadata follow-up run.");

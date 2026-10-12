@@ -10,11 +10,18 @@ from backend.app.services.llm_service import LLMOutputContractError, LLMService
 from pydantic import Field
 
 
+class CriticFinding(StrictContract):
+    kind: Literal["SEMANTIC", "SCOPE"]
+    field_path: str = Field(min_length=1, max_length=200)
+    reason: str = Field(min_length=1, max_length=1000)
+
+
 class CanonicalCriticOutput(StrictContract):
     status: Literal["PASS", "REVIEW"]
     reason: str = Field(min_length=1, max_length=1000)
     review_note: str = Field(min_length=1, max_length=1000)
     repairability: Literal["HUMAN_REVIEW", "PLANNER_EXPLANATION"] = "HUMAN_REVIEW"
+    findings: list[CriticFinding] = Field(default_factory=list, max_length=16)
 
 
 class CanonicalCritic:
@@ -31,7 +38,7 @@ class CanonicalCritic:
         brief: Mapping[str, object],
         plan: Mapping[str, object],
         planner_output: Mapping[str, object],
-    ) -> dict[str, str]:
+    ) -> dict[str, object]:
         result = await self._llm_service.generate(
             self.AGENT_NAME,
             {
@@ -90,4 +97,13 @@ def canonical_critic_response(agent_name: str, context: dict[str, object]) -> Ma
             else "요청과 결과의 미션·보상 참조가 일치하지 않아 사람 검토가 필요합니다."
         ),
         "review_note": "지원 범위와 경제 조건의 최종 판정은 결정적 규칙 검증 결과를 따릅니다.",
+        "findings": []
+        if links_match
+        else [
+            {
+                "kind": "SEMANTIC",
+                "field_path": "mission_reward_links",
+                "reason": "미션·보상 참조 불일치",
+            }
+        ],
     }

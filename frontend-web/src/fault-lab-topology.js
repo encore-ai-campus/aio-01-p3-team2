@@ -163,7 +163,7 @@ let pendingBody = rememberedRequest?.body ?? null;
 
 
 const actionLabels = {RUN_AGENT:"기획안 재작성 후 재검증",TOOL_FALLBACK:"검증된 대체 게임 규칙 조회",STOP:"안전 중단",RETRY:"같은 작업 재시도",SAFE_STOP:"안전 중단",FALLBACK:"대체 경로 사용",REPLAN:"기획안 재작성",REVISE:"기획안 수정",NEEDS_DATA:"추가 데이터 요청",NEEDS_DEVELOPMENT:"개발 필요 표시"};
-const terminalLabels = {REQUEST_BLOCKED:"입력 요청 거절",COMPLETED:"처리 완료",WAITING_APPROVAL:"기획안 작성 완료 · 사람 승인 대기",SAFE_STOP:"안전 중단",FAILED:"작업 실패 종료 (FAILED) · 시험 판정과 별도",NEEDS_DATA:"추가 데이터 필요",NEEDS_DEVELOPMENT:"개발 필요",CANCELLED:"취소",REJECTED:"요청 거절"};
+const terminalLabels = {REQUEST_BLOCKED:"입력 요청 거절",COMPLETED:"처리 완료",WAITING_APPROVAL:"기획안 작성 완료 · 사람 승인 대기",WAITING_REVIEW:"사람 검토 대기",SAFE_STOP:"안전 중단",FAILED:"작업 실패 종료 (FAILED) · 시험 판정과 별도",NEEDS_DATA:"추가 데이터 필요",NEEDS_DEVELOPMENT:"개발 필요",CANCELLED:"취소",REJECTED:"요청 거절"};
 const checkLabels = {input_rejection_contract:"입력 거절 원인 계약",trace_pinned_policy:"고정된 정책 버전 유지",trace_policy_hash:"정책 참조 해시 일치",recovery_rule_reference:"오류 대응 규칙 근거",state_version_chain:"상태 버전·전이 순서",terminal_no_further_execution:"종료 후 추가 작업 차단",fallback_calls:"대체 조회 횟수",injection_applied:"선택한 오류 주입",detector_evidence:"실제 오류 검출",terminal:"예상한 최종 상태",target_attempts:"허용된 시도 횟수",runtime_unchanged:"게임 데이터 보존",forbidden_runtime_calls:"금지된 게임 쓰기 차단",policy_recovery_actions:"정책에 따른 대응",fixed_request:"원래 요청 유지",fixed_actions:"유저 행동 계약 유지",fixed_rewards:"보상 계약 유지",fixed_reward_links:"행동과 보상 연결 유지",critical_trace_mapping:"필수 실행 기록 확인",idempotent_workflow_replay:"중복 실행 방지",run_owned_result_rows:"시험 결과 저장 범위",policy_restored:"시험 후 원래 정책 복원"};
 function resultOutcomeLabel(result) {
   if (!result) return "결과 대기";

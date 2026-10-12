@@ -418,12 +418,26 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
     "canonical_event_critic_agent": {
         "type": "object",
         "additionalProperties": False,
-        "required": ["status", "reason", "review_note", "repairability"],
+        "required": ["status", "reason", "review_note", "repairability", "findings"],
         "properties": {
             "status": {"type": "string", "enum": ["PASS", "REVIEW"]},
             "reason": {"type": "string", "minLength": 1, "maxLength": 1000},
             "review_note": {"type": "string", "minLength": 1, "maxLength": 1000},
             "repairability": {"type": "string", "enum": ["HUMAN_REVIEW", "PLANNER_EXPLANATION"]},
+            "findings": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "field_path", "reason"],
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["SEMANTIC", "SCOPE"]},
+                        "field_path": {"type": "string", "minLength": 1, "maxLength": 200},
+                        "reason": {"type": "string", "minLength": 1, "maxLength": 1000},
+                    },
+                },
+            },
         },
     },
     "balance_rule_agent": {

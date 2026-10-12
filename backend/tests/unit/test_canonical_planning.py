@@ -719,6 +719,41 @@ def test_critic_review_blocks_runtime_eligibility(monkeypatch) -> None:
     )
 
 
+def test_duplicate_venue_scope_review_completes_with_development_items(monkeypatch):
+    from backend.tests.support.fault_lab_runner import brief_fixture
+
+    original = canonical_planning.build_canonical_agents
+
+    class Critic:
+        AGENT_NAME = "canonical_event_critic_agent"
+
+        async def review(self, **kwargs):
+            return {
+                "status": "REVIEW",
+                "reason": "이 공간은 아직 게임에 없습니다.",
+                "review_note": "개발이 필요합니다.",
+                "repairability": "HUMAN_REVIEW",
+                "findings": [{"kind": "SCOPE", "field_path": "venue", "reason": "미지원 공간"}],
+            }
+
+    def agents():
+        planner, _, supervisor, profile = original()
+        return planner, Critic(), supervisor, profile
+
+    monkeypatch.setattr(canonical_planning, "build_canonical_agents", agents)
+    request = brief_fixture()
+    request["venue"]["capability_id"] = "venue.future_boss_room"
+    result = create_event_workflow(
+        EventBriefInput.model_validate(request), "scope-review-regression"
+    )
+    assert result["workflow_status"] == "COMPLETED"
+    assert result["plan"]["plan_status"] == "VALIDATED_WITH_DEVELOPMENT_ITEMS"
+    assert result["plan"]["runtime_eligible"] is False
+    assert result["plan"]["development_requirements"]
+    assert result["agent_analysis"]["critic"]["reported_status"] == "REVIEW"
+    assert result["agent_analysis"]["critic"]["review_resolution"] == "EXISTING_SCOPE_FINDINGS"
+
+
 def test_critic_reviews_valid_plan_with_mission_reward_pair_mismatch() -> None:
     from backend.app.agents.canonical_critic import canonical_critic_response
     from backend.app.schemas.planning import EventPlan

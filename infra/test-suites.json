@@ -392,6 +392,7 @@
         "test_prompt_injection_phrase_is_blocked_before_workflow_creation",
         "test_unknown_audience_is_data_gap_and_never_runtime_eligible",
         "test_critic_review_blocks_runtime_eligibility",
+        "test_duplicate_venue_scope_review_completes_with_development_items",
         "test_critic_reviews_valid_plan_with_mission_reward_pair_mismatch",
         "test_forbidden_planner_context_is_rejected_before_agent_invocation",
         "test_supervisor_owns_planner_ids_and_binds_rationales_by_brief_order",
@@ -956,6 +957,16 @@
         "test_publication_rejects_failed_or_untrusted_ci_before_loading_images",
         "test_archive_identity_accepts_config_and_manifest_ids_without_rebuild",
         "test_compose_web_tmpfs_is_one_mount_and_ca_volumes_are_persistent"
+      ]
+    },
+    {
+      "file": "backend/tests/unit/test_critic_scope_resolution.py",
+      "suite": "core",
+      "reason": "Structured Critic scope reconciliation and semantic/security boundary regressions.",
+      "test_functions": [
+        "test_duplicate_scope_review_keeps_business_result_and_original_report",
+        "test_independent_or_unverified_review_is_not_suppressed",
+        "test_provider_critic_schema_matches_structured_findings_contract"
       ]
     }
   ],

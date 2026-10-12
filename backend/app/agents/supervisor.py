@@ -92,6 +92,55 @@ class SupervisorTransition:
 class Supervisor:
     """정책과 Workflow 상태에 따라 결정적으로 실행 경로를 선택한다."""
 
+    @staticmethod
+    def reconcile_critic_review(
+        output: Mapping[str, object], plan: Mapping[str, object]
+    ) -> dict[str, object]:
+        """Reconcile only duplicate scope findings; retain independent semantic reviews."""
+        result = deepcopy(dict(output))
+        issues = result.get("findings")
+        if (
+            result.get("status") != "REVIEW"
+            or plan.get("runtime_eligible") is not False
+            or plan.get("plan_status") not in {"VALIDATED_WITH_DEVELOPMENT_ITEMS", "NEEDS_DATA"}
+            or not isinstance(issues, list)
+            or not issues
+        ):
+            return result
+        summary = plan.get("validation_summary")
+        known = summary.get("findings", []) if isinstance(summary, Mapping) else []
+        blockers = [row for row in known if isinstance(row, Mapping) and row.get("blocks_runtime")]
+        if not blockers or any(
+            row.get("finding_type") != "SCOPE"
+            or row.get("repairability") not in {"NEEDS_DEVELOPMENT", "NEEDS_DATA"}
+            for row in blockers
+        ):
+            return result
+
+        def field_path(value: object) -> str:
+            path = str(value or "")
+            for prefix in ("plan.", "brief."):
+                path = path.removeprefix(prefix)
+            return path
+
+        paths = [field_path(row.get("location", {}).get("field_path")) for row in blockers]
+        for issue in issues:
+            if not isinstance(issue, Mapping) or issue.get("kind") != "SCOPE":
+                return result
+            path = field_path(issue.get("field_path"))
+            if not any(
+                root and (path == root or path.startswith((root + ".", root + "[")))
+                for root in paths
+            ):
+                return result
+        result.update(
+            reported_status="REVIEW",
+            status="PASS",
+            review_resolution="EXISTING_SCOPE_FINDINGS",
+            matched_scope_codes=[row["code"] for row in blockers],
+        )
+        return result
+
     _BRIEF_KEYS: ClassVar[tuple[str, ...]] = (
         "event_name",
         "target_user",

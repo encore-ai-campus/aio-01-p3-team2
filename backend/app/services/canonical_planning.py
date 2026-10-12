@@ -2210,6 +2210,9 @@ def create_event_workflow(
                 required_inputs_present=True, output_validated=True
             )
             record_handoff(critic_handoff, "handoff.accepted")
+            critic_output = supervisor.reconcile_critic_review(
+                critic_output, plan.model_dump(mode="json")
+            )
             if (
                 critic_output["status"] == "REVIEW"
                 and critic_output.get("repairability") == "PLANNER_EXPLANATION"
@@ -2296,7 +2299,9 @@ def create_event_workflow(
                 payload={
                     "critic_status": critic_output["status"],
                     "runtime_eligible": plan.runtime_eligible,
-                    "reason": "Critic 결과와 최종 Runtime eligibility 반영",
+                    "reason": "이미 확정된 개발·데이터 필요 finding을 중복 검토하지 않고 결과로 전달"
+                    if critic_output.get("review_resolution") == "EXISTING_SCOPE_FINDINGS"
+                    else "Critic 결과와 최종 Runtime eligibility 반영",
                 },
                 evidence_refs=tuple(plan.evidence_refs),
                 policy_version=pinned_policy_version(),
