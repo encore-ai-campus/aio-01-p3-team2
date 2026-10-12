@@ -71,3 +71,11 @@ backend/.venv/Scripts/python.exe -m infra.aws.operations reset --config test-res
 제어 IAM 두 역할과 공유 OIDC는 유지한다. 앱 OpenAI Parameter는 삭제되므로 다음 첫 배포는 다시 로컬 키 공급이 필요하다. 이미 발생한 요금과 종료된 인스턴스/CFN 이력은 잔존 실행 자원과 다르다. 실제 새 경로 시험 결과는 [구현 검증 기록](../검증산출물/2026-10-12_AWS_배포수명주기_구현검증.md)에 누적한다.
 
 첫 배포 수용 후 두 공개 root CA는 로컬 출력 폴더의 `plan-web-root.crt`, `game-web-root.crt`로 내보낸다. Windows 신뢰 등록은 자동 수행하지 않는다. 개인 비밀번호는 로컬 `web-login.txt`에만 저장한다.
+
+## 큰 CI 이미지 artifact 다운로드
+
+`gh run download`가 대용량 전송 중 연결 종료로 실패하면 아래 명령으로 이어받는다. API에서 확인한 이미지 artifact ID를 사용하며, 같은 output 경로로 재실행하면 완료 범위를 재사용한다. GitHub가 제공하는 ZIP SHA256 검사를 통과한 후 추출한다. 작은 verified artifact는 `gh run download --name verified-<sha>-<attempt> --dir <같은-directory>`로 받는다. 두 파일 세트가 모두 있어야 첫 배포 검증을 통과한다.
+
+```powershell
+backend/.venv/Scripts/python.exe -m infra.aws.download_artifact --artifact-id <id> --output <CI-artifact-directory>
+```
