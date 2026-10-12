@@ -263,8 +263,31 @@ def finalize_execution(record: dict[str, Any]):
         if annotation is not None:
             annotations.remove(annotation)
         actual.append({**(annotation or {}), **item})
+    combined_trace = [*actual, *annotations]
+    persisted_index = next(
+        (
+            index
+            for index, item in enumerate(combined_trace)
+            if item.get("event") == "planning.record_persisted"
+        ),
+        None,
+    )
+    approval_index = next(
+        (
+            index
+            for index, item in enumerate(combined_trace)
+            if item.get("event") == "approval.pending"
+        ),
+        None,
+    )
+    if (
+        persisted_index is not None
+        and approval_index is not None
+        and persisted_index > approval_index
+    ):
+        combined_trace.insert(approval_index, combined_trace.pop(persisted_index))
     record["trace"] = [
-        {**item, "sequence": index} for index, item in enumerate([*actual, *annotations], 1)
+        {**item, "sequence": index} for index, item in enumerate(combined_trace, 1)
     ]
     record["operation_status"] = "FINISHED"
     record["current_status"] = record["supervisor_state"]["status"]

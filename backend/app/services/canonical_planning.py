@@ -946,6 +946,15 @@ def _persist(record: dict[str, Any], idempotency_key: str, request_hash: str) ->
 
 def _persist_record(record: dict[str, Any], idempotency_key: str, request_hash: str) -> None:
     """Store an immutable workflow result in the configured application database."""
+    trace = record.setdefault("trace", [])
+    if not any(item.get("event") == "planning.record_persisted" for item in trace):
+        trace.append(
+            {
+                "sequence": len(trace) + 1,
+                "event": "planning.record_persisted",
+                "status": "SUCCESS",
+            }
+        )
     database_url = os.getenv("DATABASE_URL", "").strip()
     if not database_url:
         _RECORDS[str(record["workflow_id"])] = record
@@ -1298,6 +1307,8 @@ def create_event_workflow(
         )
         recovery_trace: list[dict[str, Any]] = []
         reward_design_pending = payload.reward_selection == "planner"
+        revision_before_summary: str | None = None
+        revision_reason: str | None = None
 
         async def execute_agent(agent_name: str, operation: Any) -> Any:
             nonlocal workflow_state
@@ -1538,6 +1549,20 @@ def create_event_workflow(
             )
             record_handoff(planner_handoff, "handoff.accepted")
             record_observation("planner.output_validated", "SUCCESS")
+            if revision_before_summary is not None:
+                recovery_trace.append(
+                    {
+                        "event": "agent.recovery_resolved",
+                        "status": "SUCCESS",
+                        "agent": planner.AGENT_NAME,
+                        "recovery_kind": "PLAN_REVISION",
+                        "before_summary": revision_before_summary,
+                        "after_summary": str(planner_output.get("summary") or ""),
+                        "review_reason": revision_reason,
+                    }
+                )
+                revision_before_summary = None
+                revision_reason = None
             transition_workflow(
                 "planner_completed", payload={"reason": "Planner 출력 Schema와 ID 연결 검증 완료"}
             )
@@ -2142,6 +2167,8 @@ def create_event_workflow(
                 )
                 record_observation("critic.review_completed", "REVIEW")
                 if route.action == "RUN_AGENT":
+                    revision_before_summary = str(planner_output.get("summary") or "")
+                    revision_reason = str(critic_output.get("reason") or "")
                     planner_prompt_context = supervisor.build_planner_revision_context(
                         planner_prompt_context, critic_output["reason"]
                     )

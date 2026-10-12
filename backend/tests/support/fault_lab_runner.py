@@ -387,6 +387,68 @@ def oracle(
     }
 
 
+def recovery_comparison(result: dict, workflow: dict) -> dict:
+    """Summarize observed recovery evidence without inventing a plan diff."""
+    trace = workflow.get("trace", [])
+    revision = next(
+        (
+            row
+            for row in reversed(trace)
+            if row.get("event") == "agent.recovery_resolved"
+            and row.get("recovery_kind") == "PLAN_REVISION"
+        ),
+        None,
+    )
+    if revision:
+        return {
+            "kind": "plan_revision",
+            "before_label": "수정 전 Planner 설명",
+            "before": revision.get("before_summary", ""),
+            "after_label": "재작성한 Planner 설명",
+            "after": revision.get("after_summary", ""),
+            "reason": revision.get("review_reason", ""),
+        }
+    if not result.get("recovered"):
+        terminal = result.get("actual_terminal")
+        message = (
+            "기획안 변경 없음 · 정책에 따라 안전 종료했습니다."
+            if terminal == "SAFE_STOP"
+            else "기획안 변경 없음 · 최종 대응은 위 정책 결정과 최종 상태를 확인하세요."
+        )
+        return {
+            "kind": "unchanged",
+            "message": message,
+        }
+    if result.get("fallback_calls", 0):
+        return {
+            "kind": "fallback",
+            "before_label": "Primary 조회 시도",
+            "before": result["scenario"]["safe_message"],
+            "after_label": "대체 조회 후",
+            "after": "검증된 대체 게임 규칙을 조회하고 기획 흐름을 계속했습니다.",
+        }
+    if result.get("retries", 0):
+        return {
+            "kind": "retry",
+            "before_label": "첫 시도",
+            "before": result["scenario"]["safe_message"],
+            "after_label": "재시도 후",
+            "after": "같은 작업을 다시 실행해 사람 승인 대기까지 진행했습니다. 기획안 입력은 변경하지 않았습니다.",
+        }
+    if result["scenario"]["fault_id"] == "db_write_outcome_unknown":
+        return {
+            "kind": "reconciled",
+            "before_label": "저장 응답",
+            "before": "저장 결과 확인 응답을 받지 못했습니다.",
+            "after_label": "결과 조회 후",
+            "after": "이미 저장된 결과를 조회해 확인했습니다. 쓰기를 다시 실행하지 않았습니다.",
+        }
+    return {
+        "kind": "unchanged",
+        "message": "기획안 내용 변경 없음 · 정책 대응 후 작업을 계속했습니다.",
+    }
+
+
 def run_case(id_: str, index: int) -> dict:
     record = store.read(id_)
     request = record["request"].get("cases", [record["request"]])[index]
@@ -561,6 +623,7 @@ def run_case(id_: str, index: int) -> dict:
                 json.dumps(brief_fixture(), sort_keys=True).encode()
             ).hexdigest()
             result["scenario"] = scenario
+            result["recovery_comparison"] = recovery_comparison(result, workflow)
             detected_times = [
                 row["elapsed_monotonic_seconds"]
                 for row in journal

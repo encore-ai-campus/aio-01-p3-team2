@@ -83,9 +83,20 @@
 #fault-lab .lab-result-summary{display:grid;gap:10px;margin:18px 0}
 #fault-lab .lab-result-summary .log-row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:14px;border:1px solid var(--line);border-radius:8px;align-items:start}
 #fault-lab .lab-result-summary span{white-space:normal;overflow-wrap:anywhere;line-height:1.7}
+#fault-lab .lab-report-heading{align-items:flex-start}
+#fault-lab .lab-report-heading>div{display:block}
+#fault-lab .lab-report-heading>span{overflow-wrap:anywhere}
+#fault-lab .lab-report-title{margin:0 0 10px;color:#102044;font:800 clamp(26px,3vw,34px)/1.2 Manrope,sans-serif}
+#fault-lab .lab-report-heading .lab-report-state{margin:0;color:#1d5fc4;font:700 18px/1.4 Manrope,sans-serif}
+#fault-lab .lab-comparison{padding:16px 20px;border:1px solid #d7e2f2;border-radius:9px;background:#f7faff}
+#fault-lab .lab-comparison h4{margin:0 0 10px;color:#102044;font-size:14px}
+#fault-lab .lab-comparison p{margin:0;color:#43577b}
+#fault-lab .lab-comparison-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+#fault-lab .lab-comparison-grid>div{padding:12px;border:1px solid #d7e2f2;border-radius:8px;background:#fff;min-width:0}
+#fault-lab .lab-comparison-grid b{display:block;margin-bottom:7px;color:#294b80}
 #fault-lab .fault-checks .log-row details{grid-column:1/-1}
 #fault-lab #lab-advanced{margin-bottom:16px}
-@media(max-width:600px){#fault-lab .lab-result-summary .log-row{grid-template-columns:1fr;gap:6px}}
+@media(max-width:600px){#fault-lab .lab-result-summary .log-row,#fault-lab .lab-comparison-grid{grid-template-columns:1fr;gap:6px}}
 
 /* Light operator console palette. Keep the existing layout and interaction states. */
 :root{color:#102044;background:#f7f9fd;--bg:#f7f9fd;--panel:#fff;--panel2:#eef4ff;--line:#e3eaf5;--muted:#607298;--mint:#2879f6;--mint-dark:#e9f0ff;--gold:#a86c16;--red:#b9473b;--text:#102044;color-scheme:light}
