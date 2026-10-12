@@ -554,3 +554,8 @@ application stack 완료 뒤 `python -m infra.aws.web_endpoints --config <로컬
 GitHub 보호/OIDC는 최초 로컬 인프라 생성과 별도 게이트다. 자동 배포는 보호·subject 확인 후 활성화한다. 향후 domain+ACME로 변경할 경우 challenge/DNS와 SG 정책도 다시 설계해야 하며 현재 HTTP 제한을 자동으로 해제하지 않는다.
 
 단위 39 PASS, 두 웹 실제 이미지 IP TLS·미신뢰/주소 불일치 차단·로그인·HTTP 전환·재시작 후 CA 보존 1 PASS. 최초 시험에서 SNI 없는 IP TLS 선택 실패를 확인하고 `default_sni`로 수정했다. 자세한 증빙과 미완료 범위는 [IP 접속 검증 기록](../검증산출물/2026-10-12_IP접속_HTTPS_구성검증.md)을 따른다. AWS 자원 생성·실제 CA 설치·외부 EIP 접속·API/DB/LLM 연결은 이번 시험 결과에 포함되지 않는다.
+
+
+## 18. 초기 실제 배포 수용 (2026-10-12)
+
+A5 인프라 생성과 A6 초기 서비스 배포·DB/MCP/OpenAI·공개 HTTPS/Edge 연결을 수용했다. 실행 소스는 `1599e31`, CI `38199197230`의 동일 이미지다. 두 웹의 actual CA는 사용자 Windows Root에 설치됐고 main/fault DB 점검 모드를 해제했다. 이 결과는 §17 작성 당시의 준비 결과를 갱신한다. 접속·배포 보완·비밀값을 제외한 시험 결과와 미완료 자동 CD/복원/정리는 [실제 배포 기록](../검증산출물/2026-10-12_AWS_실제배포_진행기록.md#최종-배포연결-수용)을 따른다.
