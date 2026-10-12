@@ -18,6 +18,10 @@ from pydantic import ValidationError
         ("mcp_server/server.py", ["main-mcp", "fault-mcp"]),
         ("mcp_server/tools/_db.py", list(ROLES[2:])),
         ("backend/requirements.txt", list(ROLES[2:])),
+        ("backend/app/config/production.py", list(ROLES[2:])),
+        ("backend/app/deployment/service.py", list(ROLES[2:])),
+        ("infra/aws/scripts/start-service.sh", list(ROLES[2:])),
+        ("infra/aws/scripts/start-web.sh", list(ROLES[:2])),
         ("backend/app/game/rules.py", list(ROLES)),
         ("backend/app/schemas/planning.py", list(ROLES)),
         ("backend/sql/017_example.sql", list(ROLES)),
@@ -43,6 +47,7 @@ def test_non_runtime_and_unknown_paths():
     assert unknown["targets"] == list(ROLES) and unknown["manual_review_required"]
     assert classify(["backend/sql/017_example.sql"])["migration_required"]
     assert classify(["backend/app/deployment/migrate.py"])["migration_required"]
+    assert not classify(["backend/app/deployment/service.py"])["migration_required"]
     assert classify(["backend/app/config/cloud_database.py"])["targets"] == list(ROLES[2:])
     assert classify(["backend/app/deployment/sql/000_workflow.sql"])["targets"] == list(ROLES)
     result = classify(["demo-game/src/game.js", "frontend-web/src/app.js"])

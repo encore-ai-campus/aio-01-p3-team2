@@ -1,0 +1,22 @@
+@game path /game-api /game-api/*
+handle @game {
+	uri replace /game-api /api/game 1
+	reverse_proxy {$MAIN_API_UPSTREAM} {
+		header_up -Authorization
+		header_up X-Eventquest-Proxy game-web
+		header_up X-Eventquest-Proxy-Key {$MAIN_PROXY_KEY}
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 30s
+		}
+	}
+}
+@api path /api /api/*
+handle @api {
+	respond 404
+}
+handle {
+	root * /srv/game
+	try_files {path} /index.html
+	file_server
+}

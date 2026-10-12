@@ -8,6 +8,7 @@ from pathlib import Path
 
 from backend.app.config.cloud_database import verify_cloud_database
 from backend.app.config.deployment import deployment_mode
+from backend.app.config.production import mcp_transport_security
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 from mcp_server.tools.get_clash_event_sample import get_clash_event_sample
@@ -16,6 +17,7 @@ from mcp_server.tools.get_event_planning_context import get_event_planning_conte
 from mcp_server.tools.get_game_rules import get_game_rules
 from mcp_server.tools.get_game_rules_fallback import get_game_rules_fallback
 from mcp_server.tools.get_item_info import get_item_info
+from starlette.responses import JSONResponse
 
 if __name__ == "__main__":
     if deployment_mode() == "local":
@@ -29,7 +31,20 @@ mcp = FastMCP(
     port=int(os.getenv("MCP_PORT", "8010")),
     stateless_http=True,
     json_response=True,
+    transport_security=mcp_transport_security(),
 )
+
+
+@mcp.custom_route("/health/ready", methods=["GET"])
+async def ready(request):
+    import asyncio
+
+    try:
+        await asyncio.to_thread(verify_cloud_database)
+        return JSONResponse({"status": "ready"})
+    except Exception:  # noqa: BLE001 - readiness must not expose database diagnostics.
+        return JSONResponse({"status": "not_ready"}, status_code=503)
+
 
 for tool in (
     get_event_capabilities,

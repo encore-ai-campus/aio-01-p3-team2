@@ -43,6 +43,29 @@ def brief_fixture() -> dict:
     }
 
 
+def input_validation_probe():
+    """Use the actual input route/handler in-process, without a public ingress bypass.
+
+    The subprocess already verifies its isolated DB through store.read/snapshot.
+    This app is only used by TestClient and is never bound to a network port.
+    """
+    from backend.app.api.planning import router
+    from backend.app.main import validation_error_response
+    from fastapi import APIRouter, FastAPI
+    from fastapi.exceptions import RequestValidationError
+
+    probe = FastAPI()
+    # Only the real input route is needed; no policy/game/operations probe API.
+    # Include the prefix without changing the shared production route object.
+    selected = APIRouter()
+    selected.routes.extend(
+        route for route in router.routes if getattr(route, "path", "") == "/v1/event-briefs"
+    )
+    probe.include_router(selected, prefix="/api")
+    probe.add_exception_handler(RequestValidationError, validation_error_response)
+    return probe
+
+
 def runtime_snapshot() -> dict:
     """Read actual item-level runtime state, not merely row counts."""
     from backend.app.repositories.game_runtime import GameBase
@@ -439,11 +462,10 @@ def run_case(id_: str, index: int) -> dict:
                     ]
                     workflow["workflow_id"] = response.task_id
                 elif scenario["target_id"].startswith("input."):
-                    from backend.app.main import create_app
                     from fastapi.testclient import TestClient
 
                     payload = perturb(scenario["target_id"], brief_fixture())
-                    client = TestClient(create_app())
+                    client = TestClient(input_validation_probe())
                     try:
                         response = client.post(
                             "/api/v1/event-briefs",

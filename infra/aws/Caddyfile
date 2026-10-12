@@ -1,0 +1,40 @@
+{
+	admin off
+	persist_config off
+	http_port 8080
+	https_port 8443
+	auto_https disable_redirects
+	email {$ACME_EMAIL}
+}
+
+# A container-local liveness endpoint. Host/network rules expose only public 80/443.
+http://:8080 {
+	@local {
+		remote_ip 127.0.0.1 ::1
+		path /health/live
+	}
+	handle @local {
+		respond "ok" 200
+	}
+	@public host {$PUBLIC_DOMAIN}
+	handle @public {
+		redir https://{$PUBLIC_DOMAIN}{uri} 308
+	}
+	respond 404
+}
+
+{$PUBLIC_DOMAIN} {
+	encode zstd gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	basic_auth {
+		{$WEB_USERNAME} {$WEB_PASSWORD_HASH}
+	}
+	request_body {
+		max_size 1MB
+	}
+	import /etc/caddy/Caddyfile.{$WEB_SITE}
+}

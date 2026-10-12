@@ -1,6 +1,6 @@
 # AWS 배포·CI/CD 구현 계획
 
-작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **영향 판별·manifest·CI 기반·cloud ingress·RDS 경계·신규 DB 초기화·공유 maintenance/drain 구현, 전체 배포는 미구현**. 최신 진행 범위와 결과는 §13, 이전 단계 기록은 §10~12를 따른다.
+작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **영향 판별·manifest·CI 기반·cloud ingress·RDS 경계·신규 DB 초기화·공유 maintenance/drain·운영 이미지/entry 구현, 전체 배포는 미구현**. 최신 진행 범위와 결과는 §14, 이전 단계 기록은 §10~12를 따른다.
 
 구조·비용·종료 원칙은 [배포 설계 23](23_AWS_배포_CICD_계획.md), 테스트 선택은 [CI 분류 22](22_CI_테스트분류_정리.md), 구현 사실은 [현재 구현 상태](../현재_구현상태.md)를 따른다. 가이드의 필수 산출물은 [보존 가이드](../pre/멀티_에이전트_협업_및_서비스_운영_가이드.md)로 확인한다. 구현 담당은 팀장이다.
 
@@ -89,9 +89,9 @@ flowchart TD
 | 구현한 cloud ingress 설정 | `DEPLOYMENT_MODE=cloud`, `SERVICE_ROLE`, `CLOUD_PROXY_IDENTITIES` (사이트별 `peers` IP 목록·`secret`), `APP_ALLOWED_ORIGINS`의 HTTPS 출처 |
 | 구현한 cloud DB 설정 | `DEPLOYMENT_ENVIRONMENT_ID`, `RDS_EXPECTED_ENDPOINT`, `EXPECTED_DATABASE_ROLE`, `DATABASE_AUTO_CREATE=false`. URL은 정확한 role/DB/5432 endpoint와 `sslmode=verify-full`, 존재하는 절대 경로 `sslrootcert`를 포함. §12의 고정 역할을 사용 |
 | owner/bootstrap 전용 설정 | `MIGRATION_DATABASE_URL`, `RDS_BOOTSTRAP_DATABASE_URL`, `RDS_BOOTSTRAP_USER`, `DATABASE_ROLE_PASSWORDS`(6개 role별 비밀번호 JSON). runtime에 주입하지 않음 |
-| 새 저장 위치(예정) | `FAULT_LAB_JOURNAL_DIR`, deployment manifest·certificate 저장 위치. host volume 경로는 고정 whitelist |
+| 구현한 저장 위치 | 시험 API의 `FAULT_LAB_JOURNAL_DIR=/var/lib/eventquest/fault-lab`, 웹 Caddy `/data`·`/config` 영구 volume. manifest/backup host 경로는 후속 IaC/운영 단계 |
 
-API와 MCP의 cloud 시작은 `.env` 로딩을 생략하고 DB 경계를 확인한다. API module 실행은 cloud에서 0.0.0.0으로 bind하며 forwarded header 해석을 끈다. DB 누락·잘못된 권한/marker·카탈로그·활성 정책은 시작 또는 readiness에서 실패한다. production image의 역할별 entry와 main live/LLM 설정 검증, MCP Host/Origin 설정은 A3에서 추가해야 한다.
+API와 MCP의 cloud 시작은 `.env` 로딩을 생략하고 DB 경계를 확인한다. API module 실행은 cloud에서 0.0.0.0으로 bind하며 forwarded header 해석을 끈다. DB 누락·잘못된 권한/marker·카탈로그·활성 정책은 시작 또는 readiness에서 실패한다. production image의 역할별 entry·main live/LLM 설정 검증·MCP Host/Origin 설정은 §14에서 구현·로컬 검증했다. 실제 AWS 설정/호스트에서는 아직 수용하지 않았다.
 
 ### 4.3 parameter·IAM 매핑
 
@@ -394,3 +394,62 @@ DEPLOYMENT_MODE=cloud, MIGRATION_DATABASE_URL(대응 DB owner), RDS_EXPECTED_END
 ### 다음 단계
 
 A2의 신규 DB migration/bootstrap와 공유 maintenance/drain 기반을 구현했다. A2 전체 완료 조건 중 미추적 기존 DB 채택은 남아 있다. 다음은 A3 production application/web 이미지·역할별 entry·MCP Host/Origin·live 설정 검증이며, 이어 A4 Linux/실제 이미지 gate를 구성한다. 계정이 필요한 A5 AWS preflight/IaC 단계에서 사용자 인증 세션을 연다. 현재 로컬 결과를 실제 RDS/IAM/AWS 배포 성공으로 표현하지 않는다.
+
+
+## 14. 운영용 이미지·서비스 실행 설정 구현 (2026-10-12)
+
+### 이미지와 역할
+
+`infra/aws/Dockerfile.application`은 repository root context에서 Backend/MCP·게임 데이터·SQL·deployment/seed 명령·실제 오류 시험 runner/precision helper를 포함한다. 네 application role이 같은 image를 사용한다. `Dockerfile.web`은 Node22/pnpm10.33.0의 frozen install로 두 화면을 빌드하고, Caddy의 WEB_SITE가 plan/game 중 하나를 선택한다. 옛 Streamlit frontend는 포함하지 않는다.
+
+Python3.11 slim-bookworm, Node22 bookworm-slim, Caddy2 alpine의 base digest를 고정했다. `requirements.application.in/lock`은 pytest/Ruff를 제외하고 모든 Python 전이 의존성을 version/hash로 고정한다. `requirements.ci.in/lock`은 application lock을 constraint로 사용하고 pytest/Ruff만 추가한다. pip-tools7.5.3/Linux Python3.11로 생성했다. CI lock은 준비했지만 기존 GitHub workflow를 이 lock과 production gate로 전환한 단계는 아니다.
+
+AWS 서울 공식 CA bundle은 build 중 HTTPS로 받아 SHA256 `913fb5b814f17af79d4c1622584a8d0ceddf5b0d76fe353d0c7d1186cdd6b229`과 일치하는 경우에만 `/opt/certs/rds-ca.pem`에 넣는다. 파일이 갱신되면 자동 수용하지 않고 hash를 검토·갱신한다. 실제 runtime URL의 sslrootcert는 이 경로를 사용한다. 자체 시험 CA는 fixture에서만 별도 read-only 파일로 mount한다.
+
+| host role | image | entry/내부 포트 | 필요 영구 volume |
+|---|---|---|---|
+| main-api | application | start-service.sh → production 검증 → backend.app.main / 8000 | 없음. 상태/암호화 원문은 RDS |
+| fault-api | application | 동일 entry, isolated/deterministic / 8000 | `/var/lib/eventquest/fault-lab` |
+| main-mcp / fault-mcp | application | production 검증 → mcp_server.server / 8010 | 없음 |
+| plan-web / game-web | web | start-web.sh → Caddy / 8080·8443 | `/data`, `/config` |
+
+모두 UID/GID10001이며 read-only root, cap_drop ALL, no-new-privileges, tmpfs·memory/CPU/pid limit·bounded Docker log·grace period 설정을 준비했다. Caddy file capability는 high port 실행에 필요하지 않아 제거했다. Dockerfile별 ignore가 allowlist를 사용하며 .env·key·venv·node_modules·옛 UI·전체 시험/결과 디렉터리를 복사하지 않는다. application에는 요청 처리에 필요한 runner helper 두 파일만 포함한다. Linux script line ending도 고정했다.
+
+### 시작 검증·통신
+
+`backend/app/config/production.py`와 `deployment/service.py`는 cloud mode와 정확한 네 role을 요구한다. main-api는 canonical live/agent_live, 명시적 OpenAI key/model·암호화 key·operator ID/allowlist·token/cost/pricing version을 요구한다. DB 경계 및 원문 저장 table/key도 시작 전에 확인한다. 설정이 없거나 mock mode이면 서버를 시작하지 않는다. key/model 존재 검사는 실제 OpenAI 인증·모델 호출 성공을 보증하지 않으며 A7에서 실제 정상 호출을 확인해야 한다.
+
+fault-api는 deterministic/agent_mcp·injection=true·isolated·자기 POSTGRES_TEST_URL과 고정 writable journal volume을 요구하며 OpenAI key를 거부한다. MCP는 자기 reader URL만 받고 API URL·OpenAI/원문 key를 거부한다. 모든 service는 owner/master/AWS credential과 OpenAI endpoint override를 거부하며 .env 로딩을 하지 않는다. IMDS의 SDK 자동 조회를 끄지만 이것만으로 네트워크 접근을 차단한 것은 아니다. 실제 host firewall/IMDS/IAM 경계는 A5에서 설정·검증한다.
+
+MCP는 MCP_HOST=0.0.0.0/MCP_PORT=8010, exact MCP_ALLOWED_HOSTS(private hostname/IP:8010)와 MCP_ALLOWED_ORIGINS(http private API:8000)를 요구하고 DNS rebinding 보호를 명시적으로 활성화한다. wildcard/public hostname은 거부한다. `/health/ready`는 실제 DB guard를 사용하고 provider를 호출하지 않는다. MCP HTTP 자체 인증은 추가하지 않았으며 대응 API만 접속하는 private SG는 A5 계약이다. main/fault의 endpoint·SG·reader를 따로 매핑해야 한다.
+
+게임 API는 cloud의 main-api 역할에서 인증된 ingress를 받으며, fault-api는 GAME_RUNTIME_ALLOW_REMOTE를 설정해도 게임 role로 바뀌지 않는다. local loopback 기본 동작은 유지한다.
+
+Caddy는 두 사이트의 HTTPS BasicAuth와 1MB 입력 제한을 사용한다. 계획 사이트의 `/api/test`와 `/api/test/*`는 시험 API, 나머지 `/api/*`는 일반 API이며 시험 실패 시 일반 API로 fallback하지 않는다. 게임 사이트의 `/game-api/*`는 `/api/game/*`로만 변환하고 직접 `/api/*`는 차단한다. 사용자 Authorization을 upstream에서 제거하고 사이트별 proxy identity/key를 덮어쓴다. Caddy admin과 config autosave를 끄며 key/hash는 이미지·번들에 넣지 않는다. HTTP80은 HTTPS443으로 redirect한다. 컨테이너 8443을 외부 redirect 포트로 노출하지 않는다.
+
+### 실제 host 실행 계약
+
+`compose.application.yml`은 host private bind IP와 role port만 publish한다. `compose.fault.yml`은 fault-api의 journal volume만 추가하며, MCP나 main-api에 시험 journal을 mount하지 않는다. `compose.web.yml`은 host80/443을 container8080/8443으로 매핑한다. 실제 AWS host에서 아직 실행하지 않았다.
+
+```sh
+# fault-api host에서만 준비한다. container는 root로 실행하지 않는다.
+install -d -m 700 -o 10001 -g 10001 /var/lib/eventquest/fault-lab
+# plan-web/game-web host에서만 준비한다.
+install -d -m 700 -o 10001 -g 10001 /var/lib/eventquest/caddy-data /var/lib/eventquest/caddy-config
+
+# 별도 host 환경 파일에 image digest/role-scoped env_file 경로/bind/port를 주입한다.
+docker compose --env-file /etc/eventquest/compose.env -f infra/aws/compose.application.yml up -d
+# fault-api만 추가 override 사용
+docker compose --env-file /etc/eventquest/compose.env -f infra/aws/compose.application.yml -f infra/aws/compose.fault.yml up -d
+docker compose --env-file /etc/eventquest/compose.env -f infra/aws/compose.web.yml up -d
+```
+
+Compose 연결 변수는 APPLICATION_IMAGE/APPLICATION_ENV_FILE/PRIVATE_BIND_IP/SERVICE_PORT 또는 WEB_IMAGE/WEB_ENV_FILE이다. 실제 deploy는 검증한 ECR digest를 설정해야 한다. Compose의 비어 있음 검사가 digest 출처·승격을 대신하지 않는다. env_file은 host-only mode600이며 Parameter Store의 role별 값에서 구성한다. 실제 parameter fetch·host bootstrap/SSM/IAM은 A5에서 구현할 예정이다.
+
+웹 환경은 SERVICE_ROLE, DEPLOYMENT_MODE=cloud, PUBLIC_DOMAIN, ACME_EMAIL, WEB_USERNAME/WEB_PASSWORD_HASH, MAIN_API_UPSTREAM/MAIN_PROXY_KEY를 사용한다. plan-web만 FAULT_API_UPSTREAM/FAULT_PROXY_KEY를 추가한다. upstream은 private IP 또는 .internal endpoint의 8000이며 두 proof/endpoint가 달라야 한다. 공개 domain·DNS/80/443 도달성은 실제 certificate 발급 전에 확인한다. 로컬 image 검증만 DEPLOYMENT_MODE=verification과 *.localhost를 사용하며 실제 public 인증서 발급·AWS 동작을 대체하지 않는다.
+
+### 검증·한계·다음 단계
+
+core 최종 **525 PASS / 1 SKIP**, 실제 TLS/권한/migration **18 PASS**, 실제 운영 이미지 통합 **2 PASS / 84.64초**. production configuration 검사와 실제 두 이미지의 여섯 역할을 검증했다. HTTP→HTTPS/BasicAuth·static JS/game art·MCP Host/Origin·직접 API 접근 거부·game DB 조회·shared maintenance·시험 자식 process/기록/restart/fallback 금지를 포함한다. 상세 실행 결과·digest·중간 실패/해결은 [운영 이미지 로컬 검증 기록](../검증산출물/2026-10-12_운영이미지_로컬검증.md)을 따른다.
+
+A3 이미지와 service entry의 로컬 준비를 완료했다. 다음은 **A4 Linux CI·실제 image/PG/E2E gate·source SHA/digest/artifact·release-gate**이며, 그 뒤 A5 AWS 인증 세션에서 account/권한/도메인과 IaC를 확인한다. 현재 이미지 tag는 로컬 검증용이고 ECR push/배포 완료가 아니다. 실제 LLM/RDS/ACME/SG/IMDS/SSM·배포/복원/정리의 AWS 수용은 아직 남아 있다.

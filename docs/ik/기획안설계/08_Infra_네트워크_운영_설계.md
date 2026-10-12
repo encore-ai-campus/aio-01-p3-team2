@@ -1,5 +1,7 @@
 # Infra·네트워크·운영 설계
 
+2026-10-12 최신 후속: 운영 application/web 이미지와 여섯 service role의 strict entry·HTTPS/private proxy·MCP Host/Origin을 구현하고 실제 container로 검증했다. core 525 PASS/1 SKIP, Python inventory 70개(core 51, postgres 14, external 3, compatibility 2), JavaScript 7개. 최신 범위는 [구현 계획 24 §14](24_AWS_배포_CICD_구현계획.md#14-운영용-이미지서비스-실행-설정-구현-2026-10-12)와 [image 검증 기록](../검증산출물/2026-10-12_운영이미지_로컬검증.md)을 따른다. Linux release gate와 실제 AWS 수용은 아직 남아 있다. 아래 과거 기록은 보존한다.
+
 2026-10-12 최신 후속: cloud 공유 maintenance/drain과 owner-only 보호 table을 구현했다. core 489 PASS/1 SKIP, Python inventory 68개(core 50, postgres 13, external 3, compatibility 2). 현재 결과와 한계는 [구현 계획 24 §13](24_AWS_배포_CICD_구현계획.md#13-공유-유지보수drain-구현-2026-10-12)을 따른다. 아래 이전 검증·설계 기록은 보존한다. 실제 AWS 수용·배포는 아직 수행하지 않았다.
 
 > 2026-10-12 배포 계획 보충: 로컬 구현 경계는 유지하며 AWS 시연용 container/ingress/DB 격리·CI/CD·migration/rollback을 [배포 계획 23](23_AWS_배포_CICD_계획.md)로 구체화했다. 최신 권장안은 EC2 6대·private RDS·Parameter Store, 웹만 공개하고 내부 서버 outbound는 NAT 1개로 처리하는 구조다. §4에 시간당 비용, §12에 생성·최종 종료·데이터 보존 후 정리 계약을 둔다. cloud proxy 인증과 RDS DB 정체·권한/TLS 검증·초기화 기반은 구현 후 로컬 검증했다. 최신 범위는 [구현 계획 24 §12](24_AWS_배포_CICD_구현계획.md#12-rds-tlsdb-권한초기-데이터-준비-구현-2026-10-12)를 따른다. 이미지 package·Linux CI·AWS 수용·생성/삭제는 남아 있다. 아래 로컬 실행 계약을 AWS에서 그대로 충족했다고 해석하지 않는다.

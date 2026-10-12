@@ -1,0 +1,22 @@
+# One web container per public EC2; Caddy binds high ports as UID 10001.
+services:
+  web:
+    image: ${WEB_IMAGE:?An approved web image digest is required}
+    env_file:
+      - ${WEB_ENV_FILE:?A site-scoped environment file is required}
+    ports: ["80:8080", "443:8443"]
+    read_only: true
+    tmpfs: [/tmp:size=32m,mode=1777]
+    volumes:
+      - /var/lib/eventquest/caddy-data:/data
+      - /var/lib/eventquest/caddy-config:/config
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 0.75
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}

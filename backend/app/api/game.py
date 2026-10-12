@@ -26,6 +26,12 @@ _service_url: str | None = None
 
 def require_local_request(request: Request) -> None:
     """Keep the unauthenticated single-user demo API bound to loopback clients."""
+    from backend.app.config.deployment import deployment_mode
+
+    if deployment_mode() == "cloud":
+        if os.getenv("SERVICE_ROLE") == "main-api":
+            return  # CloudAccess middleware authenticates the private web proxy first.
+        raise GameError("cloud_game_role_forbidden", "일반 게임 서버로 접속해주세요.", 403)
     if os.getenv("GAME_RUNTIME_ALLOW_REMOTE", "false").casefold() in {"1", "true", "yes", "on"}:
         return
     host = request.client.host if request.client else ""

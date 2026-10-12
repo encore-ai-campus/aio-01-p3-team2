@@ -847,6 +847,29 @@
         "test_maintenance_gate_released_on_cancellation",
         "test_maintenance_database_failure_does_not_claim_active_deployment"
       ]
+    },
+    {
+      "file": "backend/tests/unit/test_production_config.py",
+      "suite": "core",
+      "reason": "Production mode, credential, price, role and MCP transport contracts.",
+      "test_functions": [
+        "test_production_role_configuration",
+        "test_production_main_rejects_invalid_settings",
+        "test_production_fault_rejects_invalid_settings",
+        "test_production_mcp_rejects_credentials_and_wildcards",
+        "test_local_mcp_security_default_is_preserved",
+        "test_internal_input_probe_uses_the_actual_validation_contract",
+        "test_cloud_game_requires_main_api_even_with_remote_override"
+      ]
+    },
+    {
+      "file": "backend/tests/integration/test_production_images.py",
+      "suite": "postgres",
+      "reason": "Opt-in built production application/web images with a disposable TLS DB, private fleet, HTTPS and persistent fault runner.",
+      "test_functions": [
+        "test_production_image_contents_and_missing_configuration",
+        "test_production_fleet_tls_routes_mcp_game_and_runner"
+      ]
     }
   ],
   "javascript": [

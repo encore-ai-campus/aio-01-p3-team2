@@ -30,6 +30,26 @@ def configure_live_environment(env_path: Path | None = None) -> None:
             raise ValueError(f"실제 AI 실행에 {name} 설정이 필요합니다.")
 
 
+async def validation_error_response(_: Request, exc: RequestValidationError) -> JSONResponse:
+    """Shared input response contract for the API and in-process validation probe."""
+    detail = [
+        {
+            "field": ".".join(str(part) for part in error["loc"] if part != "body"),
+            "reason": error["msg"],
+        }
+        for error in exc.errors()
+    ]
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error_code": "INPUT_VALIDATION_ERROR",
+            "message": "입력값을 확인해주세요.",
+            "task_id": None,
+            "detail": detail,
+        },
+    )
+
+
 def create_app() -> FastAPI:
     """Build the API after the selected process environment is ready."""
     from backend.app.config.cloud_database import verify_cloud_database
@@ -204,24 +224,7 @@ def create_app() -> FastAPI:
             },
         )
 
-    @application.exception_handler(RequestValidationError)
-    async def validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
-        detail = [
-            {
-                "field": ".".join(str(part) for part in error["loc"] if part != "body"),
-                "reason": error["msg"],
-            }
-            for error in exc.errors()
-        ]
-        return JSONResponse(
-            status_code=422,
-            content={
-                "error_code": "INPUT_VALIDATION_ERROR",
-                "message": "입력값을 확인해주세요.",
-                "task_id": None,
-                "detail": detail,
-            },
-        )
+    application.add_exception_handler(RequestValidationError, validation_error_response)
 
     return application
 

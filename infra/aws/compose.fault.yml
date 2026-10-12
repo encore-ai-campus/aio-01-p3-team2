@@ -1,0 +1,5 @@
+# Apply only on fault-api together with compose.application.yml.
+services:
+  application:
+    volumes:
+      - /var/lib/eventquest/fault-lab:/var/lib/eventquest/fault-lab

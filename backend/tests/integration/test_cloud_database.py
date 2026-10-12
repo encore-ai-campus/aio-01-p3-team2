@@ -62,7 +62,15 @@ def _certificate_files(directory):
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(minutes=1))
         .not_valid_after(now + timedelta(days=1))
-        .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost")]), critical=False)
+        .add_extension(
+            x509.SubjectAlternativeName(
+                [
+                    x509.DNSName("localhost"),
+                    x509.DNSName("image-test.abc.ap-northeast-2.rds.amazonaws.com"),
+                ]
+            ),
+            critical=False,
+        )
         .sign(ca_key, hashes.SHA256())
     )
     (directory / "ca.pem").write_bytes(ca.public_bytes(serialization.Encoding.PEM))
@@ -185,6 +193,7 @@ def tls_cluster(tmp_path_factory):
             "hash": policy_hash,
             "admin": admin,
             "directory": directory,
+            "container_id": container_id,
         }
     finally:
         for engine in engines:

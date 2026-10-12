@@ -16,7 +16,10 @@ from backend.app.fault_injection.catalog import catalog
 from backend.app.repositories import fault_lab as store
 
 POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="fault-lab")
-JOURNAL_ROOT = Path(__file__).resolve().parents[2] / "test-results" / "fault-lab"
+JOURNAL_ROOT = Path(
+    os.getenv("FAULT_LAB_JOURNAL_DIR")
+    or Path(__file__).resolve().parents[2] / "test-results" / "fault-lab"
+)
 
 
 def journal_path(id_: str, suffix: str = "jsonl") -> Path:
