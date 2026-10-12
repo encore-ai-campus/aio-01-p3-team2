@@ -399,7 +399,11 @@ def run_case(id_: str, index: int) -> dict:
     result = {"verdict": "INCONCLUSIVE", "scenario": scenario}
 
     def emit(row):
-        row = {**row, "elapsed_monotonic_seconds": time.monotonic() - started}
+        row = {
+            **row,
+            "journal_sequence": len(journal) + 1,
+            "elapsed_monotonic_seconds": time.monotonic() - started,
+        }
         journal.append(row)
         with journal_path(id_).open("a", encoding="utf-8") as handle:
             handle.write(json.dumps({"case_index": index, **row}, ensure_ascii=False) + "\n")
@@ -561,6 +565,9 @@ def run_case(id_: str, index: int) -> dict:
                 json.dumps(brief_fixture(), sort_keys=True).encode()
             ).hexdigest()
             result["scenario"] = scenario
+            from backend.app.fault_injection.execution_path import execution_path
+
+            result.update(execution_path(scenario, journal))
             detected_times = [
                 row["elapsed_monotonic_seconds"]
                 for row in journal

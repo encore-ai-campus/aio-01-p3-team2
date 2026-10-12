@@ -2,6 +2,18 @@
   "version": 1,
   "python": [
     {
+      "file": "backend/tests/unit/test_fault_execution_path.py",
+      "suite": "core",
+      "reason": "Fault injection and recovery path preserve committed execution order and pinned topology.",
+      "test_functions": [
+        "test_observed_path_preserves_injection_detection_retry_and_reload",
+        "test_projection_keeps_unmapped_events_and_excludes_non_applied_calls",
+        "test_projection_marks_repeated_rule_validation_as_revalidation",
+        "test_failed_result_save_never_publishes_approval",
+        "test_result_write_flush_precedes_completion_and_rolls_back"
+      ]
+    },
+    {
       "file": "backend/tests/integration/test_canonical_mcp_http_failure.py",
       "suite": "postgres",
       "reason": "Canonical MCP HTTP failures are retried, safe-stopped, and persisted.",
@@ -410,7 +422,7 @@
       "suite": "core",
       "reason": "Lab guards, catalog, independent oracle and request-scoped isolation.",
       "test_functions": [
-        "test_registry_covers_every_code_and_real_callable",
+        "test_registry_covers_selectable_codes_and_real_callable",
         "test_request_cannot_choose_environment_or_identity",
         "test_guard_rejects_non_lab_database",
         "test_default_api_does_not_register_lab",
@@ -873,6 +885,21 @@
     }
   ],
   "javascript": [
+    {
+      "file": "frontend-web/e2e/fault-path-real.spec.js",
+      "suite": "fault_acceptance",
+      "reason": "Opt-in real isolated PostgreSQL/MCP fault injection validates UI event order, revalidation, fallback, safe stop, and reload."
+    },
+    {
+      "file": "frontend-web/e2e/fault-path-sync.spec.js",
+      "suite": "core",
+      "reason": "Mocked isolated run transport checks polling, causal path rendering, and reload on desktop and mobile."
+    },
+    {
+      "file": "frontend-web/tests/fault-lab-path.test.js",
+      "suite": "core",
+      "reason": "Observed recovery paths preserve injection order, repeated visits, and unmapped events."
+    },
     {
       "file": "frontend-web/e2e/fault-lab.spec.js",
       "suite": "fault_acceptance",

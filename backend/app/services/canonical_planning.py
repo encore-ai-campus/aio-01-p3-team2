@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from datetime import UTC, datetime
 from threading import RLock
@@ -83,6 +83,7 @@ from backend.app.services.recovery_policy import pinned_policy_reference, pinned
 from backend.app.services.settings import configured_operator_actor_id
 from backend.app.services.unit_of_work import session_scope
 from backend.app.services.workflow_execution import (
+    append_recovery_event,
     execution_ids,
     publish_decision,
     record_handoff,
@@ -934,22 +935,68 @@ def _mission_combat_feasibility(
     return assessments
 
 
-def _persist(record: dict[str, Any], idempotency_key: str, request_hash: str) -> None:
+def _persist(
+    record: dict[str, Any],
+    idempotency_key: str,
+    request_hash: str,
+    *,
+    completion_decision: Any = None,
+) -> None:
     from backend.app.services.workflow_execution import finalize_execution
 
-    with finalize_execution(record):
-        _persist_record(record, idempotency_key, request_hash)
-    from backend.app.fault_injection.injector import perturb
+    saved_event = {
+        "sequence": len(record.get("trace", [])) + 1,
+        "event": "storage.result_persisted",
+        "status": "SUCCESS",
+        "result_kind": "plan_and_trace" if record.get("plan") else "workflow_and_trace",
+    }
+    record.setdefault("trace", []).append(saved_event)
+    completion_events = []
 
+    def complete_saved_result() -> None:
+        if completion_decision is None:
+            return
+        state = completion_decision.state
+        record["supervisor_state"] = state.to_dict()
+        record["workflow_status"] = state.status
+        record["current_status"] = state.status
+        completion_events.append(completion_decision.to_trace())
+        if state.status == "WAITING_APPROVAL":
+            completion_events.append({"event": "approval.pending", "status": state.status})
+        for event in completion_events:
+            record["trace"].append({**event, "sequence": len(record["trace"]) + 1})
+
+    with finalize_execution(record):
+        _persist_record(record, idempotency_key, request_hash, on_saved=complete_saved_result)
+    from backend.app.fault_injection.injector import (
+        observe_execution_event,
+        observe_transition,
+        perturb,
+    )
+
+    # Observe only after the result transaction has successfully committed.
+    observe_execution_event(saved_event)
+    for event in completion_events:
+        observe_execution_event(event)
+    if completion_decision is not None:
+        observe_transition(completion_decision)
     perturb("storage.commit_ack")
 
 
-def _persist_record(record: dict[str, Any], idempotency_key: str, request_hash: str) -> None:
+def _persist_record(
+    record: dict[str, Any],
+    idempotency_key: str,
+    request_hash: str,
+    *,
+    on_saved: Callable[[], None] | None = None,
+) -> None:
     """Store an immutable workflow result in the configured application database."""
     database_url = os.getenv("DATABASE_URL", "").strip()
     if not database_url:
         _RECORDS[str(record["workflow_id"])] = record
         _IDEMPOTENCY[idempotency_key] = (request_hash, str(record["workflow_id"]))
+        if on_saved is not None:
+            on_saved()
         return
 
     engine = _engine(database_url)
@@ -962,17 +1009,23 @@ def _persist_record(record: dict[str, Any], idempotency_key: str, request_hash: 
                 raise ValueError("Idempotency-Key was already used for a different request")
             return prior.payload
         else:
-            session.add(
-                _PlanningRunRow(
-                    workflow_id=str(record["workflow_id"]),
-                    brief_id=str(record["brief"]["brief_id"]),
-                    idempotency_key=idempotency_key,
-                    request_hash=request_hash,
-                    payload_digest=_digest(record),
-                    payload=record,
-                    created_at=datetime.now(UTC),
-                )
+            stored = _PlanningRunRow(
+                workflow_id=str(record["workflow_id"]),
+                brief_id=str(record["brief"]["brief_id"]),
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                payload_digest=_digest(record),
+                payload=json.loads(json.dumps(record)),
+                created_at=datetime.now(UTC),
             )
+            session.add(stored)
+            # Flush the planning result first. Approval is published only after
+            # this succeeds, atomically with the result and operation commit.
+            session.flush()
+            if on_saved is not None:
+                on_saved()
+                stored.payload = json.loads(json.dumps(record))
+                stored.payload_digest = _digest(record)
 
 
 def _persist_safe_stop(
@@ -1140,10 +1193,14 @@ def create_event_workflow(
     )
     workflow_id = reserved.get("workflow_id") or f"WF-{uuid4().hex[:12].upper()}"
     task_id = (
-        (revision or {}).get("task_id") or reserved.get("task_id") or f"TASK-{uuid4().hex[:12].upper()}"
+        (revision or {}).get("task_id")
+        or reserved.get("task_id")
+        or f"TASK-{uuid4().hex[:12].upper()}"
     )
     plan_id = (
-        (revision or {}).get("plan_id") or reserved.get("plan_id") or f"PLAN-{uuid4().hex[:12].upper()}"
+        (revision or {}).get("plan_id")
+        or reserved.get("plan_id")
+        or f"PLAN-{uuid4().hex[:12].upper()}"
     )
     result_version = int((revision or {}).get("result_version", 1))
     brief_version = int((revision or {}).get("brief_version", 1))
@@ -1306,13 +1363,14 @@ def create_event_workflow(
                 try:
                     result = await operation()
                     if retry_count:
-                        recovery_trace.append(
+                        append_recovery_event(
+                            recovery_trace,
                             {
                                 "event": "agent.recovery_resolved",
                                 "status": "SUCCESS",
                                 "agent": agent_name,
                                 "retry_count": retry_count,
-                            }
+                            },
                         )
                     return result
                 except LLMBudgetExceeded:
@@ -1331,7 +1389,8 @@ def create_event_workflow(
                     workflow_state = decision.state
                     workflow_state_cursor[0] = workflow_state
                     supervisor_transitions.append(decision.to_trace())
-                    recovery_trace.append(
+                    append_recovery_event(
+                        recovery_trace,
                         {
                             "event": "agent.recovery_decided",
                             "status": "SAFE_STOP",
@@ -1340,7 +1399,7 @@ def create_event_workflow(
                             "retry_count": retry_count,
                             "reason": error_definition("llm_budget_exceeded").safe_message,
                             "policy_version": pinned_policy_version(),
-                        }
+                        },
                     )
                     raise
                 except LLMTimeoutError as exc:
@@ -1369,7 +1428,8 @@ def create_event_workflow(
                 workflow_state = recovery_decision.state
                 workflow_state_cursor[0] = workflow_state
                 supervisor_transitions.append(recovery_decision.to_trace())
-                recovery_trace.append(
+                append_recovery_event(
+                    recovery_trace,
                     {
                         "event": "agent.recovery_decided",
                         "status": route.action,
@@ -1384,7 +1444,7 @@ def create_event_workflow(
                             f"workflow:{workflow_id}",
                             f"error:{definition.code}",
                         ],
-                    }
+                    },
                 )
                 if route.action != "RETRY":
                     raise failure
@@ -1799,8 +1859,7 @@ def create_event_workflow(
             rewards: list[RewardPlan] = []
             links: list[PlanMissionRewardLink] = []
             reward_rationales = {
-                row["reward_id"]: row["rationale"]
-                for row in planner_output["reward_rationales"]
+                row["reward_id"]: row["rationale"] for row in planner_output["reward_rationales"]
             }
             for reward in payload.rewards:
                 cap_id = f"reward.{reward.item_id}"
@@ -2129,7 +2188,8 @@ def create_event_workflow(
                 workflow_state = decision.state
                 workflow_state_cursor[0] = workflow_state
                 supervisor_transitions.append(decision.to_trace())
-                recovery_trace.append(
+                append_recovery_event(
+                    recovery_trace,
                     {
                         "event": "agent.recovery_decided",
                         "status": route.action,
@@ -2138,7 +2198,7 @@ def create_event_workflow(
                         "revision_count": route.revision_count,
                         "reason": route.reason,
                         "policy_version": pinned_policy_version(),
-                    }
+                    },
                 )
                 record_observation("critic.review_completed", "REVIEW")
                 if route.action == "RUN_AGENT":
@@ -2184,7 +2244,8 @@ def create_event_workflow(
                 plan = EventPlan.model_validate(revised_plan_data)
             record_observation("critic.review_completed", critic_output["status"])
             record_observation("final_consistency.checked", plan.plan_status.value)
-            transition_workflow(
+            completion_decision = supervisor.decide_state_transition(
+                workflow_state,
                 "plan_reviewed",
                 payload={
                     "critic_status": critic_output["status"],
@@ -2192,6 +2253,7 @@ def create_event_workflow(
                     "reason": "Critic 결과와 최종 Runtime eligibility 반영",
                 },
                 evidence_refs=tuple(plan.evidence_refs),
+                policy_version=pinned_policy_version(),
             )
             break
         trace_events = [
@@ -2243,9 +2305,6 @@ def create_event_workflow(
             {"event": "critic.review_completed", "status": critic_output["status"]},
             {"event": "final_consistency.checked", "status": plan.plan_status.value},
         ]
-        if plan.runtime_eligible:
-            trace_events.append({"event": "approval.pending", "status": "WAITING_APPROVAL"})
-            record_observation("approval.pending", "WAITING_APPROVAL")
         llm_usage = workflow_llm_usage_snapshot()
         if llm_usage and llm_usage.get("records"):
             trace_events.append(
@@ -2275,7 +2334,7 @@ def create_event_workflow(
         }
         if revision:
             record["revision"] = dict(revision)
-        _persist(record, idempotency_key, request_hash)
+        _persist(record, idempotency_key, request_hash, completion_decision=completion_decision)
         return record
 
 
@@ -2772,8 +2831,13 @@ def decide_plan(
     if database_url:
         with _LOCK, session_scope(_engine(database_url), write=True):
             return _decide_plan(
-                workflow_id, plan_id, result_version, action, idempotency_key,
-                approval_comment=approval_comment, revised_workflow_id=revised_workflow_id,
+                workflow_id,
+                plan_id,
+                result_version,
+                action,
+                idempotency_key,
+                approval_comment=approval_comment,
+                revised_workflow_id=revised_workflow_id,
             )
     from copy import deepcopy
 
@@ -2785,8 +2849,13 @@ def decide_plan(
         )
         try:
             return _decide_plan(
-                workflow_id, plan_id, result_version, action, idempotency_key,
-                approval_comment=approval_comment, revised_workflow_id=revised_workflow_id,
+                workflow_id,
+                plan_id,
+                result_version,
+                action,
+                idempotency_key,
+                approval_comment=approval_comment,
+                revised_workflow_id=revised_workflow_id,
             )
         except Exception:
             for target, previous in zip(
@@ -2881,7 +2950,9 @@ def _decide_plan(
         "actor_id": actor_id,
     }
     if action == "REQUEST_REVISION":
-        request.update({"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id})
+        request.update(
+            {"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id}
+        )
     request_hash = _digest(request)
 
     def persist_decision_event(decision: dict[str, Any]) -> None:
@@ -2903,7 +2974,14 @@ def _decide_plan(
                 "result_version": result_version,
                 "approval_status": decision["approval_status"],
                 "actor_id": decision["actor_id"],
-                **({"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id} if action == "REQUEST_REVISION" else {}),
+                **(
+                    {
+                        "approval_comment": approval_comment,
+                        "revised_workflow_id": revised_workflow_id,
+                    }
+                    if action == "REQUEST_REVISION"
+                    else {}
+                ),
             },
             f"approval:{workflow_id}:{result_version}",
         )
@@ -2938,7 +3016,12 @@ def _decide_plan(
                         "created_at": prior.created_at.isoformat(),
                     }
                     if prior.action == "REQUEST_REVISION":
-                        decision.update({"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id})
+                        decision.update(
+                            {
+                                "approval_comment": approval_comment,
+                                "revised_workflow_id": revised_workflow_id,
+                            }
+                        )
                     persist_decision_event(decision)
                     return decision
         existing = get_plan_decision(task_id, result_version)
@@ -2978,7 +3061,9 @@ def _decide_plan(
             "created_at": timestamp.isoformat(),
         }
         if action == "REQUEST_REVISION":
-            decision.update({"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id})
+            decision.update(
+                {"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id}
+            )
         if not database_url:
             _DECISIONS[(task_id, result_version)] = decision
             _DECISION_IDEMPOTENCY[idempotency_key] = decision
@@ -2987,7 +3072,9 @@ def _decide_plan(
 
 
 def _decision_status(action: str) -> str:
-    return {"APPROVE": "APPROVED", "REJECT": "REJECTED", "REQUEST_REVISION": "REVISION_REQUESTED"}[action]
+    return {"APPROVE": "APPROVED", "REJECT": "REJECTED", "REQUEST_REVISION": "REVISION_REQUESTED"}[
+        action
+    ]
 
 
 def get_plan_decision(task_id: str, result_version: int) -> dict[str, Any] | None:
@@ -3017,9 +3104,23 @@ def get_plan_decision(task_id: str, result_version: int) -> dict[str, Any] | Non
             "created_at": row.created_at.isoformat(),
         }
     if row.action == "REQUEST_REVISION":
-        event = next((item for item in reversed(_lifecycle_events(row.workflow_id)) if item.get("event") == "approval.decision_recorded" and item.get("attributes", {}).get("result_version") == result_version), None)
+        event = next(
+            (
+                item
+                for item in reversed(_lifecycle_events(row.workflow_id))
+                if item.get("event") == "approval.decision_recorded"
+                and item.get("attributes", {}).get("result_version") == result_version
+            ),
+            None,
+        )
         if event:
-            decision.update({key: event["attributes"][key] for key in ("approval_comment", "revised_workflow_id") if key in event["attributes"]})
+            decision.update(
+                {
+                    key: event["attributes"][key]
+                    for key in ("approval_comment", "revised_workflow_id")
+                    if key in event["attributes"]
+                }
+            )
     return decision
 
 
@@ -3040,20 +3141,35 @@ def request_plan_revision(
         if record is None:
             raise LookupError("Workflow was not found")
         plan = record.get("plan")
-        if not isinstance(plan, dict) or plan.get("plan_id") != plan_id or plan.get("result_version") != result_version:
+        if (
+            not isinstance(plan, dict)
+            or plan.get("plan_id") != plan_id
+            or plan.get("result_version") != result_version
+        ):
             raise ValueError("Plan version does not match this workflow")
         existing = get_plan_decision(str(record["task_id"]), result_version)
         if existing:
-            if existing["idempotency_key"] == idempotency_key and existing["action"] == "REQUEST_REVISION" and existing.get("approval_comment") == comment:
+            if (
+                existing["idempotency_key"] == idempotency_key
+                and existing["action"] == "REQUEST_REVISION"
+                and existing.get("approval_comment") == comment
+            ):
                 child = get_workflow(str(existing["revised_workflow_id"]))
                 if child is not None:
                     return {"decision": existing, "workflow": child}
             raise ValueError("A decision already exists for this plan version")
-        brief_data = {key: value for key, value in record["brief"].items() if key in EventBriefInput.model_fields}
+        brief_data = {
+            key: value
+            for key, value in record["brief"].items()
+            if key in EventBriefInput.model_fields
+        }
         if brief_data.get("reward_selection") == "planner":
             brief_data["rewards"] = []
             brief_data["mission_reward_links"] = []
-        brief_data["preferences"] = [*brief_data.get("preferences", []), f"운영자 수정 의견: {comment}"]
+        brief_data["preferences"] = [
+            *brief_data.get("preferences", []),
+            f"운영자 수정 의견: {comment}",
+        ]
         brief = EventBriefInput.model_validate(brief_data)
         revision = {
             "parent_workflow_id": workflow_id,
@@ -3068,5 +3184,13 @@ def request_plan_revision(
         child = create_event_workflow(brief, child_key, revision=revision)
         if not isinstance(child.get("plan"), dict):
             raise ValueError("수정 기획안 생성이 중단되었습니다. 다시 요청해주세요.")
-        decision = decide_plan(workflow_id, plan_id, result_version, "REQUEST_REVISION", idempotency_key, approval_comment=comment, revised_workflow_id=child["workflow_id"])
+        decision = decide_plan(
+            workflow_id,
+            plan_id,
+            result_version,
+            "REQUEST_REVISION",
+            idempotency_key,
+            approval_comment=comment,
+            revised_workflow_id=child["workflow_id"],
+        )
         return {"decision": decision, "workflow": get_workflow(child["workflow_id"])}

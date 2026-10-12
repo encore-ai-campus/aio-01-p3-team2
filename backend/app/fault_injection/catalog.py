@@ -5,7 +5,7 @@ from itertools import pairwise
 
 from backend.app.faults.error_catalog import ERROR_CATALOG
 
-VERSION = "fault-lab-v1"
+VERSION = "fault-lab-v1.3"
 BOUNDARIES = {
     "legacy.planner.response": "backend.app.services.llm_service.LLMService.generate",
     "workflow.cas": "backend.app.services.workflow_execution.cancel",
@@ -181,12 +181,14 @@ def catalog() -> dict:
                     "approval": ["approval.pending", "workflow.safe_stopped"],
                     "planner": ["planner.started", "planner.output_validated"],
                     "critic": ["critic.review_started", "critic.review_completed"],
+                    "store": ["storage.result_persisted"],
                     "mcp": [
                         "runtime.evidence_collected",
                         "mcp.recovery_decided",
                         "mcp.recovery_resolved",
                     ],
                     "supervisor": [
+                        "brief.accepted",
                         "supervisor.state_transition_decided",
                         "agent.recovery_decided",
                         "agent.recovery_resolved",

@@ -1,4 +1,4 @@
-param([switch]$PrepareOnly, [switch]$Stop, [switch]$CleanupHistory, [int]$ApiPort=8013, [int]$UiPort=5177, [int]$McpPort=8014)
+param([switch]$PrepareOnly, [switch]$Stop, [switch]$CleanupHistory, [int]$ApiPort=8013, [int]$UiPort=5177, [int]$McpPort=8014, [string]$UiOrigins='')
 
 $ErrorActionPreference = "Stop"
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -58,7 +58,7 @@ $env:WORKFLOW_ENGINE = "agent_mock"
 $env:MCP_HOST = "127.0.0.1"
 $env:MCP_PORT = "$McpPort"
 $env:MCP_URL = "http://127.0.0.1:$McpPort/mcp"
-$env:APP_ALLOWED_ORIGINS = "http://127.0.0.1:$UiPort,http://localhost:$UiPort"
+$env:APP_ALLOWED_ORIGINS = if ($UiOrigins) { $UiOrigins } else { "http://127.0.0.1:$UiPort,http://localhost:$UiPort" }
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONPATH = $repositoryRoot
 Push-Location $repositoryRoot
