@@ -275,6 +275,62 @@ def _event_duration_days(payload: EventBriefInput) -> int | None:
     return delta.days + int(bool(delta.seconds or delta.microseconds))
 
 
+def _reward_item_ids(payload: EventBriefInput, snapshot: Mapping[str, Any]) -> list[str]:
+    if payload.reward_selection == "planner":
+        return sorted(snapshot["catalog"]["items"])
+    return sorted({reward.item_id for reward in payload.rewards})
+
+
+def _validated_reward_proposals(
+    output: Mapping[str, Any],
+    payload: EventBriefInput,
+    snapshot: Mapping[str, Any],
+    capabilities: CapabilityCatalog,
+    runtime_evidence: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    proposals = output.get("reward_proposals")
+    if not isinstance(proposals, list) or len(proposals) != len(payload.actions):
+        raise LLMOutputContractError(
+            "Planner reward proposal count is invalid", error_type="planner_output_invalid"
+        )
+    capability_by_id = {row.capability_id: row for row in capabilities.rewards}
+    item_evidence = runtime_evidence.get("items", {})
+    if not isinstance(item_evidence, Mapping):
+        raise LLMOutputContractError(
+            "Reward evidence is missing", error_type="planner_output_invalid"
+        )
+    checked: list[dict[str, Any]] = []
+    for index, proposal in enumerate(sorted(proposals, key=lambda row: row["action_index"])):
+        item_id = proposal["item_id"]
+        quantity = proposal["quantity"]
+        capability = capability_by_id.get(f"reward.{item_id}")
+        evidence = item_evidence.get(item_id)
+        constraints = capability.input_constraints if capability is not None else {}
+        if (
+            proposal["action_index"] != index
+            or item_id not in snapshot["catalog"]["items"]
+            or capability is None
+            or capability.status != CapabilityStatus.SUPPORTED
+            or not constraints.get("event_grant_eligible")
+            or "once_per_user" not in constraints.get("grant_policies", [])
+            or constraints.get("max_grants_per_user", 0) < 1
+            or not isinstance(evidence, Mapping)
+            or evidence.get("exists") is not True
+            or evidence.get("event_grant_eligible") is not True
+            or evidence.get("game_context", {}).get("game_data_snapshot_id")
+            != snapshot["snapshot_id"]
+            or evidence.get("snapshot_digest") != snapshot["snapshot_digest"]
+            or quantity > constraints.get("max_quantity_per_grant", 0)
+            or quantity > (evidence.get("quantity_limit") or 0)
+        ):
+            raise LLMOutputContractError(
+                "Planner reward proposal violates the pinned game catalog",
+                error_type="planner_output_invalid",
+            )
+        checked.append(proposal)
+    return checked
+
+
 def _runtime_evidence(
     payload: EventBriefInput,
     snapshot: dict[str, Any],
@@ -373,7 +429,7 @@ def _runtime_evidence(
                         expected_snapshot_digest=snapshot_digest,
                     ),
                 )
-            for item_id in sorted({reward.item_id for reward in payload.rewards}):
+            for item_id in _reward_item_ids(payload, snapshot):
                 evidence["items"][item_id] = await read_tool(
                     "balance_rule_agent",
                     "get_item_info",
@@ -429,7 +485,7 @@ def _runtime_evidence(
         }
         result["items"] = {
             item_id: get_item_info(item_id, snapshot_id)
-            for item_id in sorted({reward.item_id for reward in payload.rewards})
+            for item_id in _reward_item_ids(payload, snapshot)
         }
         source = "local_runtime_evidence_adapter"
 
@@ -461,7 +517,7 @@ def _runtime_evidence(
             if payload.venue is not None
             else set()
         ),
-        "items": {reward.item_id for reward in payload.rewards},
+        "items": set(_reward_item_ids(payload, snapshot)),
     }
     for group, identity_key in (
         ("planning_contexts", "target_segment_id"),
@@ -933,6 +989,7 @@ def _persist_safe_stop(
     snapshot_digest: str,
     supervisor_state: SupervisorWorkflowState | None = None,
     supervisor_transitions: list[dict[str, Any]] | None = None,
+    revision: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist a failed agent execution as a queryable immutable Workflow result."""
     definition = error_definition(error_type)
@@ -984,6 +1041,8 @@ def _persist_safe_stop(
         ],
         "snapshot_digest": snapshot_digest,
     }
+    if revision is not None:
+        record["revision"] = dict(revision)
     _persist(record, idempotency_key, request_hash)
     return record
 
@@ -1066,14 +1125,33 @@ def _finding(
     )
 
 
-def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dict[str, Any]:
+def create_event_workflow(
+    payload: EventBriefInput,
+    idempotency_key: str,
+    *,
+    revision: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Validate a brief against one catalog snapshot and persist a deterministic plan."""
     reserved = execution_ids() or {}
-    brief_id = reserved.get("brief_id") or f"BRIEF-{uuid4().hex[:12].upper()}"
+    brief_id = (
+        (revision or {}).get("brief_id")
+        or reserved.get("brief_id")
+        or f"BRIEF-{uuid4().hex[:12].upper()}"
+    )
     workflow_id = reserved.get("workflow_id") or f"WF-{uuid4().hex[:12].upper()}"
-    task_id = reserved.get("task_id") or f"TASK-{uuid4().hex[:12].upper()}"
-    plan_id = reserved.get("plan_id") or f"PLAN-{uuid4().hex[:12].upper()}"
-    request_hash = _digest(payload.model_dump(mode="json"))
+    task_id = (
+        (revision or {}).get("task_id") or reserved.get("task_id") or f"TASK-{uuid4().hex[:12].upper()}"
+    )
+    plan_id = (
+        (revision or {}).get("plan_id") or reserved.get("plan_id") or f"PLAN-{uuid4().hex[:12].upper()}"
+    )
+    result_version = int((revision or {}).get("result_version", 1))
+    brief_version = int((revision or {}).get("brief_version", 1))
+    request_hash = (
+        _digest({"brief": payload.model_dump(mode="json"), "revision": dict(revision)})
+        if revision
+        else _digest(payload.model_dump(mode="json"))
+    )
     with nullcontext() if reserved else _LOCK:
         cached = _IDEMPOTENCY.get(idempotency_key)
         if cached is not None:
@@ -1119,7 +1197,9 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
         transition_workflow("request_validated", payload={"reason": "Brief 입력 검증 완료"})
         snapshot = load_opong_snapshot(payload.source_game_version)
         snapshot_ref = f"runtime_snapshot:{snapshot['snapshot_id']}:{snapshot['snapshot_digest']}"
-        brief = EventBrief(**payload.model_dump(mode="json"), brief_id=brief_id, brief_version=1)
+        brief = EventBrief(
+            **payload.model_dump(mode="json"), brief_id=brief_id, brief_version=brief_version
+        )
         try:
             capability_payload, capability_source, capability_recovery = _capability_payload(
                 payload.source_game_version, supervisor, workflow_state_cursor
@@ -1192,6 +1272,7 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
                 snapshot_digest=snapshot["snapshot_digest"],
                 supervisor_state=workflow_state,
                 supervisor_transitions=supervisor_transitions,
+                revision=revision,
             )
         runtime_recovery_trace = [*capability_recovery, *evidence_recovery]
         record_observation("runtime.evidence_collected", "SUCCESS")
@@ -1216,6 +1297,7 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
             )
         )
         recovery_trace: list[dict[str, Any]] = []
+        reward_design_pending = payload.reward_selection == "planner"
 
         async def execute_agent(agent_name: str, operation: Any) -> Any:
             nonlocal workflow_state
@@ -1338,6 +1420,7 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
                 snapshot_digest=snapshot["snapshot_digest"],
                 supervisor_state=workflow_state,
                 supervisor_transitions=supervisor_transitions,
+                revision=revision,
             )
 
         while True:
@@ -1346,7 +1429,7 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
                 from_agent="supervisor",
                 to_agent=planner.AGENT_NAME,
                 owner_agent="supervisor",
-                objective="Brief의 미션·보상 연결을 설명합니다.",
+                objective="Brief의 미션과 보상을 기획하고 선정 근거를 설명합니다.",
                 inputs=planner_prompt_context,
                 input_contract_version="canonical-planner-input.v2",
                 constraints=(
@@ -1390,9 +1473,14 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
                         record_observation("planner.started", "STARTED", agent=planner.AGENT_NAME)
                         raw_output = await planner.plan(handoff_inputs)
                         try:
-                            return supervisor.bind_canonical_planner_output(
+                            bound_output = supervisor.bind_canonical_planner_output(
                                 planner_context_brief.model_dump(mode="json"), raw_output
                             )
+                            if reward_design_pending:
+                                _validated_reward_proposals(
+                                    bound_output, payload, snapshot, capabilities, runtime_evidence
+                                )
+                            return bound_output
                         except SupervisorDecisionError as exc:
                             raise LLMOutputContractError(
                                 "Canonical Planner output cardinality is invalid",
@@ -1404,6 +1492,47 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
                     )
             except (LLMTimeoutError, LLMExecutionError) as exc:
                 return persist_agent_failure(exc)
+            if reward_design_pending:
+                proposals = _validated_reward_proposals(
+                    planner_output, payload, snapshot, capabilities, runtime_evidence
+                )
+                materialized = payload.model_dump(mode="json")
+                materialized["rewards"] = [
+                    {
+                        "reward_id": f"REW-{uuid4().hex[:16].upper()}",
+                        "item_id": proposal["item_id"],
+                        "quantity": proposal["quantity"],
+                    }
+                    for proposal in proposals
+                ]
+                materialized["mission_reward_links"] = [
+                    {
+                        "action_id": payload.actions[proposal["action_index"]].action_id,
+                        "reward_id": reward["reward_id"],
+                    }
+                    for proposal, reward in zip(proposals, materialized["rewards"], strict=True)
+                ]
+                brief = EventBrief.model_validate(
+                    {**materialized, "brief_id": brief_id, "brief_version": brief_version}
+                )
+                payload = brief
+                planner_output["reward_rationales"] = [
+                    {"reward_id": reward["reward_id"], "rationale": proposal["rationale"]}
+                    for proposal, reward in zip(proposals, materialized["rewards"], strict=True)
+                ]
+                reward_design_pending = False
+                revision_brief = materialized | {"reward_selection": "explicit"}
+                planner_context_brief = EventBriefInput.model_validate(revision_brief)
+                planner_prompt_context = supervisor.build_canonical_planner_context(
+                    supervisor.build_agent_context(
+                        planner.AGENT_NAME,
+                        {
+                            "brief": planner_context_brief.model_dump(mode="json"),
+                            "capabilities": capabilities.model_dump(mode="json"),
+                            "runtime_evidence": runtime_evidence,
+                        },
+                    )
+                )
             planner_handoff = planner_handoff.accept(
                 required_inputs_present=True, output_validated=True
             )
@@ -1669,6 +1798,10 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
 
             rewards: list[RewardPlan] = []
             links: list[PlanMissionRewardLink] = []
+            reward_rationales = {
+                row["reward_id"]: row["rationale"]
+                for row in planner_output["reward_rationales"]
+            }
             for reward in payload.rewards:
                 cap_id = f"reward.{reward.item_id}"
                 status, capability = _capability_status(reward_caps, cap_id)
@@ -1715,6 +1848,7 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
                         grant_policy=reward.grant_policy,
                         max_grants_per_user=reward.max_grants_per_user,
                         support_status=status,
+                        design_rationale=reward_rationales.get(reward.reward_id),
                     )
                 )
                 links.append(
@@ -1853,8 +1987,8 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
 
             plan = EventPlan(
                 plan_id=plan_id,
-                result_version=1,
-                brief_ref={"brief_id": brief_id, "brief_version": 1},
+                result_version=result_version,
+                brief_ref={"brief_id": brief_id, "brief_version": brief_version},
                 source_ref={"workflow_id": workflow_id, "task_id": task_id},
                 game_context=capabilities.game_context,
                 plan_status=plan_status,
@@ -2139,6 +2273,8 @@ def create_event_workflow(payload: EventBriefInput, idempotency_key: str) -> dic
             ],
             "snapshot_digest": snapshot["snapshot_digest"],
         }
+        if revision:
+            record["revision"] = dict(revision)
         _persist(record, idempotency_key, request_hash)
         return record
 
@@ -2246,7 +2382,9 @@ def get_workflow(workflow_id: str) -> dict[str, Any] | None:
             "approval_status": approval_status,
             "runtime_registered": runtime_event is not None,
         }
-        if isinstance(record.get("supervisor_state"), dict):
+        if approval_status == "REVISION_REQUESTED":
+            record["current_status"] = "REVISION_REQUESTED"
+        elif isinstance(record.get("supervisor_state"), dict):
             record["current_status"] = record["supervisor_state"].get("status")
         elif runtime_event:
             record["current_status"] = "APPLIED"
@@ -2599,6 +2737,10 @@ def get_plan(plan_id: str, result_version: int | None = None) -> dict[str, Any] 
             parameters["result_version"] = str(result_version)
         with engine.connect() as connection:
             records = list(connection.execute(text(query), parameters).scalars())
+    records.sort(
+        key=lambda record: int((record.get("plan") or {}).get("result_version", 0)),
+        reverse=True,
+    )
     for record in records:
         plan = record.get("plan", {})
         if plan.get("plan_id") == plan_id and (
@@ -2621,12 +2763,18 @@ def decide_plan(
     result_version: int,
     action: str,
     idempotency_key: str,
+    *,
+    approval_comment: str | None = None,
+    revised_workflow_id: str | None = None,
 ) -> dict[str, Any]:
     """Commit approval, state transition and audit as one unit."""
     database_url = os.getenv("DATABASE_URL", "").strip()
     if database_url:
         with _LOCK, session_scope(_engine(database_url), write=True):
-            return _decide_plan(workflow_id, plan_id, result_version, action, idempotency_key)
+            return _decide_plan(
+                workflow_id, plan_id, result_version, action, idempotency_key,
+                approval_comment=approval_comment, revised_workflow_id=revised_workflow_id,
+            )
     from copy import deepcopy
 
     with _LOCK:
@@ -2636,7 +2784,10 @@ def decide_plan(
             deepcopy(_LIFECYCLE_EVENTS),
         )
         try:
-            return _decide_plan(workflow_id, plan_id, result_version, action, idempotency_key)
+            return _decide_plan(
+                workflow_id, plan_id, result_version, action, idempotency_key,
+                approval_comment=approval_comment, revised_workflow_id=revised_workflow_id,
+            )
         except Exception:
             for target, previous in zip(
                 (_DECISIONS, _DECISION_IDEMPOTENCY, _LIFECYCLE_EVENTS), caches, strict=True
@@ -2699,6 +2850,9 @@ def _decide_plan(
     result_version: int,
     action: str,
     idempotency_key: str,
+    *,
+    approval_comment: str | None = None,
+    revised_workflow_id: str | None = None,
 ) -> dict[str, Any]:
     """Record one immutable human decision for the exact plan version."""
     record = get_workflow(workflow_id)
@@ -2707,8 +2861,10 @@ def _decide_plan(
     plan = record["plan"]
     if plan["plan_id"] != plan_id or plan["result_version"] != result_version:
         raise ValueError("Plan version does not match this workflow")
-    if action not in {"APPROVE", "REJECT"}:
-        raise ValueError("Decision action must be APPROVE or REJECT")
+    if action not in {"APPROVE", "REJECT", "REQUEST_REVISION"}:
+        raise ValueError("Unsupported decision action")
+    if action == "REQUEST_REVISION" and (not approval_comment or not revised_workflow_id):
+        raise ValueError("Revision feedback and revised workflow are required")
     if action == "APPROVE" and plan["runtime_eligible"] is not True:
         raise PermissionError("Only a runtime-eligible plan can be approved")
 
@@ -2724,11 +2880,13 @@ def _decide_plan(
         "action": action,
         "actor_id": actor_id,
     }
+    if action == "REQUEST_REVISION":
+        request.update({"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id})
     request_hash = _digest(request)
 
     def persist_decision_event(decision: dict[str, Any]) -> None:
         state_event = "approval_accepted" if action == "APPROVE" else "approval_rejected"
-        if isinstance(record.get("supervisor_state"), dict):
+        if action != "REQUEST_REVISION" and isinstance(record.get("supervisor_state"), dict):
             decide_saved_workflow_transition(
                 workflow_id,
                 state_event,
@@ -2745,6 +2903,7 @@ def _decide_plan(
                 "result_version": result_version,
                 "approval_status": decision["approval_status"],
                 "actor_id": decision["actor_id"],
+                **({"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id} if action == "REQUEST_REVISION" else {}),
             },
             f"approval:{workflow_id}:{result_version}",
         )
@@ -2773,11 +2932,13 @@ def _decide_plan(
                         "result_version": prior.result_version,
                         "action": prior.action,
                         "actor_id": prior.actor_id,
-                        "approval_status": "APPROVED" if prior.action == "APPROVE" else "REJECTED",
+                        "approval_status": _decision_status(prior.action),
                         "idempotency_key": prior.idempotency_key,
                         "request_hash": prior.request_hash,
                         "created_at": prior.created_at.isoformat(),
                     }
+                    if prior.action == "REQUEST_REVISION":
+                        decision.update({"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id})
                     persist_decision_event(decision)
                     return decision
         existing = get_plan_decision(task_id, result_version)
@@ -2811,16 +2972,22 @@ def _decide_plan(
             "result_version": result_version,
             "action": action,
             "actor_id": actor_id,
-            "approval_status": "APPROVED" if action == "APPROVE" else "REJECTED",
+            "approval_status": _decision_status(action),
             "idempotency_key": idempotency_key,
             "request_hash": request_hash,
             "created_at": timestamp.isoformat(),
         }
+        if action == "REQUEST_REVISION":
+            decision.update({"approval_comment": approval_comment, "revised_workflow_id": revised_workflow_id})
         if not database_url:
             _DECISIONS[(task_id, result_version)] = decision
             _DECISION_IDEMPOTENCY[idempotency_key] = decision
         persist_decision_event(decision)
         return decision
+
+
+def _decision_status(action: str) -> str:
+    return {"APPROVE": "APPROVED", "REJECT": "REJECTED", "REQUEST_REVISION": "REVISION_REQUESTED"}[action]
 
 
 def get_plan_decision(task_id: str, result_version: int) -> dict[str, Any] | None:
@@ -2837,15 +3004,69 @@ def get_plan_decision(task_id: str, result_version: int) -> dict[str, Any] | Non
         )
         if row is None:
             return None
-        return {
+        decision = {
             "task_id": row.task_id,
             "workflow_id": row.workflow_id,
             "plan_id": row.plan_id,
             "result_version": row.result_version,
             "action": row.action,
             "actor_id": row.actor_id,
-            "approval_status": "APPROVED" if row.action == "APPROVE" else "REJECTED",
+            "approval_status": _decision_status(row.action),
             "idempotency_key": row.idempotency_key,
             "request_hash": row.request_hash,
             "created_at": row.created_at.isoformat(),
         }
+    if row.action == "REQUEST_REVISION":
+        event = next((item for item in reversed(_lifecycle_events(row.workflow_id)) if item.get("event") == "approval.decision_recorded" and item.get("attributes", {}).get("result_version") == result_version), None)
+        if event:
+            decision.update({key: event["attributes"][key] for key in ("approval_comment", "revised_workflow_id") if key in event["attributes"]})
+    return decision
+
+
+def request_plan_revision(
+    workflow_id: str,
+    plan_id: str,
+    result_version: int,
+    approval_comment: str,
+    idempotency_key: str,
+) -> dict[str, Any]:
+    """Persist operator feedback and rerun Planner, rules, and Critic as a new version."""
+    comment = approval_comment.strip()
+    if not comment or len(comment) > 500:
+        raise ValueError("수정 의견은 1~500자로 입력해주세요.")
+    _validate_all_text(comment)
+    with _LOCK:
+        record = get_workflow(workflow_id)
+        if record is None:
+            raise LookupError("Workflow was not found")
+        plan = record.get("plan")
+        if not isinstance(plan, dict) or plan.get("plan_id") != plan_id or plan.get("result_version") != result_version:
+            raise ValueError("Plan version does not match this workflow")
+        existing = get_plan_decision(str(record["task_id"]), result_version)
+        if existing:
+            if existing["idempotency_key"] == idempotency_key and existing["action"] == "REQUEST_REVISION" and existing.get("approval_comment") == comment:
+                child = get_workflow(str(existing["revised_workflow_id"]))
+                if child is not None:
+                    return {"decision": existing, "workflow": child}
+            raise ValueError("A decision already exists for this plan version")
+        brief_data = {key: value for key, value in record["brief"].items() if key in EventBriefInput.model_fields}
+        if brief_data.get("reward_selection") == "planner":
+            brief_data["rewards"] = []
+            brief_data["mission_reward_links"] = []
+        brief_data["preferences"] = [*brief_data.get("preferences", []), f"운영자 수정 의견: {comment}"]
+        brief = EventBriefInput.model_validate(brief_data)
+        revision = {
+            "parent_workflow_id": workflow_id,
+            "approval_comment": comment,
+            "brief_id": record["brief"]["brief_id"],
+            "brief_version": int(record["brief"]["brief_version"]) + 1,
+            "task_id": record["task_id"],
+            "plan_id": plan_id,
+            "result_version": result_version + 1,
+        }
+        child_key = f"revision-{hashlib.sha256(idempotency_key.encode()).hexdigest()}"
+        child = create_event_workflow(brief, child_key, revision=revision)
+        if not isinstance(child.get("plan"), dict):
+            raise ValueError("수정 기획안 생성이 중단되었습니다. 다시 요청해주세요.")
+        decision = decide_plan(workflow_id, plan_id, result_version, "REQUEST_REVISION", idempotency_key, approval_comment=comment, revised_workflow_id=child["workflow_id"])
+        return {"decision": decision, "workflow": get_workflow(child["workflow_id"])}

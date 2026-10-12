@@ -12,11 +12,10 @@ test("shared UI reads separate ordinary and fault databases without replay", asy
   expect(normal.versions.some(v => v.status === "ACTIVE")).toBe(true);
   let posts = 0;
   page.on("request", r => {if(r.method() === "POST") posts++;});
+  await page.addInitScript(id => sessionStorage.setItem("eventquest.faultLabRun", JSON.stringify({kind:"run", id})), runId);
   await page.goto("/");
   await page.getByRole("button", {name:"복구 시연", exact:true}).click();
   await expect(page.getByLabel("격리 시험 환경")).toContainText(`시험 정책 버전: ${status.active_policy_version}`);
-  await page.locator("#lab-record-id").fill(runId);
-  await page.getByRole("button", {name:"기록 ID로 조회", exact:true}).click();
   await expect(page.getByLabel("시험 결과 설명")).toContainText("오류 대응 후 승인 대기까지 진행");
   await page.reload();
   await page.getByRole("button", {name:"복구 시연", exact:true}).click();

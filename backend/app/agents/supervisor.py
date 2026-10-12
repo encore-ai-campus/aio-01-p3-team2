@@ -538,13 +538,27 @@ class Supervisor:
         rewards = brief.get("rewards")
         action_rationales = output.get("action_rationales")
         reward_rationales = output.get("reward_rationales")
+        reward_proposals = output.get("reward_proposals", [])
         if not all(
             isinstance(value, list)
-            for value in (actions, rewards, action_rationales, reward_rationales)
+            for value in (actions, rewards, action_rationales, reward_rationales, reward_proposals)
         ):
             raise SupervisorDecisionError("Planner 출력 목록이 올바르지 않습니다.")
         if len(actions) != len(action_rationales) or len(rewards) != len(reward_rationales):
             raise SupervisorDecisionError("Planner 설명 개수가 Brief 항목 수와 일치하지 않습니다.")
+        auto_rewards = brief.get("reward_selection") == "planner"
+        if auto_rewards:
+            if rewards or len(reward_proposals) != len(actions):
+                raise SupervisorDecisionError("Planner 보상 제안 개수가 미션 수와 일치하지 않습니다.")
+            if any(not isinstance(row, Mapping) for row in reward_proposals):
+                raise SupervisorDecisionError("Planner 보상 제안 형식이 올바르지 않습니다.")
+            proposal_indexes = [row.get("action_index") for row in reward_proposals]
+            if any(type(index) is not int for index in proposal_indexes):
+                raise SupervisorDecisionError("Planner 보상 제안의 미션 참조가 올바르지 않습니다.")
+            if sorted(proposal_indexes) != list(range(len(actions))):
+                raise SupervisorDecisionError("Planner 보상 제안의 미션 참조가 올바르지 않습니다.")
+        elif reward_proposals:
+            raise SupervisorDecisionError("명시된 보상 Brief에 새 보상 제안이 포함됐습니다.")
         bound_actions = []
         bound_rewards = []
         for source, rationale in zip(actions, action_rationales, strict=True):
@@ -567,6 +581,7 @@ class Supervisor:
             "summary": output.get("summary"),
             "action_rationales": bound_actions,
             "reward_rationales": bound_rewards,
+            "reward_proposals": reward_proposals,
         }
 
     def decide_failure(

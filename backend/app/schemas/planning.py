@@ -206,6 +206,7 @@ class EventBriefInput(StrictContract):
     schedule: EventSchedule
     venue: VenueReference | None = None
     actions: list[ActionSpec] = Field(min_length=1)
+    reward_selection: Literal["explicit", "planner"] = "explicit"
     rewards: list[RewardSpec]
     mission_reward_links: list[MissionRewardLink] = Field(default_factory=list)
     impact_targets: list[ImpactTarget] = Field(min_length=1)
@@ -215,6 +216,13 @@ class EventBriefInput(StrictContract):
 
     @model_validator(mode="after")
     def validate_references(self) -> EventBriefInput:
+        if self.reward_selection == "planner" and not hasattr(self, "brief_id"):
+            if self.event_type != EventType.SPECIAL_DUNGEON:
+                raise ValueError("planner reward selection requires a special dungeon")
+            if self.venue is None:
+                raise ValueError("planner reward selection requires a venue")
+            if self.rewards or self.mission_reward_links:
+                raise ValueError("planner reward selection requires empty rewards and links")
         if len(self.target_segments) != len(set(self.target_segments)):
             raise ValueError("target_segments must not contain duplicates")
         action_ids = {action.action_id for action in self.actions if action.action_id is not None}
@@ -379,6 +387,7 @@ class RewardPlan(StrictContract):
     grant_policy: GrantPolicy
     max_grants_per_user: int | None = Field(default=None, strict=True, ge=1)
     support_status: CapabilityStatus
+    design_rationale: str | None = Field(default=None, min_length=1, max_length=500)
 
 
 class PlanMissionRewardLink(StrictContract):

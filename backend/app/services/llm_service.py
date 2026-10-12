@@ -374,7 +374,7 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
     "canonical_event_planner_agent": {
         "type": "object",
         "additionalProperties": False,
-        "required": ["summary", "action_rationales", "reward_rationales"],
+        "required": ["summary", "action_rationales", "reward_rationales", "reward_proposals"],
         "properties": {
             "summary": {"type": "string", "minLength": 1, "maxLength": 1000},
             "action_rationales": {
@@ -395,6 +395,20 @@ _OUTPUT_SCHEMAS: dict[str, dict[str, object]] = {
                     "additionalProperties": False,
                     "required": ["rationale"],
                     "properties": {
+                        "rationale": {"type": "string", "minLength": 1, "maxLength": 500},
+                    },
+                },
+            },
+            "reward_proposals": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["action_index", "item_id", "quantity", "rationale"],
+                    "properties": {
+                        "action_index": {"type": "integer", "minimum": 0},
+                        "item_id": {"type": "string", "minLength": 1, "maxLength": 120},
+                        "quantity": {"type": "integer", "minimum": 1},
                         "rationale": {"type": "string", "minLength": 1, "maxLength": 500},
                     },
                 },

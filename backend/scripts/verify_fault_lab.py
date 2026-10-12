@@ -19,7 +19,7 @@ def verify(base_url: str) -> dict:
         catalog = client.get("/api/test/fault-catalog")
         catalog.raise_for_status()
         results["catalog_codes"] = len({row["fault_id"] for row in catalog.json()["scenarios"]})
-        assert results["catalog_codes"] == 28
+        assert results["catalog_codes"] == 26
         invalid = client.post(
             "/api/test/fault-runs",
             json={"scenario_id": "llm_timeout", "database_url": "production"},

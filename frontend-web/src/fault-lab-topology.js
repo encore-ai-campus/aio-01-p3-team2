@@ -1,10 +1,17 @@
 // The backend owns topology and fault definitions; this module only renders them.
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function mappedTraceNodes(topology, trace) {
+  return trace.map((row) => row.event === "workflow.safe_stopped"
+    ? topology.nodes.find((node) => node.node_id === "safe_stop")?.node_id
+    : topology.nodes.find((node) => node.observed_events.includes(row.event) || node.observed_events.includes(row.action))?.node_id
+  ).filter(Boolean);
+}
 function fixedGraph(topology, observed, result) {
   const layout=topology.layout;
   const byId=new Map(topology.nodes.map(n=>[n.node_id,n]));
   const injected=Boolean(result?.checks?.some(c=>c.name==="detector_evidence" && c.actual===true));
   const faultNode=topology.nodes.find(n=>n.target_ids.includes(result?.scenario?.target_id));
+  const recoveryObserved=(result?.trace ?? []).some((row) => /recovery|retry|fallback|revision|수정|재시도|대체/i.test(`${row.event ?? ""} ${row.action ?? ""} ${row.status ?? ""}`));
   const paths=topology.edges.map((edge,i)=>{
     const a=byId.get(edge.from).position,b=byId.get(edge.to).position;
     let path;
@@ -23,17 +30,89 @@ function fixedGraph(topology, observed, result) {
       if(edge.kind === "recovery") path=`M${a.x},${a.y+18} C${a.x-18},${a.y-40} ${b.x+b.width+24},${b.y-40} ${b.x+b.width},${b.y+18}`;
     }
     if(edge.kind === "control") path=`M${a.x+a.width},${a.y+32} L${a.x+a.width+22},${a.y+32} L${a.x+a.width+22},${b.y+48} L${b.x},${b.y+48}`;
-    if(edge.kind === "recovery" && edge.to==="planner") path=`M${a.x},${a.y+72} L${a.x-24},${a.y+72} L${a.x-24},${a.y+a.height+14} L${b.x+b.width+16},${a.y+a.height+14} L${b.x+b.width+16},${b.y+72} L${b.x+b.width},${b.y+72}`;
-    const active=result?.recovered && edge.kind==="recovery" && edge.to===faultNode?.node_id;
-    return `<path data-edge-from="${escape(edge.from)}" data-edge-to="${escape(edge.to)}" class="lab-edge ${escape(edge.kind)} ${active?"active":""}" d="${path}" marker-end="url(#lab-arrow-${edge.kind==="stop"?"stop":edge.kind==="flow"?"flow":"control"})"><title>${escape(edge.label??edge.kind)}</title></path>`;
+    if(edge.kind === "recovery" && edge.to==="planner") path=`M${a.x},${a.y+a.height-14} L${a.x-24},${a.y+a.height-14} L${a.x-24},${a.y+a.height+14} L${b.x+b.width+16},${a.y+a.height+14} L${b.x+b.width+16},${b.y+b.height-14} L${b.x+b.width},${b.y+b.height-14}`;
+    return `<path data-edge-from="${escape(edge.from)}" data-edge-to="${escape(edge.to)}" class="lab-edge ${escape(edge.kind)}" d="${path}" marker-end="url(#lab-arrow-${edge.kind==="stop"?"stop":edge.kind==="flow"?"flow":"control"})"><title>${escape(edge.label??edge.kind)}</title></path>`;
   }).join("");
   const cards=topology.nodes.map(n=>{
     const p=n.position;
     const failure=injected && faultNode?.node_id===n.node_id;
     const stopped=n.node_id==="safe_stop" && ["SAFE_STOP","FAILED"].includes(result?.actual_terminal);
-    return `<foreignObject x="${p.x}" y="${p.y}" width="${p.width}" height="${p.height}"><button xmlns="http://www.w3.org/1999/xhtml" class="fault-node ${selectedNode===n.node_id?"selected":""} ${observed.has(n.node_id)?"observed":""} ${failure?"fault-detected":""} ${stopped?"stopped":""}" aria-pressed="${selectedNode===n.node_id}" data-fault-node="${escape(n.node_id)}"><small>${failure?"오류 검출 위치":n.kind==="supervisor"?"전체 단계의 상태·전이·복구 관리":n.kind==="terminal"?"종료 / 대기":n.target_ids.length?"시험 위치 선택 가능":"관측 단계"}</small><b>${escape(n.label)}</b><span>${selectedNode===n.node_id?"선택한 단계":stopped?"안전 중단 확인":observed.has(n.node_id)?"실제 기록 확인":"실행 전에도 표시되는 고정 단계"}</span></button></foreignObject>`;
+    const detail=failure?"오류 검출 위치":n.kind==="supervisor"?"상태·복구 관리":n.kind==="terminal"?"종료 / 대기":n.target_ids.length?"오류 시험 가능":"관측 단계";
+    const state=selectedNode===n.node_id?"선택한 단계":stopped?"안전 중단 확인":observed.has(n.node_id)?"실제 기록 확인":detail;
+    const agent={planner:"Planner Agent",validation:"Balance & Rule Agent",critic:"Critic Agent",supervisor:"Supervisor Agent",mcp:"MCP"}[n.node_id];
+    const title=agent?`${n.label} (${agent})`:n.label;
+    const recoveryNode=recoveryObserved && ["planner","mcp","supervisor"].includes(n.node_id) && observed.has(n.node_id);
+    return `<foreignObject x="${p.x}" y="${p.y}" width="${p.width}" height="${p.height}"><button xmlns="http://www.w3.org/1999/xhtml" class="fault-node ${selectedNode===n.node_id?"selected":""} ${observed.has(n.node_id)?"observed":""} ${failure?"fault-detected":""} ${recoveryNode?"recovery-observed":""} ${stopped?"stopped":""}" aria-label="${escape(`${title} · ${state}`)}" aria-pressed="${selectedNode===n.node_id}" data-fault-node="${escape(n.node_id)}"><b title="${escape(title)}">${escape(title)}</b><span>${escape(state)}</span></button></foreignObject>`;
   }).join("");
-  return `<div class="fault-graph-scroll" tabindex="0" aria-label="고정 Workflow 그래프 · 작은 화면에서는 좌우로 탐색"><svg class="fault-topology" viewBox="0 0 ${layout.width} ${layout.height}" width="${layout.width}" height="${layout.height}" aria-label="전체 고정 Workflow"><defs>${["flow","control","stop"].map(k=>`<marker id="lab-arrow-${k}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="${k==="stop"?"#c65043":k==="flow"?"#238a62":"#7655ad"}"/></marker>`).join("")}</defs>${layout.lanes.map(l=>`<text x="${l.x}" y="30" class="lab-lane-title">${escape(l.label)}</text>`).join("")}${paths}${cards}</svg></div>`;
+  return `${result ? '<p class="lab-path-playback" role="status" aria-live="polite">실제 Trace 실행 경로</p>' : ""}<div class="fault-graph-scroll" tabindex="0" aria-label="고정 Workflow 그래프 · 작은 화면에서는 좌우로 탐색"><svg class="fault-topology" viewBox="0 0 ${layout.width} ${layout.height}" width="${layout.width}" height="${layout.height}" aria-label="전체 고정 Workflow"><defs>${["flow","control","stop"].map(k=>`<marker id="lab-arrow-${k}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="${k==="stop"?"#c65043":k==="flow"?"#3975a3":"#c18a2e"}"/></marker>`).join("")}</defs>${layout.lanes.map(l=>`<text x="${l.x}" y="30" class="lab-lane-title">${escape(l.label)}</text>`).join("")}${paths}${cards}</svg></div>`;
+}
+let pathPlaybackFrame = null;
+let pathPlaybackObserver = null;
+function stopPathPlayback() {
+  if (pathPlaybackFrame !== null) cancelAnimationFrame(pathPlaybackFrame);
+  pathPlaybackObserver?.disconnect();
+  pathPlaybackFrame = null;
+  pathPlaybackObserver = null;
+}
+
+function playExecutionPath(host, topology, result) {
+  const svg = host.querySelector(".fault-topology");
+  const status = host.querySelector(".lab-path-playback");
+  if (!svg || !status) return;
+  const steps = mappedTraceNodes(topology, result.trace ?? []).filter((node, index, nodes) => index === 0 || node !== nodes[index-1]);
+  if (!steps.length) {
+    status.textContent = "이 Trace에는 흐름도에 연결된 실행 단계가 없습니다.";
+    return;
+  }
+  const cards = [...svg.querySelectorAll("[data-fault-node]")];
+  const edges = [...svg.querySelectorAll(".lab-edge")];
+  const lengths = new Map(edges.map((edge) => [edge, edge.getTotalLength()]));
+  const transitions = steps.flatMap((to, index) => index ? [{from:steps[index-1],to,index}] : []);
+  const labels = new Map(topology.nodes.map((node) => [node.node_id, node.label]));
+  const seek = (time) => {
+    const position = Math.min(steps.length, Math.max(0, time) * steps.length);
+    const completed = Math.floor(position);
+    const active = Math.min(completed, steps.length - 1);
+    const fraction = position - completed;
+    const visited = new Set(steps.slice(0, completed));
+    for (const card of cards) {
+      card.classList.toggle("trace-visited", visited.has(card.dataset.faultNode));
+      card.classList.toggle("trace-current", time < 1 && card.dataset.faultNode === steps[active]);
+    }
+    for (const edge of edges) {
+      const match = transitions.filter((part) => part.from === edge.dataset.edgeFrom && part.to === edge.dataset.edgeTo);
+      const complete = match.some((part) => part.index < completed);
+      const partial = match.find((part) => part.index === active && !complete);
+      const length = lengths.get(edge);
+      edge.classList.toggle("trace-visited", complete);
+      edge.classList.toggle("trace-current", Boolean(partial));
+      edge.style.strokeDasharray = partial ? `${length}` : "";
+      edge.style.strokeDashoffset = partial ? `${length * (1 - fraction)}` : "";
+    }
+    const caption = time >= 1 ? `실제 Trace ${steps.length}단계 표시 완료` : `실제 Trace ${active + 1}/${steps.length} · ${labels.get(steps[active])}`;
+    if (status.textContent !== caption) status.textContent = caption;
+  };
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    seek(1);
+    return;
+  }
+  svg.classList.add("path-playing");
+  let visible = true;
+  pathPlaybackObserver = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; }, {threshold:0.1});
+  pathPlaybackObserver.observe(svg);
+  let elapsed = 0;
+  let previous = null;
+  const duration = Math.min(6500, Math.max(2000, steps.length * 420));
+  const frame = (now) => {
+    if (previous !== null && visible && !document.hidden) elapsed += now - previous;
+    previous = now;
+    const progress = Math.min(1, elapsed / duration);
+    seek(progress);
+    if (progress < 1 && svg.isConnected) pathPlaybackFrame = requestAnimationFrame(frame);
+    else { svg.classList.remove("path-playing"); stopPathPlayback(); }
+  };
+  seek(0);
+  pathPlaybackFrame = requestAnimationFrame(frame);
 }
 let catalog = null;
 let labStatus = null;
@@ -45,7 +124,6 @@ let current = null;
 let selectedResultIndex = -1;
 let showExecutionPath = false;
 let advancedOpen = false;
-let history = JSON.parse(sessionStorage.getItem("eventquest.faultLabHistory") ?? "[]");
 let selectedOptions = {pattern:"once",first_n:1,profile:"current_active"};
 let poll = null;
 let error = "";
@@ -106,8 +184,6 @@ function resultSummary(result) {
   return `<div class="lab-result-summary" aria-label="시험 결과 설명">${rows.map(([title,value])=>`<div class="log-row"><b>${escape(title)}</b><span>${escape(value)}</span></div>`).join("")}</div><p>${escape(counts)}</p><p>재시도 ${result.retries ?? 0}회 · 기획 수정 ${result.plan_revisions ?? 0}회 · 대체 조회 ${result.fallback_calls ?? 0}회. 재시도·수정·대체 조회는 서로 다른 동작입니다.</p>`;
 }
 function rememberRun(run) {
-  history=[{id:run.id,kind:run.kind},...history.filter(r=>r.id!==run.id)].slice(0,30);
-  sessionStorage.setItem("eventquest.faultLabHistory",JSON.stringify(history));
   sessionStorage.setItem("eventquest.faultLabRun",JSON.stringify({id:run.id,kind:run.kind}));
 }
 
@@ -150,6 +226,7 @@ export async function mountFaultLab() {
 }
 
 function draw(host) {
+  stopPathPlayback();
   const topology = catalog.topologies.find((t) => t.topology_id === selectedTopology);
   const node = topology.nodes.find((n) => n.node_id === selectedNode);
   const availableTargets=catalog.targets.filter(t=>node.target_ids.includes(t.target_id) && t.supported_fault_ids.length);
@@ -162,7 +239,7 @@ function draw(host) {
   const result = current?.results?.at(selectedResultIndex);
   const graphResult = showExecutionPath && result?.scenario?.route===topology.route ? result : null;
   const trace = graphResult?.trace ?? [];
-  const observed = new Set(topology.nodes.filter((n) => trace.some((e) => n.observed_events.includes(e.event ?? e.action))).map((n) => n.node_id));
+  const observed = new Set(mappedTraceNodes(topology, trace));
   host.innerHTML = `<section class="panel" aria-label="격리 시험 환경"><h3>격리 시험 환경 · 연결됨</h3><p>시험 DB: ${escape(labStatus.database)} · 환경 상태: ${escape(labStatus.state)} · 시험 정책 버전: ${escape(labStatus.active_policy_version ?? "미등록")}</p><p>정책 관리 탭은 일반 정책을 관리합니다. 이 화면의 시험 정책과 실행 기록은 별도 DB에 보관됩니다.</p></section><section class="panel"><div class="panel-heading"><h3>전체 Workflow · 위치 선택</h3><span class="link-badge">${escape(topology.version)}</span></div>
     <p>${selectedTopology === "canonical_planning" ? "기획안 작성 흐름" : "고급 시험 · 기존 Task 흐름"}${showExecutionPath ? " · 선택한 결과의 실제 실행 기록 보기" : " · 시험 위치를 선택하세요"}</p>
     <details id="lab-advanced" ${advancedOpen ? "open" : ""}><summary>고급 설정 · 기존 Task 오류 시험</summary><label>시험 흐름<select id="lab-topology">${catalog.topologies.filter(t=>["canonical_planning","legacy_task"].includes(t.topology_id)).map(t=>`<option value="${escape(t.topology_id)}" ${t.topology_id===selectedTopology ? "selected" : ""}>${t.topology_id==="canonical_planning" ? "기획안 작성 흐름 (기본)" : "기존 Task 흐름 · 업무 검증 오류 3개"}</option>`).join("")}</select></label><p>승인 후 런타임 쓰기 오류는 전용 시험 실행이 지원되지 않아 이 화면의 선택 대상에서 제외됩니다.</p></details>${topology.note ? `<p class="warning-note">${escape(topology.note)}</p>` : ""}${fixedGraph(topology,observed,graphResult)}
@@ -178,10 +255,6 @@ function draw(host) {
     <label>시험 정책<select id="lab-profile">${scenario.profiles.map((p) => `<option value="${p}">${{current_active:"현재 활성 정책",retry_allowed:"허용된 자동 복구 정책",safe_stop:"안전 종료 정책"}[p]}</option>`).join("")}</select></label>
     <p>고정 입력과 실제 게임 DB/MCP를 사용합니다. 기본 LLM 응답은 결정적 adapter로 생성하며 외부 호출 비용은 발생하지 않습니다.</p>
     <button id="lab-run" class="primary-button" ${current?.lifecycle === "RUNNING" || current?.lifecycle === "QUEUED" ? "disabled" : ""}>선택한 오류 실행</button>` : `<p>이 단계는 전용 시험 runner 연결이 필요합니다. 아래 전체 목록에서 준비 상태를 확인하세요.</p>`}
-    <button id="lab-suite" class="secondary-button" ${["RUNNING","QUEUED"].includes(current?.lifecycle) ? "disabled" : ""}>전체 ${ready.length}개 시나리오 · 안전 종료 시험</button>
-    <p>전체 시험에는 기획안 작성 흐름과 기존 Task 업무 검증 오류 3개가 포함됩니다.</p>
-    ${history.length ? `<label>이 탭에서 요청한 시험 기록<select id="lab-history" ${["RUNNING","QUEUED"].includes(current?.lifecycle) ? "disabled" : ""}><option value="">기록 선택 · 조회만 수행</option>${history.map(r=>`<option value="${escape(r.id)}">${r.kind === "suite" ? "전체/묶음 시험" : "개별 시험"} · ${escape(r.id)}</option>`).join("")}</select></label>` : ""}
-    <label>CLI 개별 시험 기록 ID<input id="lab-record-id" placeholder="실행 결과의 UUID · 조회만 수행" ${["RUNNING","QUEUED"].includes(current?.lifecycle) ? "disabled" : ""}></label><button id="lab-load-record" class="secondary-button" ${["RUNNING","QUEUED"].includes(current?.lifecycle) ? "disabled" : ""}>기록 ID로 조회</button><p>실제 LLM 시험은 CLI에서 명시적으로 실행합니다. 이 화면의 조회는 LLM을 재호출하지 않습니다.</p>
     ${error ? `<p class="warning-note" role="alert">${escape(error)}</p>` : ""}</section>
     ${current ? `<section class="panel" id="lab-report"><div class="panel-heading"><h3>시험 ${escape(current.lifecycle)} · ${escape(current.verdict ?? "판정 대기")}</h3><span>${escape(current.id)}</span></div>${["QUEUED","RUNNING"].includes(current.lifecycle) ? `<p role="status">시험을 실행하고 있습니다. 아직 확인되지 않은 단계는 그래프에 표시하지 않습니다.</p>` : ""}
     ${current.results?.length > 1 ? `<label>개별 시험 결과<select id="lab-result"><option value="-1" ${selectedResultIndex === -1 ? "selected" : ""}>최근 완료 결과</option>${current.results.map((r,i)=>`<option value="${i}" ${selectedResultIndex === i ? "selected" : ""}>${i+1}. ${escape(r.scenario?.safe_message ?? "시험")} · ${escape(r.verdict)}</option>`).join("")}</select></label>` : ""}
@@ -201,25 +274,13 @@ function draw(host) {
     [patternInput,profileInput,nInput].forEach((input)=>input.addEventListener("change",()=>{selectedOptions={pattern:patternInput.value,profile:profileInput.value,first_n:Number(nInput.value)};}));
   }
   host.querySelector("#lab-advanced")?.addEventListener("toggle",e=>{advancedOpen=e.target.open;});
-  host.querySelector("#lab-load-record")?.addEventListener("click",async()=>{
-    const id=host.querySelector("#lab-record-id").value.trim();
-    if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)){error="시험 기록 UUID를 입력하세요.";draw(host);return;}
-    try {
-      const response=await fetch(`/api/test/fault-runs/${id}`);
-      if(!response.ok)throw new Error("개별 시험 기록 조회 실패");
-      current=await response.json();error="";selectedResultIndex=-1;showExecutionPath=false;rememberRun(current);clearTimeout(poll);draw(host);
-      if(["QUEUED","RUNNING"].includes(current.lifecycle))resumePoll(host);
-    } catch(failure) {error=failure.message;draw(host);}
-  });
-  host.querySelector("#lab-path")?.addEventListener("click",()=>{showExecutionPath=!showExecutionPath;if(showExecutionPath && result){selectedTarget=result.scenario.target_id;selectedScenario=result.scenario.scenario_id;selectedTopology=catalog.topologies.find(t=>t.route===result.scenario.route)?.topology_id ?? "canonical_planning";advancedOpen=selectedTopology!=="canonical_planning";selectedNode=catalog.topologies.find(t=>t.topology_id===selectedTopology).nodes.find(n=>n.target_ids.includes(result.scenario.target_id))?.node_id ?? "planner";}draw(host);if(showExecutionPath)host.querySelector(".fault-graph-scroll")?.scrollIntoView({block:"start"});});
+  host.querySelector("#lab-path")?.addEventListener("click",()=>{showExecutionPath=!showExecutionPath;if(showExecutionPath && result){selectedTarget=result.scenario.target_id;selectedScenario=result.scenario.scenario_id;selectedTopology=catalog.topologies.find(t=>t.route===result.scenario.route)?.topology_id ?? "canonical_planning";advancedOpen=selectedTopology!=="canonical_planning";selectedNode=catalog.topologies.find(t=>t.topology_id===selectedTopology).nodes.find(n=>n.target_ids.includes(result.scenario.target_id))?.node_id ?? "planner";}draw(host);if(showExecutionPath){host.querySelector(".fault-graph-scroll")?.scrollIntoView({block:"start"});const pathTopology=catalog.topologies.find(t=>t.topology_id===selectedTopology);playExecutionPath(host,pathTopology,result);}});
   host.querySelector("#lab-back-result")?.addEventListener("click",()=>host.querySelector("#lab-report")?.scrollIntoView({block:"start"}));
-  host.querySelector("#lab-history")?.addEventListener("change",async(e)=>{const entry=history.find(r=>r.id===e.target.value);if(!entry)return;try{const response=await fetch(`/api/test/fault-${entry.kind === "suite" ? "suites" : "runs"}/${entry.id}`);if(!response.ok)throw new Error("시험 기록 조회 실패");current=await response.json();selectedResultIndex=-1;showExecutionPath=false;rememberRun(current);clearTimeout(poll);draw(host);if(["QUEUED","RUNNING"].includes(current.lifecycle))resumePoll(host);}catch(failure){error=failure.message;draw(host);}});
   host.querySelector("#lab-topology")?.addEventListener("change", (e) => {showExecutionPath=false;selectedTopology=e.target.value;selectedNode=catalog.topologies.find((t) => t.topology_id === selectedTopology).nodes[0].node_id;draw(host);});
   host.querySelectorAll("[data-fault-node]").forEach((button) => button.addEventListener("click", () => { showExecutionPath=false;selectedNode = button.dataset.faultNode; draw(host); }));
   host.querySelector("#lab-target")?.addEventListener("change",(e)=>{showExecutionPath=false;selectedTarget=e.target.value;draw(host);});
   host.querySelector("#lab-scenario")?.addEventListener("change", (e) => { showExecutionPath=false;selectedScenario=e.target.value; draw(host); });
-  host.querySelector("#lab-run")?.addEventListener("click", () => execute(host, {scenario_id:selectedScenario,pattern:host.querySelector("#lab-pattern").value,first_n:Number(host.querySelector("#lab-first-n").value),profile:host.querySelector("#lab-profile").value}, false));
-  host.querySelector("#lab-suite")?.addEventListener("click", () => execute(host, {cases:ready.map((s) => ({scenario_id:s.scenario_id,pattern:s.patterns[0],first_n:1,profile:s.profiles.includes("safe_stop") ? "safe_stop" : s.profiles[0]}))}, true));
+  host.querySelector("#lab-run")?.addEventListener("click", () => execute(host, {scenario_id:selectedScenario,pattern:host.querySelector("#lab-pattern").value,first_n:Number(host.querySelector("#lab-first-n").value),profile:host.querySelector("#lab-profile").value}));
   host.querySelector("#lab-result")?.addEventListener("change",(e)=>{showExecutionPath=false;selectedResultIndex=Number(e.target.value);draw(host);});
   host.querySelector("#lab-download")?.addEventListener("click", () => {
     const url=URL.createObjectURL(new Blob([JSON.stringify(current,null,2)],{type:"application/json"}));
@@ -227,7 +288,7 @@ function draw(host) {
   });
 }
 
-async function execute(host, body, suite) {
+async function execute(host, body) {
   try {
     error="";
     showExecutionPath=false;
@@ -235,13 +296,13 @@ async function execute(host, body, suite) {
     const serialized=JSON.stringify(body);
     if (pendingBody !== serialized) {pendingBody=serialized;pendingKey=crypto.randomUUID();}
     sessionStorage.setItem("eventquest.faultLabPending",JSON.stringify({body:pendingBody,key:pendingKey}));
-    const response=await fetch(`/api/test/fault-${suite ? "suites" : "runs"}`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":pendingKey},body:serialized});
+    const response=await fetch("/api/test/fault-runs",{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":pendingKey},body:serialized});
     const result=await response.json();
     if (!response.ok) throw new Error(result.detail?.code ?? "시험 요청 실패");
     current=result;pendingBody=null;pendingKey=null;sessionStorage.removeItem("eventquest.faultLabPending");rememberRun(current);draw(host);clearTimeout(poll);
     const tick=async()=>{
       try {
-        const response=await fetch(`/api/test/fault-${suite ? "suites" : "runs"}/${current.id}`);
+        const response=await fetch(`/api/test/fault-runs/${current.id}`);
         if (!response.ok) throw new Error("시험 상태 조회 실패");
         current=await response.json();if(host.isConnected) draw(host);
         if (["QUEUED","RUNNING"].includes(current.lifecycle)) poll=setTimeout(tick,800);

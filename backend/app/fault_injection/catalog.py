@@ -1,4 +1,4 @@
-"""Single authority for selectable boundaries and complete error coverage."""
+"""Single authority for selectable fault-lab boundaries and scenarios."""
 
 from dataclasses import asdict
 from itertools import pairwise
@@ -9,8 +9,6 @@ VERSION = "fault-lab-v1"
 BOUNDARIES = {
     "legacy.planner.response": "backend.app.services.llm_service.LLMService.generate",
     "workflow.cas": "backend.app.services.workflow_execution.cancel",
-    "input.validate": "backend.app.api.planning.submit_event_brief",
-    "input.guard": "backend.app.api.planning.submit_event_brief",
     "scope.fixture": "backend.app.services.canonical_planning.create_event_workflow",
     "storage.write": "backend.app.services.workflow_execution._write_once",
     "trace.write": "backend.app.services.workflow_execution.record_observation",
@@ -34,8 +32,6 @@ READY = {
     "item_not_found": "legacy.planner.response",
     "supervisor_state_conflict": "workflow.cas",
     "recovery_limit_exceeded": "planner.response",
-    "input_validation_error": "input.validate",
-    "input_guard_blocked": "input.guard",
     "unsupported_capability": "scope.fixture",
     "game_data_unavailable": "scope.fixture",
     "db_connection_error": "storage.write",
@@ -62,7 +58,6 @@ READY = {
 
 def catalog() -> dict:
     nodes = [
-        ("input", "요청·보안 검사", "validation", ["input.validate", "input.guard"]),
         (
             "supervisor",
             "Supervisor · 상태·복구 결정",
@@ -98,6 +93,8 @@ def catalog() -> dict:
     ]
     scenarios = []
     for fault_id, definition in ERROR_CATALOG.items():
+        if fault_id in {"input_validation_error", "input_guard_blocked"}:
+            continue
         target = READY.get(fault_id)
         scenarios.append(
             {
@@ -176,7 +173,6 @@ def catalog() -> dict:
                 "kind": kind,
                 "target_ids": targets,
                 "observed_events": {
-                    "input": ["brief.accepted"],
                     "validation": [
                         "capability.scope_checked",
                         "rule_balance.validation_completed",
@@ -212,7 +208,6 @@ def catalog() -> dict:
             )
         ]
         + [
-            {"from": "input", "to": "supervisor", "kind": "control"},
             {"from": "critic", "to": "planner", "kind": "revision"},
             {"from": "supervisor", "to": "planner", "kind": "recovery"},
             {"from": "supervisor", "to": "mcp", "kind": "recovery"},
@@ -356,7 +351,6 @@ def _fixed_graphs(data: dict) -> None:
     """Presentation coordinates remain unchanged across requests and retries."""
     canonical = data["topologies"][0]
     labels = {
-        "input": "요청 확인",
         "mcp": "게임 데이터 조회",
         "handoff": "권한·컨텍스트·인계",
         "planner": "기획안 작성",
@@ -388,20 +382,18 @@ def _fixed_graphs(data: dict) -> None:
         },
     ]
     positions = {
-        "input": (24, 64),
-        "mcp": (24, 192),
-        "handoff": (24, 320),
-        "planner": (24, 448),
-        "validation": (348, 448),
-        "critic": (348, 576),
-        "final": (24, 704),
-        "store": (24, 832),
-        "approval": (24, 960),
-        "supervisor": (672, 320),
-        "safe_stop": (672, 832),
+        "mcp": (24, 64),
+        "handoff": (24, 150),
+        "planner": (24, 236),
+        "validation": (348, 236),
+        "critic": (348, 322),
+        "final": (24, 408),
+        "store": (24, 494),
+        "approval": (24, 580),
+        "supervisor": (672, 150),
+        "safe_stop": (672, 494),
     }
     flow = [
-        "input",
         "mcp",
         "handoff",
         "planner",
@@ -430,7 +422,7 @@ def _fixed_graphs(data: dict) -> None:
         topology["layout"] = {
             "version": "fixed-graph-2",
             "width": 980,
-            "height": 1100 if topology is canonical else 64 + 128 * len(topology["nodes"]),
+            "height": 672 if topology is canonical else 64 + 86 * len(topology["nodes"]),
             "lanes": [
                 {"x": 24, "label": "주 흐름"},
                 {"x": 348, "label": "검증·평가"},
@@ -438,11 +430,9 @@ def _fixed_graphs(data: dict) -> None:
             ],
         }
         for i, node in enumerate(topology["nodes"]):
-            x, y = positions[node["node_id"]] if topology is canonical else (24, 64 + i * 128)
-            node["position"] = {"x": x, "y": y, "width": 280, "height": 96}
+            x, y = positions[node["node_id"]] if topology is canonical else (24, 64 + i * 86)
+            node["position"] = {"x": x, "y": y, "width": 280, "height": 68}
     target_labels = {
-        "input.validate": "요청 형식 검사",
-        "input.guard": "요청 보안 검사",
         "workflow.execute": "Workflow 실행",
         "workflow.deadline": "전체 실행 시간 제한",
         "workflow.cas": "상태 전이 충돌 검사",
@@ -470,7 +460,10 @@ def validate_registry() -> None:
     import importlib
 
     data = catalog()
-    assert {row["fault_id"] for row in data["scenarios"]} == set(ERROR_CATALOG)
+    assert {row["fault_id"] for row in data["scenarios"]} == set(ERROR_CATALOG) - {
+        "input_validation_error",
+        "input_guard_blocked",
+    }
     targets = {row["target_id"] for row in data["targets"]}
     assert len(targets) == len(data["targets"])
     for topology in data["topologies"]:

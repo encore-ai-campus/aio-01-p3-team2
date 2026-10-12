@@ -21,9 +21,9 @@ def enabled(monkeypatch):
     monkeypatch.setenv("FAULT_LAB_MODE", "isolated")
 
 
-def test_registry_covers_every_code_and_real_callable():
+def test_registry_covers_selectable_codes_and_real_callable():
     validate_registry()
-    assert len({row["fault_id"] for row in catalog()["scenarios"]}) == 28
+    assert len({row["fault_id"] for row in catalog()["scenarios"]}) == 26
     assert set(READY) <= set(ERROR_CATALOG)
 
 

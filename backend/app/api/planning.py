@@ -19,6 +19,7 @@ from backend.app.services.canonical_planning import (
     get_plan,
     get_workflow,
     list_workflows,
+    request_plan_revision,
     resolve_event_workflow_submission,
 )
 from backend.app.services.llm_service import (
@@ -45,7 +46,8 @@ class PlanDecisionRequest(BaseModel):
     workflow_id: str = Field(min_length=1, max_length=120)
     plan_id: str = Field(min_length=1, max_length=120)
     result_version: int = Field(ge=1)
-    action: Literal["APPROVE", "REJECT"]
+    action: Literal["APPROVE", "REJECT", "REQUEST_REVISION"]
+    approval_comment: str | None = Field(default=None, max_length=500)
 
 
 class WorkflowVersionRequest(BaseModel):
@@ -240,6 +242,22 @@ def submit_plan_decision(
 ) -> dict[str, object]:
     """Record the current single-user operator's decision on an exact plan version."""
     try:
+        if decision.action == "REQUEST_REVISION":
+            if not decision.approval_comment or not decision.approval_comment.strip():
+                raise HTTPException(status_code=422, detail={"code": "REVISION_COMMENT_REQUIRED"})
+            policy_context = (
+                recovery_policy.pin_active_policy()
+                if os.getenv("DATABASE_URL", "").strip()
+                else nullcontext()
+            )
+            with policy_context, workflow_llm_call_budget(max_calls=8):
+                return request_plan_revision(
+                    decision.workflow_id,
+                    decision.plan_id,
+                    decision.result_version,
+                    decision.approval_comment,
+                    idempotency_key,
+                )
         return decide_plan(
             decision.workflow_id,
             decision.plan_id,
@@ -247,6 +265,14 @@ def submit_plan_decision(
             decision.action,
             idempotency_key,
         )
+    except HTTPException:
+        raise
+    except InputGuardBlocked as exc:
+        raise HTTPException(status_code=422, detail={"code": "INPUT_GUARD_BLOCKED"}) from exc
+    except recovery_policy.RecoveryPolicyError as exc:
+        raise HTTPException(status_code=503, detail={"code": "RECOVERY_POLICY_INVALID"}) from exc
+    except (LLMBudgetExceeded, LLMTimeoutError, LLMExecutionError, CanonicalMCPUnavailable) as exc:
+        raise HTTPException(status_code=503, detail={"code": "REVISION_GENERATION_UNAVAILABLE", "message": str(exc)}) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail={"code": "WORKFLOW_NOT_FOUND"}) from exc
     except PermissionError as exc:
@@ -261,11 +287,15 @@ def submit_plan_decision(
                 "message": "운영자 ID 설정을 확인해주세요.",
             },
         ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail={"code": "RUNTIME_CATALOG_UNAVAILABLE"}) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=409, detail={"code": "PLAN_DECISION_CONFLICT", "message": str(exc)}
         ) from exc
     except SQLAlchemyError:
+        if decision.action == "REQUEST_REVISION":
+            raise HTTPException(status_code=503, detail={"code": "REVISION_STORE_UNAVAILABLE"})
         try:
             return decide_plan(
                 decision.workflow_id,
