@@ -1,0 +1,11 @@
+**
+!infra/
+infra/**
+!infra/aws/
+infra/aws/**
+!infra/aws/requirements.ci.lock
+!frontend-web/
+frontend-web/**
+!frontend-web/package.json
+!frontend-web/pnpm-lock.yaml
+!frontend-web/pnpm-workspace.yaml

@@ -10,6 +10,7 @@ import socket
 import ssl
 import subprocess
 import time
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -269,7 +270,14 @@ def test_production_fleet_tls_routes_mcp_game_and_runner(production_cluster, tmp
                     proxies["game-web"] = {"peers": [peers["game-web"]], "secret": proofs["game"]}
                 settings.update(
                     CLOUD_PROXY_IDENTITIES=json.dumps(proxies),
-                    APP_ALLOWED_ORIGINS="https://plan.localhost,https://game.localhost",
+                    APP_ALLOWED_ORIGINS="https://plan.localhost,https://game.localhost,"
+                    + ",".join(
+                        "https://"
+                        + role.split("-")[0]
+                        + ".localhost:"
+                        + info(web_container)["NetworkSettings"]["Ports"]["8443/tcp"][0]["HostPort"]
+                        for role, web_container in web.items()
+                    ),
                     OPERATOR_ACTOR_ID="liveops01",
                     APPROVED_ACTOR_IDS="liveops01",
                     MCP_URL=f"http://{purpose}-mcp.internal:8010/mcp",
@@ -412,6 +420,36 @@ def test_production_fleet_tls_routes_mcp_game_and_runner(production_cluster, tmp
             release_id="image-test-release",
             enabled=False,
         )
+        if os.getenv("CLOUD_BROWSER_TESTS") == "true":
+            browser_config = tmp_path / "browser.json"
+            browser_config.write_text(
+                json.dumps(
+                    {
+                        "password": password,
+                        **{
+                            role.split("-")[0]: "https://"
+                            + role.split("-")[0]
+                            + ".localhost:"
+                            + info(container)["NetworkSettings"]["Ports"]["8443/tcp"][0]["HostPort"]
+                            for role, container in web.items()
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            env_files.append(browser_config)
+            subprocess.run(
+                [
+                    "node",
+                    "node_modules/@playwright/test/cli.js",
+                    "test",
+                    "--config=playwright.production.config.js",
+                ],
+                cwd=Path(__file__).resolve().parents[3] / "frontend-web",
+                env={**os.environ, "CLOUD_BROWSER_CONFIG": str(browser_config)},
+                check=True,
+                timeout=180,
+            )
         code, body, _ = request(
             "plan-web",
             "/api/test/fault-suites",

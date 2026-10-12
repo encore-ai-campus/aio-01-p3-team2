@@ -130,8 +130,10 @@ test("real MCP HTTP 503 through the UI persists a canonical safe stop and Trace"
   );
   await page.getByRole("button", { name: /기획안 검증 시작/ }).click();
   const response = await workflowResponse;
-  expect(response.status()).toBe(201);
-  const workflow = await response.json();
+  expect(response.status()).toBe(202);
+  const accepted = await response.json();
+  await expect(page.locator(".page-intro .state-chip")).toHaveText("안전 중단", { timeout: 45000 });
+  const workflow = await page.request.get(`/api/v1/workflows/${accepted.workflow_id}`).then(r => r.json());
 
   expect(workflow.workflow_status).toBe("SAFE_STOP");
   expect(workflow.execution_profile).toBe("mcp_runtime_safe_stop");

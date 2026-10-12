@@ -1,5 +1,7 @@
 # Infra·네트워크·운영 설계
 
+2026-10-12 A4 최신: Linux CI와 동일 image tar의 실제 DB/MCP/HTTPS Browser 검사 및 필수 성공·SHA/run/attempt/hash 승격 검사를 구현·로컬 검증했다. AWS 권한 없는 CI 후보만 발급하며 ECR/배포는 A5/A6 이후다. 원격 Actions 실행 확인은 남아 있다. 현재 계약/결과는 [구현 계획 24 §15](24_AWS_배포_CICD_구현계획.md#15-linux-ci동일-이미지-승격-검사-구현-2026-10-12), [검증 기록](../검증산출물/2026-10-12_LinuxCI_이미지승격_검증.md)을 따른다. 아래는 과거 단계 기록으로 보존한다.
+
 2026-10-12 최신 후속: 운영 application/web 이미지와 여섯 service role의 strict entry·HTTPS/private proxy·MCP Host/Origin을 구현하고 실제 container로 검증했다. core 525 PASS/1 SKIP, Python inventory 70개(core 51, postgres 14, external 3, compatibility 2), JavaScript 7개. 최신 범위는 [구현 계획 24 §14](24_AWS_배포_CICD_구현계획.md#14-운영용-이미지서비스-실행-설정-구현-2026-10-12)와 [image 검증 기록](../검증산출물/2026-10-12_운영이미지_로컬검증.md)을 따른다. Linux release gate와 실제 AWS 수용은 아직 남아 있다. 아래 과거 기록은 보존한다.
 
 2026-10-12 최신 후속: cloud 공유 maintenance/drain과 owner-only 보호 table을 구현했다. core 489 PASS/1 SKIP, Python inventory 68개(core 50, postgres 13, external 3, compatibility 2). 현재 결과와 한계는 [구현 계획 24 §13](24_AWS_배포_CICD_구현계획.md#13-공유-유지보수drain-구현-2026-10-12)을 따른다. 아래 이전 검증·설계 기록은 보존한다. 실제 AWS 수용·배포는 아직 수행하지 않았다.

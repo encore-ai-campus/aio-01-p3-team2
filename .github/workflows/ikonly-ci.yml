@@ -1,4 +1,4 @@
-name: Ikonly CI foundation
+name: Ikonly Linux CI and image gate
 
 on:
   push:
@@ -12,17 +12,21 @@ concurrency:
   group: ikonly-ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  WORKFLOW_ENGINE: mock
+  CANONICAL_PLANNING_MODE: deterministic
+  PYTHONDONTWRITEBYTECODE: '1'
+
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       ci_required: ${{ steps.impact.outputs.ci_required }}
-      web_sites: ${{ steps.impact.outputs.web_sites }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
       - name: Compute CI candidates
@@ -33,99 +37,233 @@ jobs:
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/ikonly
-          python infra/aws/deployment_impact.py \
-            --base "$BASE_SHA" --head "$HEAD_SHA" \
-            --output deployment-impact.json --github-output "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4
+          python infra/aws/deployment_impact.py --base "$BASE_SHA" --head "$HEAD_SHA" --output test-results/deployment-impact.json --github-output "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: deployment-impact-${{ github.sha }}
-          path: deployment-impact.json
+          name: impact-${{ github.sha }}-${{ github.run_attempt }}
+          path: test-results/deployment-impact.json
           if-no-files-found: error
+          retention-days: 7
 
   quality-core:
     needs: changes
     if: needs.changes.outputs.ci_required == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
-      - run: python -m pip install -r backend/requirements.txt -r requirements-dev.txt
-      - run: python -m ruff check .
-      - run: python -m ruff format --check .
-      - run: python -m backend.scripts.export_planning_contract_schemas --check
-      - run: python -m infra.aws.contracts --check
-      - name: Core without cloud or paid dependencies
-        env:
-          WORKFLOW_ENGINE: mock
-          CANONICAL_PLANNING_MODE: deterministic
-        run: python -m pytest --test-profile core -q --junitxml=test-results/core.xml
-      - uses: actions/upload-artifact@v4
-        if: always()
+      - run: python -m pip install --require-hashes -r infra/aws/requirements.ci.lock
+      - run: bash infra/ci/run-python.sh core
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
-          name: core-results
-          path: test-results/core.xml
-          if-no-files-found: warn
-
-  web-build:
-    needs: changes
-    if: needs.changes.outputs.web_sites != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        site: ${{ fromJSON(needs.changes.outputs.web_sites) }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - uses: actions/setup-node@v4
+          version: 10.33.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
-      - name: Build the selected site
-        env:
-          SITE: ${{ matrix.site }}
-        run: |
-          set -euo pipefail
-          case "$SITE" in
-            plan) cd frontend-web ;;
-            game) cd demo-game ;;
-            *) exit 1 ;;
-          esac
-          pnpm install --frozen-lockfile
-          pnpm build
-          if [ "$SITE" = plan ]; then pnpm test:proxy; fi
-      - uses: actions/upload-artifact@v4
+      - run: pnpm --dir frontend-web install --frozen-lockfile
+      - run: pnpm --dir frontend-web test:proxy
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
         with:
-          name: web-${{ matrix.site }}-${{ github.sha }}
-          path: ${{ matrix.site == 'plan' && 'frontend-web/dist' || 'demo-game/dist' }}
+          name: core-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            test-results/core.xml
+            test-results/quality-core.json
           if-no-files-found: error
+          retention-days: 7
 
-  foundation-summary:
-    needs: [changes, quality-core, web-build]
-    if: always()
-    runs-on: ubuntu-latest
-    env:
-      CHANGE_RESULT: ${{ needs.changes.result }}
-      CORE_RESULT: ${{ needs.quality-core.result }}
-      WEB_RESULT: ${{ needs.web-build.result }}
-      CI_REQUIRED: ${{ needs.changes.outputs.ci_required }}
-      WEB_SITES: ${{ needs.changes.outputs.web_sites }}
+  postgres:
+    needs: changes
+    if: needs.changes.outputs.ci_required == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - name: Validate selected foundation jobs
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --require-hashes -r infra/aws/requirements.ci.lock
+      - name: Disposable PostgreSQL and real MCP
+        env:
+          CI_JOB_ROLE: postgres
         run: |
           set -euo pipefail
-          test "$CHANGE_RESULT" = success
-          if [ "$CI_REQUIRED" = true ]; then test "$CORE_RESULT" = success; fi
-          if [ "$WEB_SITES" != '[]' ]; then test "$WEB_RESULT" = success; fi
-          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
-          ## CI foundation only
-          Changes, core quality, and selected web builds were checked.
-          Deployment is disabled: PostgreSQL, production images, E2E,
-          cloud access, and AWS deployment gates are not implemented yet.
-          This run is not eligible for production promotion.
-          SUMMARY
+          source infra/ci/database.sh
+          MCP_HOST=127.0.0.1 MCP_PORT=8010 python -m mcp_server.server >test-results/mcp.log 2>&1 &
+          MCP_PID=$!
+          trap 'kill "$MCP_PID" 2>/dev/null || true; cleanup_database' EXIT
+          export MCP_TEST_URL=http://127.0.0.1:8010/mcp
+          python -c 'from infra.ci.ui import wait; wait(8010,"/health/ready")'
+          bash infra/ci/run-python.sh postgres
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: postgres-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            test-results/postgres.xml
+            test-results/core-pg.xml
+            test-results/postgres.json
+          if-no-files-found: error
+          retention-days: 7
+
+  ui:
+    needs: changes
+    if: needs.changes.outputs.ci_required == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --require-hashes -r infra/aws/requirements.ci.lock
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: pnpm --dir frontend-web install --frozen-lockfile && pnpm --dir demo-game install --frozen-lockfile
+      - run: pnpm --dir frontend-web exec playwright install --with-deps chromium
+      - name: Existing UI fixtures, actual DB, restart and HTTP failure
+        env:
+          CI_JOB_ROLE: ui
+        run: |
+          source infra/ci/database.sh
+          bash infra/ci/run-ui.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: ui-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            test-results/ui*.xml
+            test-results/ui.json
+            frontend-web/test-results/ci-*
+          if-no-files-found: error
+          retention-days: 7
+
+  build-images:
+    needs: changes
+    if: needs.changes.outputs.ci_required == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Build once and export immutable candidates
+        run: |
+          set -euo pipefail
+          mkdir -p test-results
+          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" -f infra/aws/Dockerfile.application -t ikonly-application:ci .
+          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" -f infra/aws/Dockerfile.web -t ikonly-web:ci .
+          docker save --output test-results/application.tar ikonly-application:ci
+          docker save --output test-results/web.tar ikonly-web:ci
+          python -m infra.ci.gate bundle
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: images-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            test-results/application.tar
+            test-results/web.tar
+            test-results/candidate.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  verify-images:
+    needs: [changes, build-images]
+    if: needs.changes.outputs.ci_required == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --require-hashes -r infra/aws/requirements.ci.lock
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - run: pnpm --dir frontend-web install --frozen-lockfile
+      - run: pnpm --dir frontend-web exec playwright install --with-deps chromium
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: images-${{ github.sha }}-${{ github.run_attempt }}
+          path: test-results
+      - name: Load exact tar and verify production fleet and browser
+        env:
+          CI_JOB_ROLE: images
+        run: |
+          source infra/ci/database.sh
+          bash infra/ci/verify-images.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: image-checks-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            test-results/images.xml
+            test-results/production-browser.xml
+            test-results/verify-images.json
+            frontend-web/test-results/production
+          if-no-files-found: error
+          retention-days: 7
+
+  release-gate:
+    needs: [changes, quality-core, postgres, ui, build-images, verify-images]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      ci_verified: ${{ steps.approve.outputs.ci_verified }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Reject failed or missing selected jobs
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          CI_REQUIRED: ${{ needs.changes.outputs.ci_required }}
+        run: |
+          python - <<'PY'
+          import json,os
+          jobs=json.loads(os.environ['NEEDS_JSON'])
+          assert jobs['changes']['result']=='success'
+          if os.environ['CI_REQUIRED']=='true':
+              assert all(j['result']=='success' for j in jobs.values()), 'Required job failed or skipped'
+          else:
+              assert os.environ['CI_REQUIRED']=='false'
+              assert all(j['result']=='skipped' for k,j in jobs.items() if k!='changes')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: needs.changes.outputs.ci_required == 'true'
+        with:
+          pattern: '*-${{ github.sha }}-${{ github.run_attempt }}'
+          merge-multiple: true
+          path: test-results
+      - name: Verify hashes, identity, evidence and candidate
+        id: approve
+        if: needs.changes.outputs.ci_required == 'true'
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/ikonly
+          python -m infra.ci.gate approve --output test-results/ci-verified.json
+          echo 'ci_verified=true' >> "$GITHUB_OUTPUT"
+          echo 'CI candidate verified. AWS deployment remains disabled until A5/A6 protections are configured.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: steps.approve.outputs.ci_verified == 'true'
+        with:
+          name: verified-${{ github.sha }}-${{ github.run_attempt }}
+          path: test-results/ci-verified.json
+          if-no-files-found: error
+          retention-days: 7

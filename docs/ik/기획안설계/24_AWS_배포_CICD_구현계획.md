@@ -1,6 +1,6 @@
 # AWS 배포·CI/CD 구현 계획
 
-작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **영향 판별·manifest·CI 기반·cloud ingress·RDS 경계·신규 DB 초기화·공유 maintenance/drain·운영 이미지/entry 구현, 전체 배포는 미구현**. 최신 진행 범위와 결과는 §14, 이전 단계 기록은 §10~12를 따른다.
+작성: 2026-10-12, Asia/Seoul. 설계 기준: `ikonly@8471249adaaa270142c9468b22937a2cd72c1cbb` 및 배포 문서 변경. 상태: **영향 판별·manifest·cloud ingress·RDS 경계·신규 DB 초기화·공유 maintenance/drain·운영 이미지/entry·Linux CI/동일 이미지 승격 검사 구현, 전체 배포는 미구현**. 최신 진행 범위와 결과는 §15, 이전 단계 기록은 §10~14를 따른다. 원격 Actions 실행 성공은 아직 확인하지 않았다.
 
 구조·비용·종료 원칙은 [배포 설계 23](23_AWS_배포_CICD_계획.md), 테스트 선택은 [CI 분류 22](22_CI_테스트분류_정리.md), 구현 사실은 [현재 구현 상태](../현재_구현상태.md)를 따른다. 가이드의 필수 산출물은 [보존 가이드](../pre/멀티_에이전트_협업_및_서비스_운영_가이드.md)로 확인한다. 구현 담당은 팀장이다.
 
@@ -453,3 +453,60 @@ Compose 연결 변수는 APPLICATION_IMAGE/APPLICATION_ENV_FILE/PRIVATE_BIND_IP/
 core 최종 **525 PASS / 1 SKIP**, 실제 TLS/권한/migration **18 PASS**, 실제 운영 이미지 통합 **2 PASS / 84.64초**. production configuration 검사와 실제 두 이미지의 여섯 역할을 검증했다. HTTP→HTTPS/BasicAuth·static JS/game art·MCP Host/Origin·직접 API 접근 거부·game DB 조회·shared maintenance·시험 자식 process/기록/restart/fallback 금지를 포함한다. 상세 실행 결과·digest·중간 실패/해결은 [운영 이미지 로컬 검증 기록](../검증산출물/2026-10-12_운영이미지_로컬검증.md)을 따른다.
 
 A3 이미지와 service entry의 로컬 준비를 완료했다. 다음은 **A4 Linux CI·실제 image/PG/E2E gate·source SHA/digest/artifact·release-gate**이며, 그 뒤 A5 AWS 인증 세션에서 account/권한/도메인과 IaC를 확인한다. 현재 이미지 tag는 로컬 검증용이고 ECR push/배포 완료가 아니다. 실제 LLM/RDS/ACME/SG/IMDS/SSM·배포/복원/정리의 AWS 수용은 아직 남아 있다.
+
+## 15. Linux CI·동일 이미지 승격 검사 구현 (2026-10-12)
+
+### 실행과 승격 구조
+
+`.github/workflows/ikonly-ci.yml`을 A4 검사로 전환했다. 모든 job은 Ubuntu24.04이며 Python3.11·hash 고정 CI lock을 사용한다. Node22/pnpm10.33.0·frozen lock과 Chromium을 사용하며 Actions 참조도 확인한 commit SHA로 고정했다. AWS credential·OIDC 권한·OpenAI key를 요구하지 않는다. 기존 yejin workflow는 변경하지 않았다.
+
+```mermaid
+flowchart LR
+  C[changes: branch·SHA·영향 확인] --> Q[quality-core: Ruff·schema·core·proxy]
+  C --> P[postgres: 임시 DB·MCP·TLS·migration]
+  C --> U[ui: fixture·DB 연결·재시작·MCP503·게임]
+  C --> B[build-images: 두 이미지 1회 build·tar/hash]
+  B --> V[verify-images: 같은 tar load·fleet·HTTPS Chromium]
+  Q --> G[release-gate: 필수 성공·증빙·identity·hash]
+  P --> G
+  U --> G
+  V --> G
+  B --> G
+  C --> G
+  G --> A[ci-verified.json: CI 검증 후보]
+  A -. A5/A6 보호·권한·수용 후 .-> D[ECR 게시·배포]
+```
+
+문서만 변경되면 제품 검사와 이미지 job을 skip하며 승격 artifact를 발급하지 않는다. 코드/시험/설정 변경의 CI에는 전체 필수 그룹과 두 이미지를 사용한다. 이는 두 화면과 여섯 역할을 검증하기 위한 A4 선택이며, A6의 **영향 역할만 배포**하는 계약을 변경하지 않는다. 현재 build 단계에서는 한쪽 이미지만 생성하는 최적화를 사용하지 않는다.
+
+### 실행 파일과 검사 책임
+
+| 파일 | 책임 |
+|---|---|
+| `infra/ci/run-python.sh` | 전역 품질·core 또는 PostgreSQL 그룹, 별도 core DB parameter |
+| `infra/ci/database.sh`, `compose.yml` | job/run/attempt별 임시 loopback DB, 무작위 비밀번호, seed·정책 정합성, 종료 trap |
+| `infra/ci/collect.py` | 실행 전 pytest 함수/클래스/parameter ID 수집 |
+| `infra/ci/ui.py`, `run-ui.sh`, `playwright.ci.config.js` | 소유 API·503 endpoint, Chromium 연결 28/재시작 1/게임 2/503 1, 선택 title 목록과 JUnit |
+| `infra/ci/verify-images.sh`, `playwright.production.config.js`, `production-images.spec.js` | tar load 이후 실제 private fleet·인증된 HTTPS 화면·격리 복구 시연 |
+| `infra/ci/gate.py` | candidate 생성, tar/load identity 검증, 시험 receipt, 최종 승격 검사 |
+| `infra/ci/Dockerfile.runner` 및 ignore | Windows에서 Linux 검사 재현용 도구 이미지. 운영 이미지나 배포 서비스가 아님 |
+
+UI fixture는 표현/디자인/상태 분기의 기존 검사를 유지한다. 연결·승인·게임 등록·재시작·MCP503은 실제 임시 DB/API를 거친다. 운영 image Browser 검사는 실제 DB/catalog/MCP와 두 Caddy 화면을 사용한다. 유료 LLM·Clash·과거 실험 ID 조회·archived compatibility는 기본 CI에서 선택하지 않는다.
+
+### Artifact와 실패 차단
+
+- `candidate.json`: source SHA, run ID/attempt, schema/migration/catalog source fingerprint, application/web tag·image ID·tar 파일 hash. 아직 ECR manifest digest가 아니다.
+- suite receipt + JUnit: 수집된 각 Python parameter와 등록 함수의 실행, UI list-mode의 선택 title, 필수 skip/실패/누락 검사를 수행한다. core의 정확한 PostgreSQL parameter skip 1개만 허용하고 DB job에서 해당 parameter를 요구한다.
+- build artifact의 두 tar를 verify job에서 load하며 rebuild하지 않는다. loaded image ID와 `org.opencontainers.image.revision`을 대조한다. image receipt는 검사한 candidate hash도 기록한다.
+- `release-gate`는 `always()`로 실행해 여섯 필수 job이 모두 success인지 먼저 확인한다. 같은 SHA/run/attempt의 tar·candidate·receipt·JUnit을 내려받아 hash와 identity를 다시 대조한다. 실패/취소/필수 skip/누락/다른 실행/변조는 승격 실패다.
+- 통과할 때만 `ci-verified.json`을 게시한다. `ci_verified=true`지만 `deployment_authorized=false`다. infrastructure/미분류 변경의 `manual_review_required`도 유지한다. GitHub artifact 보존은 7일이며 tar는 추가 압축 없이 전송한다.
+
+이 파일은 §6의 실제 환경 `release.json`과 구분되는 **CI 후보 manifest**다. 실제 CI provenance는 신뢰할 workflow/branch와 GitHub run 메타데이터를 A6에서 확인해야 한다. A5에서 deployment 보호·OIDC/IAM을 구성하고 A6에서 같은 tar를 ECR에 push한 뒤 ECR digest를 기존 ReleaseManifest에 연결한다. CI 성공만으로 AWS 변경 권한을 발급하지 않는다.
+
+### 확인 결과와 남은 단계
+
+로컬 Linux 최종 core **546 PASS / 1 SKIP**, PostgreSQL **52 PASS**, 원자성 parameter **3 PASS**, Node proxy **1 PASS**, 기존 Chromium **32 PASS**, 실제 image fleet **2 PASS**와 내부 HTTPS Browser **3 PASS**를 확인했다. 승격 거부 조건 21개는 core에 포함된다. 실제 tar와 보고서의 release-gate 재현·actionlint·전역 Ruff/schema도 통과했다.
+
+profile hook이 기본 pytest ignore 처리를 막던 문제와 오래된 MCP503 UI 응답 기대를 수정했다. Node localhost 해석 차이는 Chromium same-origin 조회로 해결했다. 자세한 결과·중간 실패·이미지 ID/해시·격리/정리 근거는 [Linux CI·이미지 승격 검증](../검증산출물/2026-10-12_LinuxCI_이미지승격_검증.md)을 따른다.
+
+**A4 코드·로컬 연결 검증 완료, 원격 Actions 실행은 push 후 확인 필요**. push·ECR 게시·AWS 인증/배포는 수행하지 않았다. 다음 구현은 A5 IaC/IAM/SSM/Parameter Store와 AWS preflight이며 인증이 필요할 때 사용자 세션을 연다. 실제 public TLS·RDS·OpenAI·SG·IMDS·배포/rollback/복원/정리는 후속 AWS 수용 범위다.

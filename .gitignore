@@ -25,6 +25,7 @@ env/
 .coverage.*
 htmlcov/
 /frontend-web/test-results/
+/test-results/
 
 # Build and packaging artifacts
 build/

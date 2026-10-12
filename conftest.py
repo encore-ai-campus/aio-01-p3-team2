@@ -38,6 +38,7 @@ def pytest_ignore_collect(collection_path, config):
     except ValueError:
         return None
     entry = load_inventory().get(name)
-    if entry is not None:
-        return not included(entry["suite"], config.getoption("--test-profile"))
+    if entry is not None and not included(entry["suite"], config.getoption("--test-profile")):
+        return True
+    # Included files must leave pytest's built-in --ignore hook available.
     return None

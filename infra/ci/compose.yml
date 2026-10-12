@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: eventquest_test
+      POSTGRES_PASSWORD: ${CI_DB_PASSWORD:?temporary password required}
+      POSTGRES_DB: eventquest_auto_test
+    ports:
+      - "127.0.0.1:${CI_DB_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventquest_test -d eventquest_auto_test"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

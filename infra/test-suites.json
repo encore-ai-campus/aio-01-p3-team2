@@ -870,6 +870,22 @@
         "test_production_image_contents_and_missing_configuration",
         "test_production_fleet_tls_routes_mcp_game_and_runner"
       ]
+    },
+    {
+      "file": "backend/tests/unit/test_ci_gate.py",
+      "suite": "core",
+      "reason": "Fail-closed CI identity, required job, evidence and artifact promotion checks.",
+      "test_functions": [
+        "test_profile_selection_preserves_pytest_builtin_ignore",
+        "test_complete_ci_evidence_is_verified_without_deployment_authority",
+        "test_required_job_must_succeed",
+        "test_changed_identity_or_empty_evidence_is_rejected",
+        "test_changed_artifact_or_report_is_rejected",
+        "test_candidate_paths_cannot_escape_bundle",
+        "test_empty_skip_failed_reports_cannot_be_evidence",
+        "test_function_coverage_is_required",
+        "test_missing_parameter_is_rejected_even_when_function_passed"
+      ]
     }
   ],
   "javascript": [
@@ -907,6 +923,11 @@
       "file": "frontend-web/game-e2e/game-smoke.spec.js",
       "suite": "game_e2e",
       "reason": "Actual Phaser rendering, authoritative API display, tab navigation and disconnected state"
+    },
+    {
+      "file": "frontend-web/e2e/production-images.spec.js",
+      "suite": "production_e2e",
+      "reason": "Actual immutable production images, authenticated HTTPS, real catalog/game DB and isolated recovery."
     }
   ]
 }
