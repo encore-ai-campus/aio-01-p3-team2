@@ -65,10 +65,10 @@ backend/.venv/Scripts/python.exe -m infra.aws.release_plan --candidate <candidat
 2. `infra/aws/fleet_release.py`에서 release plan 선택 역할만 staging/SSM 실행한다. API 변경·migration은 점검/drain 이후 진행하고, MCP → API → 웹 순서와 실제 영향 연결 검사를 사용한다. 웹만 변경할 때는 DB 재초기화와 전역 점검을 하지 않는다. 성공한 fleet 수용 후에만 accepted manifest를 원자적으로 갱신한다.
 3. migration은 기존 owner 역할로 적용하고 DB 데이터를 보존한다. 하위 호환 migration·실패 복구 계약을 먼저 확인한다. 데이터 파괴 변경을 자동 롤백 가능하다고 가정하지 않는다.
 4. `infra/aws/cleanup.py`에 이번 manifest/태그 기반 역순 삭제·S3 모든 version 내려받기/무결성 검사·보존 자원 purge·최종 조회를 재사용 가능한 코드로 옮긴다. reset의 기본 완료 기준은 보존 목록 0이다. 실패 후 재실행은 이미 삭제된 대상을 확인하고 남은 단계만 계속한다.
-5. `.github/workflows/ikonly-deploy.yml`, `ikonly-operations.yml`에서 승인된 CI artifact 게시와 initial/update/reset을 연결한다. ikonly push에서는 배포된 환경이 있을 때만 변경 서비스 update를 수행하고, reset 후 문서/코드 push가 비용 자원을 자동 재생성하지 않게 한다. initial/reset은 명시적 수동 명령, update는 활성 환경 대상으로 한다. 동일 환경의 update/reset을 같은 lock으로 직렬화한다.
-6. 코드가 연결된 뒤 요청된 범위의 로컬 검사와 실제 AWS 첫 배포→부분 업데이트→전체 업데이트→초기화→재배포 수용을 기록한다. 현재 자원을 다시 만드는 실행은 하지 않았다.
+5. `.github/workflows/ikonly-ci.yml`의 deploy/operations job에서 승인된 CI artifact 게시와 update/recover/OIDC 검사를 연결했다. initial/reset은 로컬 `operations.py`를 사용한다. ikonly push에서는 배포된 환경이 있을 때만 변경 서비스 update를 수행하고, reset 후 문서/코드 push가 비용 자원을 자동 재생성하지 않게 한다. initial/reset은 명시적 수동 명령, update는 활성 환경 대상으로 한다. 동일 환경의 update/reset을 같은 lock으로 직렬화한다.
+6. 코드가 연결된 뒤 요청된 범위의 로컬 검사와 실제 AWS 첫 배포→부분 업데이트→전체 업데이트→초기화→재배포 수용을 기록한다. 최초 기록 시 자원을 다시 만드는 실행은 하지 않았다. 새 경로 시험 진행 상태는 [구현 검증 기록](../검증산출물/2026-10-12_AWS_배포수명주기_구현검증.md)을 따른다.
 
-## 5. 확인 범위
+## 5. 최초 기록 당시 확인 범위
 
 이번 변경은 선택 업데이트 계획 모듈 및 수명주기 기준을 구체화했다. 모듈 Ruff lint/format 확인과 실제 AWS 자원 삭제/잔존 조회를 수행했다. 업데이트 시나리오의 신규 자동 테스트와 재배포/실제 업데이트는 수행하지 않았으며 성공으로 기록하지 않는다.
 

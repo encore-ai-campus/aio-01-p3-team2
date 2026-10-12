@@ -301,7 +301,7 @@ def main():
             from infra.aws.initial_deployment import initial
 
             try:
-                initial(
+                accepted = initial(
                     aws,
                     config,
                     args.directory,
@@ -310,6 +310,14 @@ def main():
                     args.policy_file,
                     args.approved_policy_sha256,
                     args.output,
+                )
+                write(
+                    args.output / "result.json",
+                    {
+                        "status": "INITIAL_ACCEPTED",
+                        "release_id": accepted["release"]["release_id"],
+                        "source_sha": accepted["release"]["source_sha"],
+                    },
                 )
             except Exception:
                 marker = args.output / "initial-start.json"
@@ -338,6 +346,14 @@ def main():
                 database(aws, config, state, release, "enable", args.output / "quiesce")
                 database(aws, config, state, release, "drain", args.output / "quiesce")
             reset(aws, config, state, args.output)
+            write(
+                args.output / "result.json",
+                {
+                    "status": "RESET_COMPLETE",
+                    "evidence_saved_locally": True,
+                    "control_identity_removed": False,
+                },
+            )
     print("Operation complete; inspect result metadata in " + str(args.output))
 
 
