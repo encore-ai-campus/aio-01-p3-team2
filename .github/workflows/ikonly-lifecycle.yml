@@ -73,6 +73,7 @@ jobs:
           root.mkdir(parents=True, exist_ok=True)
           (root / 'config.json').write_text(os.environ['CONFIG_JSON'])
           if os.environ['OPERATION'] == 'initial':
+              subprocess.run(['python','-m','infra.aws.lifecycle_dispatch','claim-supply','--config',str(root/'config.json'),'--confirm-environment','ikonly-demo','--output',str(root/'supply-claim')],check=True)
               run_id = os.environ['CI_RUN_ID']
               if not run_id.isdecimal():
                   raise SystemExit('A successful CI run ID is required')
@@ -97,7 +98,7 @@ jobs:
           set -euo pipefail
           args=()
           if [ "$OPERATION" = initial ]; then
-            args+=(--run-id "$CI_RUN_ID" --directory test-results/lifecycle/candidate)
+            args+=(--run-id "$CI_RUN_ID" --directory test-results/lifecycle/candidate --claim-file test-results/lifecycle/supply-claim/claim.json)
           fi
           if [ "$OPERATION" = reset ]; then
             args+=(--evidence-sha256 "$EVIDENCE_SHA256")
@@ -114,7 +115,9 @@ jobs:
       - name: Remove first-deployment supply on success or failure
         if: always() && inputs.operation == 'initial'
         run: |
-          python -m infra.aws.lifecycle_dispatch clear-supply --config test-results/lifecycle/config.json --confirm-environment ikonly-demo --output test-results/lifecycle/supply-cleanup
+          if [ -f test-results/lifecycle/supply-claim/claim.json ]; then
+            python -m infra.aws.lifecycle_dispatch clear-supply --config test-results/lifecycle/config.json --confirm-environment ikonly-demo --claim-file test-results/lifecycle/supply-claim/claim.json --output test-results/lifecycle/supply-cleanup
+          fi
       - name: Preserve safe outcome metadata
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -123,5 +126,6 @@ jobs:
           path: |
             test-results/lifecycle/result/result.json
             test-results/lifecycle/result/residual-check.json
+            test-results/lifecycle/supply-cleanup/cleanup.json
           if-no-files-found: warn
           retention-days: 7

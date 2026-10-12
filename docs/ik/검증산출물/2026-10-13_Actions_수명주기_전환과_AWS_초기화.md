@@ -24,8 +24,12 @@
 - 변경 영향 AWS 단위 검사: 40 PASS (암호화/잘못된 키·변조 거부, 잘못된 release/hash의 삭제 거부, prepare 단계의 무삭제, 평문 artifact 금지, 기존 IaC/초기화 재시도 등).
 - 해당 코드 Ruff check/format 검사 통과.
 - 실제 잔존 조회는 17개 분류이며 모두 빈 배열이다. [잔존 검사 JSON](2026-10-13_AWS_초기화_잔존검사.json)을 기준으로 하며 진행 안내의 18개 표기는 분류 수를 잘못 센 것이다.
-- OIDC 컨트롤러 권한 구성 적용 완료. 추가 권한 적용 후 실제 Actions 연결 검사는 진행 결과를 기록한다.
+- OIDC 컨트롤러 권한 구성 적용 완료. 실제 [OIDC 연결 실행 38323471231](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38323471231)은 SUCCESS / OIDC_CONNECTED / ABSENT / 잔존 0이다.
+- 새 lifecycle workflow는 ikonly push로 등록하되 push에서는 실행하지 않는다. 실제 [삭제 확인 guard 실행 38323631335](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38323631335)은 `guard-test` 환경명을 입력해 `Exact environment confirmation is required`로 삭제 전에 거부됐다. 이 실행의 GitHub conclusion=failure는 의도한 음성 검사이며 실제 reset 성공을 뜻하지 않는다.
+- [인프라 Linux 검사 38323461065](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38323461065)는 SUCCESS다. [전체 CI 38323461063](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38323461063)는 SUCCESS다. core 617 / PostgreSQL 56 / UI 36 / 운영 이미지 6, 합계 715 PASS이며 자동 업데이트는 INACTIVE / created_resources=false였다.
 - 제품 코드/UI/DB 스키마는 바꾸지 않았다. 다른 작업의 `현재_구현상태.md` 및 라우터 변경은 이 커밋에 포함하지 않는다.
 - 새 hosted 유료 초기 배포/삭제는 아직 실행하지 않았으며, 다음 첫 배포 때 키 공급→initial→prepare→보존확인→reset 전체를 확인해야 한다.
 
-최종 정리·CI/OIDC 실행 번호는 완료 후 추가한다. [직전 첫 배포](2026-10-13_AWS_현행코드_첫배포_검증.md)의 ACTIVE는 당시 기록이며 이번 정리 후 현재 상태로 해석하지 않는다.
+정리 원본 `result.json`은 RESET_COMPLETE이며 lock 해제와 새 코드의 앱/lifecycle Parameter 잔존 검사까지 다시 확인했다. [직전 첫 배포](2026-10-13_AWS_현행코드_첫배포_검증.md)의 ACTIVE는 당시 기록이며 이번 정리 후 현재 상태로 해석하지 않는다.
+
+후속 사용자 요청으로 임시 SSM 공급 세대/실패 정리를 보완했다. 위 CI source `5ec94ef` 이후 변경의 검증은 [SSM 보완 검증](2026-10-13_SSM_임시공급_세대관리_보완.md)을 별도로 따른다.

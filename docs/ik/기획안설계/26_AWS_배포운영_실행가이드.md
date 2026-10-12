@@ -83,6 +83,21 @@ backend/.venv/Scripts/python.exe -m infra.aws.operations reset --config test-res
 - 첫 배포 실패 자동 정리는 이번 작업 token의 빈 환경 시작 marker가 있을 때만 수행한다. 다른 환경 또는 이미 수용된 성공 환경을 지우지 않는다.
 - 오래된 lock은 자동 탈취하지 않는다. 기록 token과 GitHub 소유 run 종료를 확인해 `unlock --confirm-environment ikonly-demo --lock-token <token>`으로 해제한다. 로컬 소유 프로세스 종료 여부는 운영자가 확인한다.
 
+## 첫 배포 키 임시 보관과 실패 정리
+
+상태: **아래는 보완 전 분석 기록이다.** 세대 등록·hash 확인·run 소유권·실패 정리·만료/잔여 sweep을 구현하고 관련 단위 검사 52개를 통과했다. 실제 확인과 남은 한계는 [SSM 보완 검증](../검증산출물/2026-10-13_SSM_임시공급_세대관리_보완.md), 현재 운영 계약은 [Actions 운영 27](27_Actions_첫배포_초기화_운영.md)을 따른다.
+
+분석 당시 `lifecycle_dispatch.stage()`는 첫 배포 설정을 `SecureString` chunk와 만료 시각으로 SSM Parameter Store에 기록했다. 만료 시각은 소비 시 검사할 뿐 SSM 파라미터를 자동 삭제하지 않았다. GitHub Actions가 dispatch에 도달하기 전 실패하거나, dispatch의 payload 검증 단계에서 중단되면 `bootstrap/*` 값이 남을 수 있었다. 재등록 때 chunk 수가 줄면 이전 등록의 초과 chunk도 남을 수 있었다.
+
+당시 권장한 보완 계약은 다음과 같다.
+
+1. **세대 단위로 등록한다.** 등록마다 임의의 generation ID를 만들고 해당 ID 아래에 chunk를 쓴다. 모든 chunk 저장 후 개수·내용 hash를 확인한 다음 활성 generation 포인터를 갱신한다. 새 등록이 실패하면 기존 활성 세대는 그대로 둔다.
+2. **정확한 세대만 소비·삭제한다.** 첫 배포는 활성 포인터가 가리키는 세대의 개수·만료·config hash·payload hash를 확인한다. 성공·실패를 포함해 dispatch 종료 때 해당 세대의 chunk와 포인터를 삭제한다. chunk count만으로 삭제 범위를 추측하지 않는다.
+3. **조기 실패와 재등록 잔여물을 회수한다.** AWS 인증 뒤 실행되는 workflow 정리 단계는 `always()`로 실행하고, 해당 run이 소유한 generation만 삭제한다. workflow가 AWS 인증 전에 끝나거나 정리가 실패한 경우를 위해 다음 로컬 stage는 작업 lock을 확인한 뒤 만료 세대와 미활성 잔여 세대를 정리한다. 활성 배포가 소비 중인 세대는 정리하지 않는다.
+4. **실패를 드러내고 비밀은 출력하지 않는다.** 정리 성공 여부와 세대 ID·남은 파라미터 개수만 안전한 결과 metadata에 기록한다. 키·payload 원문은 로그나 artifact metadata에 기록하지 않는다. 정리 실패는 성공으로 처리하지 않고 재시도 가능한 운영 상태를 남긴다.
+
+완료 검증은 등록 도중 실패, dispatch 전 workflow 실패, payload 검증 실패, chunk 수가 감소한 재등록, initial 성공·실패 후 SSM 잔여 조회를 포함한다. 모든 경우에 활성 generation 이외의 만료/미활성 비밀 chunk가 남지 않고, 실행 중인 활성 세대가 조기 정리되지 않는지 확인한다.
+
 ## 초기화 범위와 검증
 
 시험 저널, S3 모든 object version/delete marker, CloudWatch/RDS 로그를 로컬로 보관한다. 객체 크기/SHA 확인 실패 시 삭제에 진입하지 않는다. observability→application→data→access→network 역순으로 삭제한 뒤 manual snapshot/ECR/log/S3/앱 Parameter를 제거한다. 마지막 조회에서 EC2/NAT/VPC/EIP/volume/RDS/snapshot/automated backup/Parameter/ECR/log/S3와 runtime IAM/profile/SSM document/alarm/SNS 잔존을 확인한다.

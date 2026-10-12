@@ -26,9 +26,9 @@ GitHub Actions가 인프라 생성·서비스 배포·AWS 삭제를 실행한다
 backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch stage --config test-results/aws-first-current-2026-10-13/operation-config.json --env-file backend/.env --policy-file test-results/aws-a6/approved-policy.json --approved-policy-sha256 b175379609f2f9615b5b1f49c9140a66c945dd0c11f00e57b927bf708b9fa61b --private-key test-results/aws-actions/evidence-private.pem --output test-results/aws-actions/stage
 ```
 
-환경의 키·모델·actor·토큰/비용 설정과 승인 정책 원본을 Standard SecureString으로 나누어 보관한다. 공급 계약은 24시간 후 사용을 거부하며, 성공/배포 실행 실패 시 공급 조각을 삭제한다. 만료는 자동 삭제를 뜻하지 않는다. 재공급은 이전 공급 조각을 지운다. 앱이 이미 수용된 상태에서는 재공급하지 않는다.
+환경의 키·모델·actor·토큰/비용 설정과 승인 정책 원본을 세대별 Standard SecureString으로 나누어 보관한다. 모든 조각을 읽어 payload hash를 확인한 뒤 활성 세대 포인터를 갱신한다. 새 등록이 실패하면 이전 활성 세대를 보존하고 실패한 세대만 제거한다. 공급 계약은 24시간 후 사용을 거부하며, 성공/배포 실행 실패 시 실행이 소유한 세대와 포인터를 삭제한다. 만료는 자동 삭제를 뜻하지 않는다. 앱이 이미 수용된 상태에서는 재공급하지 않는다.
 
-첫 배포 workflow에는 실패 시에도 공급을 정리하는 always 단계가 있다. workflow 자체가 실행되지 않았거나 OIDC 인증에 실패하면 AWS에 접근할 수 없으므로 로컬에서 `lifecycle_dispatch clear-supply --config <config.json> --confirm-environment ikonly-demo --output <local-folder>`로 공급을 삭제한다. 만료 시각만으로 자동 삭제됐다고 해석하지 않는다. 동시 공급을 하지 않으며, 세대별 원자적 공급/만료 sweep은 추가 개선 범위다.
+첫 배포 workflow는 AWS 인증 후 세대를 claim하고 CI artifact 검사/다운로드 실패 시에도 always 단계에서 해당 run의 세대만 정리한다. workflow 자체가 실행되지 않았거나 OIDC 인증에 실패하면 AWS에 접근할 수 없으므로 로컬에서 `lifecycle_dispatch clear-supply --config <config.json> --confirm-environment ikonly-demo --output <local-folder>`로 공급을 삭제한다. 다음 stage는 작업 lock 아래에서 만료·미완성·미활성 잔여 세대와 구 프로토콜 조각을 회수한다. claim한 workflow가 실행 중이면 재공급·sweep·키 교체를 거부한다. 삭제 실패는 generation과 잔존 count만 기록하고 실패로 반환한다. [SSM 보완 검증](../검증산출물/2026-10-13_SSM_임시공급_세대관리_보완.md)을 따른다.
 
 3. Actions에서 `Ikonly first deployment and reset`을 선택하고 branch `ikonly`, operation `initial`, confirm_environment `ikonly-demo`, ci_run_id에 성공 CI 번호를 입력한다. CI source와 현재 실행 코드의 차이가 있으면 거부한다. 문서만의 차이는 허용한다.
 4. 기존 CI의 images/verified artifact를 그대로 내려받아 원래 검증·인프라 Add-only 검토·역할별 수용을 수행한다. runner는 HTTPS 수용 검사 중에만 자신의 공인 IP /32를 두 웹의 443 규칙에 추가하고 finally에서 제거한다. 사용자 PC 허용 범위를 바꾸지 않는다.

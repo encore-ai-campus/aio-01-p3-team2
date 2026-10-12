@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from dotenv import dotenv_values
 from infra.aws.infrastructure import Aws, preflight, validate_config
-from infra.aws.operation_state import commit_state, read_state, write
+from infra.aws.operation_state import commit_state, operation_lock, read_state, write
 
 CONTROL = "/multi-agent-autohealing/control/ikonly-demo/lifecycle/"
 ENV_KEYS = (
@@ -67,22 +67,6 @@ def get(aws, name, *, secret=False):
     return aws("ssm", "get-parameter", payload={"Name": CONTROL + name, "WithDecryption": secret})[
         "Parameter"
     ]["Value"]
-
-
-def clear_bootstrap(aws):
-    from infra.aws.cleanup import pages
-
-    for item in pages(
-        aws,
-        (
-            "ssm",
-            "describe-parameters",
-            "--parameter-filters",
-            "Key=Name,Option=BeginsWith,Values=" + CONTROL + "bootstrap/",
-        ),
-        "Parameters",
-    ):
-        aws("ssm", "delete-parameter", "--name", item["Name"])
 
 
 def public_key(aws, private_path):
@@ -169,8 +153,10 @@ def stage(aws, config, args):
         json.loads(policy)
     ):
         raise ValueError("Approved policy hash or validation failed")
+    from infra.aws.bootstrap_supply import register, sweep
+
+    sweep(aws)
     public_key(aws, args.private_key)
-    clear_bootstrap(aws)
     raw = json.dumps(
         {
             "env": env,
@@ -182,50 +168,55 @@ def stage(aws, config, args):
     )
     # Base64 makes each Standard SecureString chunk ASCII and <= 3500 bytes.
     encoded = base64.b64encode(raw.encode()).decode()
-    chunks = [encoded[i : i + 3500] for i in range(0, len(encoded), 3500)]
-    for index, chunk in enumerate(chunks):
-        put(aws, f"bootstrap/{index}", chunk, secret=True)
-    put(aws, "bootstrap/count", str(len(chunks)), secret=True)
+    register(
+        aws,
+        put,
+        get,
+        encoded,
+        hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest(),
+        args.output,
+    )
     print("Local key supply complete; private evidence key stays on this PC")
 
 
-def invoke(argv):
+def invoke(argv, *, lock_held=False):
     from infra.aws.operations import main
 
     sys.argv = ["operations", *argv]
-    main()
+    main(lock_held=lock_held)
 
 
-def dispatch(aws, config, args):
-    if os.getenv("GITHUB_ACTIONS") != "true" or args.confirm_environment != "ikonly-demo":
-        raise ValueError("Hosted lifecycle requires exact environment confirmation")
-    if ":assumed-role/ikonly-control-controller/" not in preflight(aws, config)["principal_arn"]:
-        raise ValueError("Hosted lifecycle requires OIDC controller identity")
-    pem = get(aws, "evidence-public-key")
+def first_deployment(aws, config, args, pem, common):
+    from infra.aws.bootstrap_supply import consume, remove
+
+    claimed = json.loads(args.claim_file.read_text())
+    if claimed["run_id"] != os.environ["GITHUB_RUN_ID"]:
+        raise ValueError("Supply claim belongs to another workflow")
     folder = Path(args.output)
-    common = ["--config", str(args.config), "--output", str(folder)]
-    if args.operation == "initial":
-        count = int(get(aws, "bootstrap/count", secret=True))
-        if not 1 <= count <= 32:
-            raise ValueError("Invalid bootstrap chunk count")
-        supplied = json.loads(
-            base64.b64decode("".join(get(aws, f"bootstrap/{i}", secret=True) for i in range(count)))
-        )
-        if supplied.get("expires_at", 0) < time.time():
-            raise ValueError("Local key supply expired; supply it again")
-        if (
-            supplied["config_hash"]
-            != hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
-        ):
-            raise ValueError("Config differs from locally supplied first-deployment contract")
-        # Mask values before any downstream tool can write to an Actions console.
-        for value in supplied["env"].values():
-            print("::add-mask::" + str(value), flush=True)
-        os.environ["IKONLY_LIFECYCLE_GATE"] = "validated"
+    with operation_lock(aws, "initial", folder):
         try:
+            supplied = json.loads(
+                base64.b64decode(
+                    consume(
+                        aws,
+                        get,
+                        args.claim_file,
+                        hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest(),
+                    )
+                )
+            )
+            if supplied.get("expires_at", 0) < time.time():
+                raise ValueError("Local key supply expired; supply it again")
+            if (
+                supplied["config_hash"]
+                != hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
+            ):
+                raise ValueError("Config differs from locally supplied contract")
+            for value in supplied["env"].values():
+                print("::add-mask::" + str(value), flush=True)
+            os.environ["IKONLY_LIFECYCLE_GATE"] = "validated"
             with tempfile.TemporaryDirectory() as temp:
                 env_file, policy = Path(temp) / ".env", Path(temp) / "policy.json"
-                # JSON quoted dotenv values preserve literal characters.
                 env_file.write_text(
                     "\n".join(k + "=" + json.dumps(v) for k, v in supplied["env"].items())
                 )
@@ -247,14 +238,32 @@ def dispatch(aws, config, args):
                         str(args.directory),
                         "--run-id",
                         str(args.run_id),
-                    ]
+                    ],
+                    lock_held=True,
                 )
         finally:
             try:
+                remove(
+                    aws,
+                    claimed["generation"],
+                    owner=claimed["run_id"],
+                    output=folder / "supply-cleanup",
+                )
+            finally:
                 if folder.exists():
                     seal(folder, pem, args.encrypted_output)
-            finally:
-                clear_bootstrap(aws)
+
+
+def dispatch(aws, config, args):
+    if os.getenv("GITHUB_ACTIONS") != "true" or args.confirm_environment != "ikonly-demo":
+        raise ValueError("Hosted lifecycle requires exact environment confirmation")
+    if ":assumed-role/ikonly-control-controller/" not in preflight(aws, config)["principal_arn"]:
+        raise ValueError("Hosted lifecycle requires OIDC controller identity")
+    pem = get(aws, "evidence-public-key")
+    folder = Path(args.output)
+    common = ["--config", str(args.config), "--output", str(folder)]
+    if args.operation == "initial":
+        first_deployment(aws, config, args, pem, common)
         return
     state = read_state(aws)
     if not state or not state.get("release"):
@@ -294,6 +303,7 @@ def main():
             "confirm-evidence",
             "unpack-evidence",
             "clear-supply",
+            "claim-supply",
         ),
     )
     parser.add_argument("--config", type=Path, required=True)
@@ -308,6 +318,7 @@ def main():
     parser.add_argument("--evidence-file", type=Path)
     parser.add_argument("--evidence-sha256")
     parser.add_argument("--confirm-environment")
+    parser.add_argument("--claim-file", type=Path)
     args = parser.parse_args()
     config = validate_config(json.loads(args.config.read_text(encoding="utf-8")))
     aws = Aws(config["region"])
@@ -320,11 +331,32 @@ def main():
     if args.operation == "clear-supply":
         if args.confirm_environment != "ikonly-demo":
             raise ValueError("Supply cleanup requires exact environment confirmation")
-        clear_bootstrap(aws)
+        from infra.aws.bootstrap_supply import remove, sweep
+
+        with operation_lock(aws, "clear-supply", args.output):
+            if os.getenv("GITHUB_ACTIONS") == "true":
+                claimed = json.loads(args.claim_file.read_text())
+                if claimed["run_id"] != os.environ["GITHUB_RUN_ID"]:
+                    raise ValueError("Cleanup claim belongs to a different workflow")
+                remove(aws, claimed["generation"], owner=claimed["run_id"], output=args.output)
+            else:
+                sweep(aws, clear_active=True)
     elif args.operation == "stage":
-        stage(aws, config, args)
+        with operation_lock(aws, "stage", args.output):
+            stage(aws, config, args)
+    elif args.operation == "claim-supply":
+        from infra.aws.bootstrap_supply import claim
+
+        if os.getenv("GITHUB_ACTIONS") != "true" or args.confirm_environment != "ikonly-demo":
+            raise ValueError("Claim requires hosted confirmed environment")
+        with operation_lock(aws, "claim-supply", args.output):
+            claim(aws, put, args.output)
     elif args.operation == "register-evidence-key":
-        public_key(aws, args.private_key)
+        from infra.aws.bootstrap_supply import sweep
+
+        with operation_lock(aws, "register-evidence-key", args.output):
+            sweep(aws)
+            public_key(aws, args.private_key)
     elif args.operation in ("confirm-evidence", "unpack-evidence"):
         sha = unseal(args.evidence_file, args.private_key, args.output)
         if args.operation == "unpack-evidence":

@@ -1,6 +1,7 @@
 """First deployment, selected/full update, recovery and complete application reset."""
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -196,7 +197,7 @@ def recover(aws, config, state, output):
     write(output / "result.json", {"status": "RECOVERED", "accepted_release_unchanged": True})
 
 
-def main():
+def main(*, lock_held=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "operation",
@@ -242,6 +243,17 @@ def main():
     config = validate_config(json.loads(args.config.read_text(encoding="utf-8")))
     aws = Aws(config["region"])
     args.output.mkdir(parents=True, exist_ok=True)
+    if lock_held:
+        values = aws(
+            "ssm", "get-parameters", payload={"Names": [LOCK], "WithDecryption": False}
+        ).get("Parameters", [])
+        recorded = json.loads((args.output / "lock.json").read_text())
+        if (
+            len(values) != 1
+            or json.loads(values[0]["Value"]) != recorded
+            or recorded["operation"] != args.operation
+        ):
+            raise ValueError("Borrowed lifecycle lock does not belong to this operation")
     identity = preflight(aws, config)
     write(args.output / "identity.json", identity)
     if args.operation == "unlock":
@@ -295,7 +307,9 @@ def main():
     ):
         write(args.output / "result.json", {"status": "INACTIVE", "created_resources": False})
         return
-    with operation_lock(aws, args.operation, args.output):
+    with (
+        contextlib.nullcontext() if lock_held else operation_lock(aws, args.operation, args.output)
+    ):
         state = read_state(aws)
         if state:
             config = validate_config(state["config"])
