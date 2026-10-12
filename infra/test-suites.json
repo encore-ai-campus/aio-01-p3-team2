@@ -969,6 +969,20 @@
         "test_independent_or_unverified_review_is_not_suppressed",
         "test_provider_critic_schema_matches_structured_findings_contract"
       ]
+    },
+    {
+      "file": "backend/tests/unit/test_aws_lifecycle_dispatch.py",
+      "suite": "core",
+      "reason": "Hosted lifecycle OIDC gates, encrypted evidence and local confirmation before destructive reset.",
+      "test_functions": [
+        "test_evidence_round_trip_and_no_plaintext_upload",
+        "test_evidence_tampering_is_rejected",
+        "test_wrong_private_key_is_rejected",
+        "test_reset_refuses_wrong_release_or_evidence",
+        "test_prepare_reset_collects_evidence_without_deleting",
+        "test_workflow_only_uploads_encrypted_and_safe_outputs",
+        "test_parameter_secret_is_not_passed_in_cli_argv"
+      ]
     }
   ],
   "javascript": [

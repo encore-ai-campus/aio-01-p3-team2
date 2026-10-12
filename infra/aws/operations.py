@@ -209,6 +209,7 @@ def main():
             "retry",
             "recover",
             "reset",
+            "prepare-reset",
             "unlock",
         ),
     )
@@ -232,10 +233,12 @@ def main():
         args.operation != "initial" or args.output.resolve() == args.resume_from.resolve()
     ):
         raise ValueError("Initial resume needs a separate output directory")
-    if args.operation == "initial" and os.getenv("GITHUB_ACTIONS") == "true":
-        raise ValueError("Initial deployment requires the operator's local key supply")
-    if args.operation == "reset" and os.getenv("GITHUB_ACTIONS") == "true":
-        raise ValueError("Reset requires the operator's local persistent evidence directory")
+    if (
+        args.operation in ("initial", "reset", "prepare-reset")
+        and os.getenv("GITHUB_ACTIONS") == "true"
+        and os.getenv("IKONLY_LIFECYCLE_GATE") != "validated"
+    ):
+        raise ValueError("GitHub lifecycle operations require the validated dispatch gate")
     config = validate_config(json.loads(args.config.read_text(encoding="utf-8")))
     aws = Aws(config["region"])
     args.output.mkdir(parents=True, exist_ok=True)
@@ -342,7 +345,10 @@ def main():
                     reset(aws, config, read_state(aws), args.output)
                     write(
                         args.output / "result.json",
-                        {"status": "INITIAL_FAILED_AND_RESET", "evidence_saved_locally": True},
+                        {
+                            "status": "INITIAL_FAILED_AND_RESET",
+                            "evidence_saved_locally": os.getenv("GITHUB_ACTIONS") != "true",
+                        },
                     )
                 raise
         elif args.operation in ("update", "full", "retry"):
@@ -375,12 +381,19 @@ def main():
                     },
                 }
                 commit_state(aws, state)
-            reset(aws, config, state, args.output)
+            if args.operation == "prepare-reset":
+                reset(aws, config, state, args.output, prepare_only=True)
+            else:
+                reset(aws, config, state, args.output)
             write(
                 args.output / "result.json",
                 {
-                    "status": "RESET_COMPLETE",
-                    "evidence_saved_locally": True,
+                    "status": "RESET_PREPARED"
+                    if args.operation == "prepare-reset"
+                    else "RESET_COMPLETE",
+                    "evidence_saved_locally": os.getenv("GITHUB_ACTIONS") != "true",
+                    "local_evidence_confirmed": os.getenv("GITHUB_ACTIONS") == "true"
+                    and args.operation == "reset",
                     "control_identity_removed": False,
                 },
             )

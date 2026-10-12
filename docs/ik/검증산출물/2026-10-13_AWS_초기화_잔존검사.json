@@ -1,0 +1,24 @@
+{
+  "status": "RESET_COMPLETE",
+  "environment": "ikonly-demo",
+  "remaining": {
+    "runtime_roles": [],
+    "runtime_profiles": [],
+    "deploy_documents": [],
+    "alarms": [],
+    "topics": [],
+    "active_instances": [],
+    "active_nat": [],
+    "vpcs": [],
+    "eips": [],
+    "volumes": [],
+    "databases": [],
+    "snapshots": [],
+    "automated_backups": [],
+    "parameters": [],
+    "repositories": [],
+    "logs": [],
+    "buckets": []
+  },
+  "control_identity_preserved": true
+}

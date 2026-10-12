@@ -60,6 +60,21 @@ def policies(account):
     controller = [
         read,
         permission(
+            ["ec2:AuthorizeSecurityGroupIngress", "ec2:RevokeSecurityGroupIngress"],
+            ec2 + "security-group/*",
+            {
+                "StringEquals": {
+                    "ec2:ResourceTag/Environment": "ikonly-demo",
+                    "ec2:ResourceTag/ManagedBy": "ikonly-iac",
+                }
+            },
+        ),
+        permission(
+            ["kms:Decrypt"],
+            f"arn:aws:kms:ap-northeast-2:{account}:key/*",
+            {"StringEquals": {"kms:ViaService": "ssm.ap-northeast-2.amazonaws.com"}},
+        ),
+        permission(
             [
                 "cloudformation:CreateChangeSet",
                 "cloudformation:DeleteChangeSet",
@@ -109,8 +124,9 @@ def policies(account):
         permission(
             ["ssm:GetParameters", "ssm:GetParameter"],
             [
-                ssm + "parameter/multi-agent-autohealing/ikonly-demo/deployment/accepted",
+                ssm + "parameter/multi-agent-autohealing/ikonly-demo/*",
                 ssm + "parameter/multi-agent-autohealing/control/ikonly-demo/lock",
+                ssm + "parameter/multi-agent-autohealing/control/ikonly-demo/lifecycle/*",
                 "arn:aws:ssm:ap-northeast-2::parameter/aws/service/canonical/*",
             ],
         ),
@@ -119,6 +135,7 @@ def policies(account):
             [
                 ssm + "parameter/multi-agent-autohealing/ikonly-demo/*",
                 ssm + "parameter/multi-agent-autohealing/control/ikonly-demo/lock",
+                ssm + "parameter/multi-agent-autohealing/control/ikonly-demo/lifecycle/*",
             ],
         ),
         permission(

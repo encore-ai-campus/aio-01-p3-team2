@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+import os
 import secrets
 import ssl
 import time
@@ -239,7 +240,7 @@ def initial(
         raise ValueError("First deployment requires reset of existing owned application stacks")
     from infra.aws.cleanup import verify_reset
 
-    if not resumed and any(verify_reset(aws).values()):
+    if not resumed and any(verify_reset(aws, include_lifecycle=False).values()):
         raise ValueError("First deployment refuses leftover application resources")
     if not config.get("cloudformation_role_arn"):
         raise ValueError("First deployment requires the bootstrapped CloudFormation service role")
@@ -469,6 +470,47 @@ def initial(
 
 
 def public_web_acceptance(aws, config, state, password, output):
+    """Temporarily allow only the hosted runner /32, removing it on all exits."""
+    additions = []
+    try:
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            import ipaddress
+
+            with urllib.request.urlopen("https://checkip.amazonaws.com", timeout=20) as response:
+                cidr = str(ipaddress.IPv4Address(response.read().decode().strip())) + "/32"
+            if cidr != config["operator_cidr"]:
+                for role in ("plan-web", "game-web"):
+                    node = aws("ec2", "describe-instances", "--instance-ids", state["roles"][role])[
+                        "Reservations"
+                    ][0]["Instances"][0]
+                    for group in node["SecurityGroups"]:
+                        permissions = [
+                            {
+                                "IpProtocol": "tcp",
+                                "FromPort": 443,
+                                "ToPort": 443,
+                                "IpRanges": [
+                                    {"CidrIp": cidr, "Description": "Bounded Actions acceptance"}
+                                ],
+                            }
+                        ]
+                        aws(
+                            "ec2",
+                            "authorize-security-group-ingress",
+                            payload={"GroupId": group["GroupId"], "IpPermissions": permissions},
+                        )
+                        additions.append((group["GroupId"], permissions))
+        _public_web_acceptance(aws, config, state, password, output)
+    finally:
+        for group, permissions in additions:
+            aws(
+                "ec2",
+                "revoke-security-group-ingress",
+                payload={"GroupId": group, "IpPermissions": permissions},
+            )
+
+
+def _public_web_acceptance(aws, config, state, password, output):
     from infra.aws.host_transport import command
 
     for role in ("plan-web", "game-web"):

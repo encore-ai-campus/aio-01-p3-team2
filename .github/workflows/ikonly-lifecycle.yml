@@ -1,0 +1,127 @@
+name: Ikonly first deployment and reset
+
+on:
+  # Register the workflow on this branch without performing a lifecycle operation.
+  push:
+    branches: [ikonly]
+    paths: [.github/workflows/ikonly-lifecycle.yml]
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        options: [initial, prepare-reset, reset]
+        required: true
+      confirm_environment:
+        description: 'Type ikonly-demo to confirm the target environment'
+        type: string
+        required: true
+      ci_run_id:
+        description: 'Successful current-source CI run ID (initial only)'
+        type: string
+        required: false
+      evidence_sha256:
+        description: 'Locally decrypted and verified prepare-reset archive SHA256 (reset only)'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ikonly-demo-lifecycle
+  cancel-in-progress: false
+
+jobs:
+  lifecycle:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/ikonly'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install --require-hashes -r infra/aws/requirements.ci.lock
+      - uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: ${{ vars.IKONLY_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
+          allowed-account-ids: ${{ vars.IKONLY_ACCOUNT_ID }}
+          role-duration-seconds: 7200
+          role-session-name: ikonly-lifecycle-${{ github.run_id }}
+      - name: Validate inputs and retrieve exact verified CI artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONFIG_JSON: ${{ vars.IKONLY_CONFIG }}
+          OPERATION: ${{ inputs.operation }}
+          CONFIRM: ${{ inputs.confirm_environment }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          EVIDENCE_SHA256: ${{ inputs.evidence_sha256 }}
+        run: |
+          python - <<'PY'
+          import json, os, re, subprocess
+          from pathlib import Path
+          if os.environ['CONFIRM'] != 'ikonly-demo':
+              raise SystemExit('Exact environment confirmation is required')
+          root = Path('test-results/lifecycle')
+          root.mkdir(parents=True, exist_ok=True)
+          (root / 'config.json').write_text(os.environ['CONFIG_JSON'])
+          if os.environ['OPERATION'] == 'initial':
+              run_id = os.environ['CI_RUN_ID']
+              if not run_id.isdecimal():
+                  raise SystemExit('A successful CI run ID is required')
+              run = json.loads(subprocess.check_output(['gh','api',f'repos/ik-e/multi-agent-autohealing/actions/runs/{run_id}']))
+              if run['conclusion'] != 'success' or run['head_branch'] != 'ikonly':
+                  raise SystemExit('CI must be successful on ikonly')
+              changed = subprocess.check_output(['git','diff','--name-only',run['head_sha'],'HEAD']).decode().splitlines()
+              if any(not name.startswith('docs/') for name in changed):
+                  raise SystemExit('CI source differs from current executable source')
+              for prefix in ('images', 'verified'):
+                  subprocess.run(['gh','run','download',run_id,'--repo','ik-e/multi-agent-autohealing','--name',f"{prefix}-{run['head_sha']}-{run['run_attempt']}",'--dir',str(root/'candidate')],check=True)
+          elif os.environ['OPERATION'] == 'reset' and not re.fullmatch('[0-9a-f]{64}',os.environ['EVIDENCE_SHA256']):
+              raise SystemExit('Verified local evidence SHA256 is required')
+          PY
+      - name: Execute confirmed lifecycle operation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPERATION: ${{ inputs.operation }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          EVIDENCE_SHA256: ${{ inputs.evidence_sha256 }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$OPERATION" = initial ]; then
+            args+=(--run-id "$CI_RUN_ID" --directory test-results/lifecycle/candidate)
+          fi
+          if [ "$OPERATION" = reset ]; then
+            args+=(--evidence-sha256 "$EVIDENCE_SHA256")
+          fi
+          python -m infra.aws.lifecycle_dispatch "$OPERATION" --config test-results/lifecycle/config.json --confirm-environment ikonly-demo --output test-results/lifecycle/result --encrypted-output test-results/lifecycle/encrypted/evidence.bin "${args[@]}"
+      - name: Preserve encrypted evidence and credentials
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lifecycle-encrypted-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/lifecycle/encrypted/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Remove first-deployment supply on success or failure
+        if: always() && inputs.operation == 'initial'
+        run: |
+          python -m infra.aws.lifecycle_dispatch clear-supply --config test-results/lifecycle/config.json --confirm-environment ikonly-demo --output test-results/lifecycle/supply-cleanup
+      - name: Preserve safe outcome metadata
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lifecycle-outcome-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/lifecycle/result/result.json
+            test-results/lifecycle/result/residual-check.json
+          if-no-files-found: warn
+          retention-days: 7

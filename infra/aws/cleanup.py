@@ -11,6 +11,8 @@ from infra.aws.iac import PREFIX
 from infra.aws.infrastructure import owned_stack
 from infra.aws.operation_state import write
 
+LIFECYCLE = "/multi-agent-autohealing/control/ikonly-demo/lifecycle/"
+
 
 def pages(aws, args, key, *, token_key="NextToken", option="--next-token"):
     token = None
@@ -128,7 +130,7 @@ def archive_bucket(aws, bucket, output):
     return entries + markers
 
 
-def reset(aws, config, state, output):
+def reset(aws, config, state, output, *, prepare_only=False):
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     stacks = list(pages(aws, ("cloudformation", "describe-stacks"), "Stacks"))
@@ -199,6 +201,8 @@ def reset(aws, config, state, output):
         output / "execution.json",
         {"status": "EVIDENCE_DOWNLOADED", "stacks": list(selected), "log_groups": log_groups},
     )
+    if prepare_only:
+        return
     for stage in ("observability", "application", "data", "access", "network"):
         stack = selected.get("ikonly-demo-" + stage)
         if stack is None:
@@ -334,18 +338,20 @@ def reset(aws, config, state, output):
                 obj["VersionId"],
             )
         aws("s3api", "delete-bucket", "--bucket", name)
-    names = list(
-        pages(
+    names = [
+        item
+        for prefix in (PREFIX, LIFECYCLE)
+        for item in pages(
             aws,
             (
                 "ssm",
                 "describe-parameters",
                 "--parameter-filters",
-                "Key=Name,Option=BeginsWith,Values=" + PREFIX,
+                "Key=Name,Option=BeginsWith,Values=" + prefix,
             ),
             "Parameters",
         )
-    )
+    ]
     for item in names:
         check_tags(
             aws(
@@ -377,7 +383,7 @@ def reset(aws, config, state, output):
     )
 
 
-def verify_reset(aws):
+def verify_reset(aws, *, include_lifecycle=True):
     env = "Name=tag:Environment,Values=ikonly-demo"
     instances = aws("ec2", "describe-instances", "--filters", env)["Reservations"]
     nat = aws("ec2", "describe-nat-gateways", "--filter", env)["NatGateways"]
@@ -454,13 +460,14 @@ def verify_reset(aws):
         ],
         "parameters": [
             x["Name"]
+            for prefix in ((PREFIX, LIFECYCLE) if include_lifecycle else (PREFIX,))
             for x in pages(
                 aws,
                 (
                     "ssm",
                     "describe-parameters",
                     "--parameter-filters",
-                    "Key=Name,Option=BeginsWith,Values=" + PREFIX,
+                    "Key=Name,Option=BeginsWith,Values=" + prefix,
                 ),
                 "Parameters",
             )
