@@ -30,8 +30,22 @@ test("production policy and isolated recovery UI use separate real APIs", async 
   await page.locator('[data-fault-node="planner"]').click();
   await page.locator("#lab-scenario").selectOption("planner_output_invalid");
   await page.locator("#lab-profile").selectOption("retry_allowed");
+  const submitted = page.waitForResponse(response => response.url().endsWith("/api/test/fault-runs") && response.request().method() === "POST");
   await page.locator("#lab-run").click();
-  await expect(page.getByRole("heading", { name: "시험 COMPLETED · PASS" })).toBeVisible({ timeout: 45000 });
+  const accepted = await (await submitted).json();
+  await expect(page.getByRole("heading", { name: /^시험 COMPLETED ·/ })).toBeVisible({ timeout: 45000 });
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("PASS · 기대한 정책 대응");
+  await expect(page.getByLabel("시험 결과 설명")).toContainText("자동 복구 후 작업을 계속했습니다.");
+  const saved = await page.evaluate(async id => {
+    const response = await fetch(`/api/test/fault-runs/${id}`);
+    if (!response.ok) throw new Error("Saved production fault result unavailable");
+    return response.json();
+  }, accepted.id);
+  expect(saved.lifecycle).toBe("COMPLETED");
+  expect(saved.verdict).toBe("PASS");
+  expect(saved.results[0].actual_terminal).toBe("WAITING_APPROVAL");
+  expect(saved.results[0].retries).toBeGreaterThan(0);
+  expect(saved.results[0].checks.every(check => check.passed)).toBe(true);
   expect(await readPolicies()).toEqual(before);
 });
 
