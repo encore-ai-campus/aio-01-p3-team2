@@ -82,7 +82,9 @@ def test_rds_is_private_tls_encrypted_and_master_is_versioned_reference():
     assert properties["ManageMasterUserPassword"] is False
     assert "resolve:ssm-secure" in properties["MasterUserPassword"]["Fn::Sub"]
     assert "MasterPasswordVersion" in properties["MasterUserPassword"]["Fn::Sub"]
-    assert database["DeletionPolicy"] == "Snapshot"
+    assert database["DeletionPolicy"] == "Delete"
+    assert database["UpdateReplacePolicy"] == "Snapshot"
+    assert properties["DeleteAutomatedBackups"] is True
     assert data()["Resources"]["Parameters"]["Properties"]["Parameters"]["rds.force_ssl"] == "1"
 
 

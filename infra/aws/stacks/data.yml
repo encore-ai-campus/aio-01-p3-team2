@@ -137,7 +137,7 @@
           }
         ]
       },
-      "DeletionPolicy": "Snapshot",
+      "DeletionPolicy": "Delete",
       "UpdateReplacePolicy": "Snapshot",
       "DependsOn": [
         "PostgresqlLogs",

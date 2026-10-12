@@ -79,3 +79,7 @@ backend/.venv/Scripts/python.exe -m infra.aws.operations reset --config test-res
 ```powershell
 backend/.venv/Scripts/python.exe -m infra.aws.download_artifact --artifact-id <id> --output <CI-artifact-directory>
 ```
+
+## 전체 초기화와 snapshot
+
+전체 초기화는 사용자 승인에 따른 DB 전체 삭제다. 신규 data stack의 `DeletionPolicy=Delete`로 초기화 때 최종 snapshot을 새로 만들었다가 바로 삭제하는 대기를 줄인다. 기존 manual snapshot과 automated backup도 잔존 검사·삭제 대상으로 관리한다. migration 전 암호화 snapshot 및 `UpdateReplacePolicy=Snapshot`은 유지한다. 이미 삭제 진행 중인 구 stack은 기존 Snapshot 정책으로 처리되며 중간에 정책을 바꾸지 않는다. reset 진입 전 로컬 시험 증거/로그/저널/S3 보관은 동일하게 수행한다.

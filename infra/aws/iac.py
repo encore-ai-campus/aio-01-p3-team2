@@ -255,7 +255,9 @@ def data():
         AutoMinorVersionUpgrade=True,
         Tags=tags("database"),
     )
-    r["Database"].update(DeletionPolicy="Snapshot", UpdateReplacePolicy="Snapshot")
+    # Reset is an explicitly confirmed purge. Avoid creating a final snapshot
+    # just to delete it immediately; replacement and migration remain protected.
+    r["Database"].update(DeletionPolicy="Delete", UpdateReplacePolicy="Snapshot")
     for logical_name, suffix in (("PostgresqlLogs", "postgresql"), ("UpgradeLogs", "upgrade")):
         r[logical_name] = resource(
             "Logs::LogGroup",
