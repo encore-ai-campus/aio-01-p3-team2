@@ -4,7 +4,9 @@ import base64
 import hashlib
 import json
 import secrets
+import ssl
 import time
+import urllib.request
 from pathlib import Path
 from urllib.parse import quote
 
@@ -453,7 +455,7 @@ def initial(
         time.sleep(10)
     from infra.aws.release_plan import build
 
-    accepted = deploy(
+    return deploy(
         aws,
         config,
         state,
@@ -462,7 +464,11 @@ def initial(
         configs=host_configs(config, outputs, web, data["Endpoint"], env),
         policy=policy,
         database_config={"actor": env["OPERATOR_ACTOR_ID"], "policy_hash": approved_policy_hash},
+        post_acceptance=lambda: public_web_acceptance(aws, config, state, password, output),
     )
+
+
+def public_web_acceptance(aws, config, state, password, output):
     from infra.aws.host_transport import command
 
     for role in ("plan-web", "game-web"):
@@ -486,4 +492,23 @@ def initial(
         if not certificate.startswith(b"-----BEGIN CERTIFICATE-----"):
             raise ValueError("Public certificate export format mismatch")
         (output / (role + "-root.crt")).write_bytes(certificate)
-    return accepted
+        context = ssl.create_default_context(cafile=str(output / (role + "-root.crt")))
+        username = "operator"
+        auth = base64.b64encode((username + ":" + password).encode()).decode()
+        paths = ["/", "/api/game/state" if role == "plan-web" else "/game-api/state"]
+        if role == "plan-web":
+            paths.append("/api/test/fault-catalog")
+        for path in paths:
+            host = config["plan_public_ip" if role == "plan-web" else "game_public_ip"]
+            request = urllib.request.Request(
+                "https://" + host + path, headers={"Authorization": "Basic " + auth}
+            )
+            with urllib.request.urlopen(request, context=context, timeout=30) as response:
+                if response.status != 200:
+                    raise ValueError("Public authenticated web acceptance failed")
+                if path != "/":
+                    json.load(response)
+        write(
+            output / (role + "-public-acceptance.json"),
+            {"status": "AUTHENTICATED_PUBLIC_ACCEPTED", "paths": paths, "tls_verified": True},
+        )

@@ -9,6 +9,7 @@ from pathlib import Path
 from infra.aws.cleanup import reset, verify_reset
 from infra.aws.fleet_release import accept, database
 from infra.aws.host_transport import command
+from infra.aws.iac import ROLES
 from infra.aws.infrastructure import Aws, preflight, validate_config
 from infra.aws.operation_state import LOCK, commit_state, operation_lock, read_state, write
 
@@ -72,6 +73,7 @@ def update(aws, config, state, args):
         json.loads((args.output / "candidate-release.json").read_text()),
         state["release"],
         full=args.operation == "full",
+        services=args.service,
     )
     if retry:
         from infra.aws.contracts import ReleaseManifest
@@ -220,9 +222,12 @@ def main():
     parser.add_argument("--approved-policy-sha256")
     parser.add_argument("--approve-impact-sha256")
     parser.add_argument("--allow-current-run", action="store_true")
+    parser.add_argument("--service", action="append", choices=ROLES)
     parser.add_argument("--confirm-environment")
     parser.add_argument("--lock-token")
     args = parser.parse_args()
+    if args.service and args.operation != "update":
+        raise ValueError("Explicit service selection belongs to update")
     if args.resume_from and (
         args.operation != "initial" or args.output.resolve() == args.resume_from.resolve()
     ):

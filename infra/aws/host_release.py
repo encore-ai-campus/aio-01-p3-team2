@@ -40,12 +40,16 @@ def selected_image(manifest, role, account, release_id, manifest_hash, raw):
 
 def run(args, *, input_text=None, environment=None):
     result = subprocess.run(
-        args, input=input_text, env=environment, capture_output=True, text=True, check=False
+        args,
+        input=input_text.encode("utf-8") if input_text is not None else None,
+        env=environment,
+        capture_output=True,
+        check=False,
     )
     if result.returncode:
         # Docker/Compose errors can include env values. Keep diagnostics metadata only.
         raise RuntimeError("Host command failed: " + args[0])
-    return result.stdout.strip()
+    return result.stdout.decode("utf-8").strip()
 
 
 def apply_release(release_id, manifest_hash):

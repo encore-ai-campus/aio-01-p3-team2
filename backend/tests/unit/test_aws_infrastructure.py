@@ -709,3 +709,61 @@ def test_initial_resume_refuses_app_parameters_and_mismatched_origin(tmp_path):
     write(tmp_path / "lock.json", {"token": "different-owner"})
     with pytest.raises(ValueError, match="recorded initial"):
         resume_records(ParametersOnly(), config, tmp_path, stacks)
+
+
+def test_host_command_stdin_preserves_lf_bytes(monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+
+    from infra.aws.host_release import run
+
+    def execute(args, **kwargs):
+        assert kwargs["input"] == b"nonsecret-example\n"
+        assert "text" not in kwargs
+        return SimpleNamespace(returncode=0, stdout=b"safe-result\n")
+
+    monkeypatch.setattr(subprocess, "run", execute)
+    assert run(["example-command"], input_text="nonsecret-example\n") == "safe-result"
+
+
+def test_explicit_service_update_preserves_other_versions_and_requires_dependencies(monkeypatch):
+    from infra.aws import release_plan
+
+    candidate = {
+        "environment_id": "ikonly-demo",
+        "source_sha": "b" * 40,
+        "ci_run_id": "123",
+        "ci_attempt": 1,
+        "previous_release_id": None,
+        **{key + "_checksum": "sha256:" + "a" * 64 for key in ("schema", "migration", "catalog")},
+        "services": {
+            role: {
+                "image": "web" if role.endswith("web") else "application",
+                "digest": "sha256:" + "b" * 64,
+                "source_sha": "b" * 40,
+            }
+            for role in ROLES
+        },
+    }
+    previous = copy.deepcopy(candidate)
+    previous.update(source_sha="a" * 40, release_id="c" * 40)
+    for service in previous["services"].values():
+        service.update(source_sha="a" * 40, digest="sha256:" + "a" * 64, deployment_id="c" * 40)
+    monkeypatch.setattr(
+        release_plan,
+        "plan_from_git",
+        lambda *args, **kw: {
+            "targets": [],
+            "migration_required": False,
+            "manual_review_required": False,
+        },
+    )
+    selected = release_plan.build(candidate, previous, services=["game-web"])
+    assert selected["targets"] == ["game-web"]
+    for role in set(ROLES) - {"game-web"}:
+        assert selected["release"]["services"][role] == previous["services"][role]
+    paired = release_plan.build(candidate, previous, services=["main-api"])
+    assert paired["targets"] == ["main-api", "fault-api"]
+    candidate["schema_checksum"] = "sha256:" + "d" * 64
+    with pytest.raises(ValueError, match="required dependency"):
+        release_plan.build(candidate, previous, services=["game-web"])

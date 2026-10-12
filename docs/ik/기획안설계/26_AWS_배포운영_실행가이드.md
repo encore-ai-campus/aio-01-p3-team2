@@ -91,3 +91,7 @@ backend/.venv/Scripts/python.exe -m infra.aws.download_artifact --artifact-id <i
 코디네이터가 중단됐을 때 원래 프로세스가 종료됐음을 확인하고 원래 token으로 lock을 해제한다. `initial`의 기존 인수에 `--resume-from <원래-출력-directory>`를 추가하고 새 출력 directory를 사용한다. 원래 빈 baseline marker/token·config hash·CREATE 검토 기록·실제 stack ID/role/template/parameters가 일치해야 한다. 앱 accepted state가 없고 앱 Parameter가 원래 master 하나뿐인 서비스 시작 전 단계만 허용한다. master 값/버전을 새로 쓰지 않고 기존 네트워크·IAM·RDS·EC2를 재사용한다. 앱 키 공급/DB bootstrap 이후에는 이 명령으로 이어받지 않고 기록된 상태에 따른 recover/reset을 사용한다.
 
 API/MCP는 private IP에 publish하므로 수용 검사도 실제 private IP를 사용한다. 웹 TLS 검사는 loopback 연결과 실제 공개 hostname 검증을 사용한다.
+
+첫 배포는 공개 CA export 후 실제 비밀번호로 두 HTTPS 화면·게임 API·시험실 catalog를 조회하고 나서 점검 해제/accepted state를 기록한다. stdin 비밀 입력은 bytes로 전달해 Windows CRLF 자동 변환을 피한다. 비밀번호/hash를 argv나 로그에 출력하지 않는다.
+
+수동 선택 업데이트는 `update --service game-web`처럼 역할을 지정할 수 있다(반복 지정 가능). API/MCP는 main/fault 짝을 자동 포함한다. 변경 영향과 schema/migration/catalog 계약이 요구하는 역할을 빠뜨리는 선택은 거부한다. 미분류·인프라 변경의 검토 hash 승인 조건도 유지한다. 자동 push는 기존 변경 영향 계산을 사용한다. 게임 웹의 공개 경로는 `/game-api/*`, 기획안 웹의 일반/시험 경로는 `/api/*`, `/api/test/*`다.

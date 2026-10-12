@@ -169,7 +169,18 @@ def migration_backup(aws, release, output):
     raise TimeoutError("Migration backup availability deadline")
 
 
-def deploy(aws, config, state, plan, output, *, configs=None, policy=None, database_config=None):
+def deploy(
+    aws,
+    config,
+    state,
+    plan,
+    output,
+    *,
+    configs=None,
+    policy=None,
+    database_config=None,
+    post_acceptance=None,
+):
     output = Path(output)
     release, targets = plan["release"], plan["targets"]
     if not targets:
@@ -273,6 +284,8 @@ def deploy(aws, config, state, plan, output, *, configs=None, policy=None, datab
                 parameters={"ReleaseId": [source], "ManifestSha256": [sha]},
             )
         accept(aws, config, state, release, output)
+        if post_acceptance is not None:
+            post_acceptance()
         if record["maintenance"]:
             database(aws, config, state, release, "disable", output)
             record["admission_released"] = True

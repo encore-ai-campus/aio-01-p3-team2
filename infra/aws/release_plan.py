@@ -9,7 +9,9 @@ from infra.aws.contracts import ReleaseManifest
 from infra.aws.deployment_impact import ROLES, plan_from_git
 
 
-def build(candidate, previous=None, *, full=False):
+def build(candidate, previous=None, *, full=False, services=None):
+    if services is not None and (previous is None or full):
+        raise ValueError("Explicit services require an existing selective update")
     candidate = ReleaseManifest.model_validate(candidate)
     head = candidate.source_sha
     if any(service.source_sha != head for service in candidate.services.values()):
@@ -40,6 +42,16 @@ def build(candidate, previous=None, *, full=False):
         for pair in (("main-api", "fault-api"), ("main-mcp", "fault-mcp")):
             if set(pair) & set(targets):
                 targets = [role for role in ROLES if role in set(targets) | set(pair)]
+        if services is not None:
+            selected = set(services)
+            if full or not selected or selected - set(ROLES):
+                raise ValueError("Explicit services require a valid selective update")
+            for pair in (("main-api", "fault-api"), ("main-mcp", "fault-mcp")):
+                if selected & set(pair):
+                    selected.update(pair)
+            if set(targets) - selected:
+                raise ValueError("Selected services omit required dependency updates")
+            targets = [role for role in ROLES if role in selected]
         if (
             all(
                 previous.services[role].digest == candidate.services[role].digest

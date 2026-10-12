@@ -915,7 +915,9 @@
         "test_ip_eip_binding_verifies_ownership_and_builds_site_specific_origins",
         "test_https_origin_accepts_exact_ip_and_rejects_url_fields",
         "test_fleet_acceptance_checks_actual_private_bind",
-        "test_initial_resume_refuses_app_parameters_and_mismatched_origin"
+        "test_initial_resume_refuses_app_parameters_and_mismatched_origin",
+        "test_host_command_stdin_preserves_lf_bytes",
+        "test_explicit_service_update_preserves_other_versions_and_requires_dependencies"
       ]
     },
     {
