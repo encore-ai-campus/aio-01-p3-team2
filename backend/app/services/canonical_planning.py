@@ -10,6 +10,7 @@ from contextlib import nullcontext
 from datetime import UTC, datetime
 from threading import RLock
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from mcp_server.tools._opong_data import GAME_ID, load_opong_snapshot
@@ -1355,6 +1356,18 @@ def create_event_workflow(
         )
         recovery_trace: list[dict[str, Any]] = []
         reward_design_pending = payload.reward_selection == "planner"
+        revision_before_summary: str | None = None
+        revision_reason: str | None = None
+        demo_planner_contract_failure_pending = (
+            revision is None
+            and os.getenv("EVENTQUEST_LOCAL_DEMO_HEAL_ONCE") == "1"
+            and urlsplit(os.getenv("DATABASE_URL", "")).path == "/eventquest_test"
+            and os.getenv("CANONICAL_PLANNING_MODE") == "deterministic"
+            and os.getenv("FAULT_LAB_MODE") != "isolated"
+        )
+
+        def record_recovery_event(event: dict[str, Any]) -> None:
+            append_recovery_event(recovery_trace, event)
 
         async def execute_agent(agent_name: str, operation: Any) -> Any:
             nonlocal workflow_state
@@ -1363,8 +1376,7 @@ def create_event_workflow(
                 try:
                     result = await operation()
                     if retry_count:
-                        append_recovery_event(
-                            recovery_trace,
+                        record_recovery_event(
                             {
                                 "event": "agent.recovery_resolved",
                                 "status": "SUCCESS",
@@ -1389,8 +1401,7 @@ def create_event_workflow(
                     workflow_state = decision.state
                     workflow_state_cursor[0] = workflow_state
                     supervisor_transitions.append(decision.to_trace())
-                    append_recovery_event(
-                        recovery_trace,
+                    record_recovery_event(
                         {
                             "event": "agent.recovery_decided",
                             "status": "SAFE_STOP",
@@ -1428,8 +1439,7 @@ def create_event_workflow(
                 workflow_state = recovery_decision.state
                 workflow_state_cursor[0] = workflow_state
                 supervisor_transitions.append(recovery_decision.to_trace())
-                append_recovery_event(
-                    recovery_trace,
+                record_recovery_event(
                     {
                         "event": "agent.recovery_decided",
                         "status": route.action,
@@ -1530,8 +1540,22 @@ def create_event_workflow(
                     async def plan_and_bind_output(
                         handoff_inputs=planner_handoff.inputs,
                     ) -> dict[str, object]:
+                        nonlocal demo_planner_contract_failure_pending
                         record_observation("planner.started", "STARTED", agent=planner.AGENT_NAME)
                         raw_output = await planner.plan(handoff_inputs)
+                        if demo_planner_contract_failure_pending:
+                            demo_planner_contract_failure_pending = False
+                            reason = "로컬 시연용 첫 Planner 응답의 미션 설명 목록을 누락했습니다."
+                            injected = {
+                                "event": "planner.demo_contract_error_injected",
+                                "status": "ERROR",
+                                "agent": planner.AGENT_NAME,
+                                "error_code": error_definition("planner_output_invalid").code,
+                                "reason": reason,
+                                "demo_injected": True,
+                            }
+                            record_recovery_event(injected)
+                            raw_output = {**raw_output, "action_rationales": None}
                         try:
                             bound_output = supervisor.bind_canonical_planner_output(
                                 planner_context_brief.model_dump(mode="json"), raw_output
@@ -1598,6 +1622,20 @@ def create_event_workflow(
             )
             record_handoff(planner_handoff, "handoff.accepted")
             record_observation("planner.output_validated", "SUCCESS")
+            if revision_before_summary is not None:
+                record_recovery_event(
+                    {
+                        "event": "agent.recovery_resolved",
+                        "status": "SUCCESS",
+                        "agent": planner.AGENT_NAME,
+                        "recovery_kind": "PLAN_REVISION",
+                        "before_summary": revision_before_summary,
+                        "after_summary": str(planner_output.get("summary") or ""),
+                        "review_reason": revision_reason,
+                    }
+                )
+                revision_before_summary = None
+                revision_reason = None
             transition_workflow(
                 "planner_completed", payload={"reason": "Planner 출력 Schema와 ID 연결 검증 완료"}
             )
@@ -2188,8 +2226,7 @@ def create_event_workflow(
                 workflow_state = decision.state
                 workflow_state_cursor[0] = workflow_state
                 supervisor_transitions.append(decision.to_trace())
-                append_recovery_event(
-                    recovery_trace,
+                record_recovery_event(
                     {
                         "event": "agent.recovery_decided",
                         "status": route.action,
@@ -2202,6 +2239,8 @@ def create_event_workflow(
                 )
                 record_observation("critic.review_completed", "REVIEW")
                 if route.action == "RUN_AGENT":
+                    revision_before_summary = str(planner_output.get("summary") or "")
+                    revision_reason = str(critic_output.get("reason") or "")
                     planner_prompt_context = supervisor.build_planner_revision_context(
                         planner_prompt_context, critic_output["reason"]
                     )

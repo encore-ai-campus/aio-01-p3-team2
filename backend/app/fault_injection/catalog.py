@@ -181,7 +181,7 @@ def catalog() -> dict:
                     "approval": ["approval.pending", "workflow.safe_stopped"],
                     "planner": ["planner.started", "planner.output_validated"],
                     "critic": ["critic.review_started", "critic.review_completed"],
-                    "store": ["storage.result_persisted"],
+                    "store": ["storage.result_persisted", "planning.record_persisted"],
                     "mcp": [
                         "runtime.evidence_collected",
                         "mcp.recovery_decided",

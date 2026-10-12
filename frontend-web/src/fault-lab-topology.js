@@ -1,13 +1,5 @@
 import { executionPathModel, executionStepLabel } from "./fault-lab-path.js";
-// LAN HTTP does not expose randomUUID; getRandomValues remains available.
-function requestId() {
-  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = [...bytes].map(byte => byte.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
-}
+import { requestId } from "./request-id.js";
 // The backend owns topology and fault definitions; this module only renders them.
 const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 function mappedTraceNodes(topology, result) {
@@ -173,6 +165,19 @@ let pendingBody = rememberedRequest?.body ?? null;
 const actionLabels = {RUN_AGENT:"기획안 재작성 후 재검증",TOOL_FALLBACK:"검증된 대체 게임 규칙 조회",STOP:"안전 중단",RETRY:"같은 작업 재시도",SAFE_STOP:"안전 중단",FALLBACK:"대체 경로 사용",REPLAN:"기획안 재작성",REVISE:"기획안 수정",NEEDS_DATA:"추가 데이터 요청",NEEDS_DEVELOPMENT:"개발 필요 표시"};
 const terminalLabels = {REQUEST_BLOCKED:"입력 요청 거절",COMPLETED:"처리 완료",WAITING_APPROVAL:"기획안 작성 완료 · 사람 승인 대기",SAFE_STOP:"안전 중단",FAILED:"작업 실패 종료 (FAILED) · 시험 판정과 별도",NEEDS_DATA:"추가 데이터 필요",NEEDS_DEVELOPMENT:"개발 필요",CANCELLED:"취소",REJECTED:"요청 거절"};
 const checkLabels = {input_rejection_contract:"입력 거절 원인 계약",trace_pinned_policy:"고정된 정책 버전 유지",trace_policy_hash:"정책 참조 해시 일치",recovery_rule_reference:"오류 대응 규칙 근거",state_version_chain:"상태 버전·전이 순서",terminal_no_further_execution:"종료 후 추가 작업 차단",fallback_calls:"대체 조회 횟수",injection_applied:"선택한 오류 주입",detector_evidence:"실제 오류 검출",terminal:"예상한 최종 상태",target_attempts:"허용된 시도 횟수",runtime_unchanged:"게임 데이터 보존",forbidden_runtime_calls:"금지된 게임 쓰기 차단",policy_recovery_actions:"정책에 따른 대응",fixed_request:"원래 요청 유지",fixed_actions:"유저 행동 계약 유지",fixed_rewards:"보상 계약 유지",fixed_reward_links:"행동과 보상 연결 유지",critical_trace_mapping:"필수 실행 기록 확인",idempotent_workflow_replay:"중복 실행 방지",run_owned_result_rows:"시험 결과 저장 범위",policy_restored:"시험 후 원래 정책 복원"};
+function resultOutcomeLabel(result) {
+  if (!result) return "결과 대기";
+  if (result.actual_terminal === "SAFE_STOP") return "안전 종료";
+  if (result.actual_terminal === "FAILED") return "실패 종료";
+  if (result.recovered) return "복구 완료";
+  return terminalLabels[result.actual_terminal] ?? "결과 확인 필요";
+}
+function comparisonBlock(result) {
+  const comparison=result.recovery_comparison;
+  if (!comparison) return '<div class="lab-comparison"><h4>대응 전후</h4><p>이전 실행 기록에는 비교 근거가 저장되지 않았습니다. 아래 Trace에서 대응 과정을 확인하세요.</p></div>';
+  if (comparison.kind === "unchanged") return `<div class="lab-comparison"><h4>대응 전후</h4><p>${escape(comparison.message)}</p></div>`;
+  return `<div class="lab-comparison"><h4>대응 전후</h4>${comparison.reason ? `<p>수정 이유: ${escape(comparison.reason)}</p>` : ""}<div class="lab-comparison-grid"><div><b>${escape(comparison.before_label)}</b><p>${escape(comparison.before)}</p></div><div><b>${escape(comparison.after_label)}</b><p>${escape(comparison.after)}</p></div></div></div>`;
+}
 function resultSummary(result) {
   if (result.provider_mode === "live") {
     const attempts=result.provider_attempts ?? [];
@@ -189,7 +194,7 @@ function resultSummary(result) {
       ["실제 호출 근거",`사용량 확인 ${measured.length}회 · 사용량 불명 ${unknown}회 · 확인된 토큰 ${tokens} · 설정 단가 기준 $${cost.toFixed(6)} (청구액 확정 아님)`],
       ["정책",`고정 정책 버전 ${result.policy_ref?.version ?? "확인 불가"} · 원복 ${result.cleanup_ok ? "확인" : "확인 안 됨"}`],
     ];
-    return `<div class="lab-result-summary" aria-label="시험 결과 설명">${rows.map(([title,value])=>`<div class="log-row"><b>${escape(title)}</b><span>${escape(value)}</span></div>`).join("")}</div>`;
+    return `<div class="lab-result-summary" aria-label="시험 결과 설명">${rows.map(([title,value])=>`<div class="log-row"><b>${escape(title)}</b><span>${escape(value)}</span></div>`).join("")}</div>${comparisonBlock(result)}`;
   }
   const checks=result.checks ?? [];
   const check=(name)=>checks.find(c=>c.name===name);
@@ -219,7 +224,8 @@ function resultSummary(result) {
     ["5. 시험 판정",verdict],
   ];
   const counts=fault==="mcp_game_rules_error" ? `Primary 조회 ${result.attempts ?? "확인 불가"}회 · 별도 콘텐츠 조회를 포함하며 재시도 횟수와 다릅니다.` : result.plan_revisions > 0 ? `해당 경계 관측 ${result.attempts ?? "확인 불가"}회 · 기획 수정 후 재검증을 포함합니다.` : `해당 작업의 최초 시도 ${result.attempts > 0 ? 1 : 0}회 + 재시도 ${result.retries ?? 0}회 · 전체 시도 ${result.attempts ?? "확인 불가"}회`;
-  return `<div class="lab-result-summary" aria-label="시험 결과 설명">${rows.map(([title,value])=>`<div class="log-row"><b>${escape(title)}</b><span>${escape(value)}</span></div>`).join("")}</div><p>${escape(counts)}</p><p>재시도 ${result.retries ?? 0}회 · 기획 수정 ${result.plan_revisions ?? 0}회 · 대체 조회 ${result.fallback_calls ?? 0}회. 재시도·수정·대체 조회는 서로 다른 동작입니다.</p>`;
+  const rowHtml=([title,value])=>`<div class="log-row"><b>${escape(title)}</b><span>${escape(value)}</span></div>`;
+  return `<div class="lab-result-summary" aria-label="시험 결과 설명">${rows.slice(0,3).map(rowHtml).join("")}${comparisonBlock(result)}${rows.slice(3).map(rowHtml).join("")}</div><p>${escape(counts)}</p><p>재시도 ${result.retries ?? 0}회 · 기획 수정 ${result.plan_revisions ?? 0}회 · 대체 조회 ${result.fallback_calls ?? 0}회. 재시도·수정·대체 조회는 서로 다른 동작입니다.</p>`;
 }
 function rememberRun(run) {
   sessionStorage.setItem("eventquest.faultLabRun",JSON.stringify({id:run.id,kind:run.kind}));
@@ -293,7 +299,7 @@ function draw(host) {
     <p>고정 입력과 실제 게임 DB/MCP를 사용합니다. 기본 LLM 응답은 결정적 adapter로 생성하며 외부 호출 비용은 발생하지 않습니다.</p>
     <button id="lab-run" class="primary-button" ${submitting || current?.lifecycle === "RUNNING" || current?.lifecycle === "QUEUED" ? "disabled" : ""}>선택한 오류 실행</button>` : `<p>이 단계는 전용 시험 runner 연결이 필요합니다. 아래 전체 목록에서 준비 상태를 확인하세요.</p>`}
     ${error ? `<p class="warning-note" role="alert">${escape(error)}</p>` : ""}</section>
-    ${current ? `<section class="panel" id="lab-report"><div class="panel-heading"><h3>시험 ${escape(current.lifecycle)} · ${escape(current.verdict ?? "판정 대기")}</h3><span>${escape(current.id)}</span></div>${["QUEUED","RUNNING"].includes(current.lifecycle) ? `<p role="status">시험을 실행하고 있습니다. 아직 확인되지 않은 단계는 그래프에 표시하지 않습니다.</p>` : ""}
+    ${current ? `<section class="panel" id="lab-report"><div class="panel-heading lab-report-heading"><div><h2 class="lab-report-title">Auto Healing</h2><h3 class="lab-report-state">시험 ${escape(current.lifecycle)} · ${escape(["QUEUED","RUNNING"].includes(current.lifecycle) ? "진행 중" : resultOutcomeLabel(result))}</h3></div><span>${escape(current.id)}</span></div>${["QUEUED","RUNNING"].includes(current.lifecycle) ? `<p role="status">시험을 실행하고 있습니다. 아직 확인되지 않은 단계는 그래프에 표시하지 않습니다.</p>` : ""}
     ${current.results?.length > 1 ? `<label>개별 시험 결과<select id="lab-result"><option value="-1" ${selectedResultIndex === -1 ? "selected" : ""}>최근 완료 결과</option>${current.results.map((r,i)=>`<option value="${i}" ${selectedResultIndex === i ? "selected" : ""}>${i+1}. ${escape(r.scenario?.safe_message ?? "시험")} · ${escape(r.verdict)}</option>`).join("")}</select></label>` : ""}
     ${current.counts ? `<p>선택 ${current.counts.selected} · 실행 ${current.counts.executed} · 통과 ${current.counts.PASS} · 실패 ${current.counts.FAIL} · 미실행 ${current.counts.NOT_EXECUTED} · 판정 불가 ${current.counts.INCONCLUSIVE}</p>` : ""}
     ${result ? `${resultSummary(result)}<button class="secondary-button" id="lab-path" aria-pressed="${showExecutionPath}">${showExecutionPath ? "실행 경로 숨기기" : "실행 경로 보기"}</button>` : ""}

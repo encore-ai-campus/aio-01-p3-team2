@@ -17,7 +17,7 @@ export function executionPathModel(topology, result) {
 }
 
 export function executionStepLabel(step) {
-  if (step.event === "storage.result_persisted") return "기획 결과·Trace 저장 완료";
+  if (["storage.result_persisted", "planning.record_persisted"].includes(step.event)) return "기획 결과·Trace 저장 완료";
   if (step.kind === "injection") return `오류 주입${step.call_index ? ` · 호출 ${step.call_index}회차` : ""}`;
   if (step.kind === "detection") return "실제 오류 검출";
   if (step.event === "workflow.safe_stopped") return "안전 종료";

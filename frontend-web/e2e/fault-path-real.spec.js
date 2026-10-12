@@ -10,6 +10,39 @@ const cases=[
   {scenario:"planner_output_invalid",node:"planner",target:"planner.response",pattern:"always",stopped:true},
 ];
 
+for (const scenario of ["planner_output_invalid", "planner_explanation_mismatch"]) {
+  test(`merged custom brief recovery ${scenario}`, async({page,request},testInfo)=>{
+    const errors=[];
+    page.on("pageerror",error=>errors.push(error.message));
+    await page.goto("/");
+    await page.locator(".login-submit").click();
+    await page.locator('button[data-view="create"]').click();
+    await page.locator('[name="objective"]').fill("신규 유저가 달빛 던전의 공간을 탐험하도록 돕는다");
+    await page.locator('[name="execution_mode"]').selectOption(scenario);
+    const submitted=page.waitForResponse(response=>response.url().endsWith("/api/test/fault-runs") && response.request().method()==="POST");
+    await page.locator('#brief-form button[type="submit"]').click();
+    const accepted=await submitted;
+    expect(accepted.status()).toBe(202);
+    const id=(await accepted.json()).id;
+    await expect(page.locator(".planning-demo-verdict")).toContainText("PASS",{timeout:150000});
+    const record=await (await request.get(`/api/test/fault-runs/${id}`)).json();
+    await writeFile(testInfo.outputPath("actual-report.json"),JSON.stringify(record,null,2));
+    const result=record.results[0];
+    expect(result.verdict).toBe("PASS");
+    expect(result.workflow.current_status).toBe("WAITING_APPROVAL");
+    expect(result.workflow.brief.objective).toBe(record.request.brief.objective);
+    expect(result.workflow.brief.rewards.length).toBeGreaterThan(0);
+    expect(result.recovery_comparison.kind).toBe(scenario==="planner_output_invalid"?"retry":"plan_revision");
+    const events=result.workflow.trace.map(step=>step.event);
+    expect(events.indexOf("storage.result_persisted")).toBeGreaterThan(events.indexOf("final_consistency.checked"));
+    expect(events.indexOf("approval.pending")).toBeGreaterThan(events.indexOf("storage.result_persisted"));
+    expect(events.filter(event=>event==="storage.result_persisted")).toHaveLength(1);
+    expect(events).not.toContain("planning.record_persisted");
+    await expect(page.locator(".workflow-board")).toContainText("기획 결과·Trace 저장 완료");
+    expect(errors).toEqual([]);
+  });
+}
+
 for(const item of cases) {
   test(`real isolated ${item.scenario} ${item.pattern}`,async({page,request},testInfo)=>{
     const environment=await (await request.get("/api/test/fault-status")).json();
@@ -49,6 +82,9 @@ for(const item of cases) {
     expect(recovery).toBeGreaterThan(detection);
     expect(steps.filter(step=>step.kind==="injection").every(step=>step.target_id===item.target)).toBe(true);
     if(item.revalidation) {
+      expect(result.recovery_comparison.kind).toBe("plan_revision");
+      expect(result.recovery_comparison.before).toBeTruthy();
+      expect(result.recovery_comparison.after).toBeTruthy();
       const validations=steps.flatMap((step,index)=>step.event==="rule_balance.validation_completed"?[index]:[]);
       const revisedPlanner=steps.findIndex((step,index)=>index>recovery && step.event==="planner.started");
       expect(result.plan_revisions).toBeGreaterThan(0);
@@ -59,6 +95,7 @@ for(const item of cases) {
       expect(steps[validations.at(-1)].phase).toBe("revalidation");
     }
     if(item.fallback) {
+      expect(result.recovery_comparison.kind).toBe("fallback");
       expect(result.fallback_calls).toBe(1);
       expect(steps.some(step=>step.event==="mcp.recovery_decided" && step.status==="TOOL_FALLBACK")).toBe(true);
     }

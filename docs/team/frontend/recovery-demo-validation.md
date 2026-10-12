@@ -1,5 +1,15 @@
 # 복구 시연 UI 실제 시험 환경 검증
 
+## 최신 프론트 브랜치 병합 검증 (2026-10-12)
+
+기존 실행 경로 패치를 `7310772`로 보존하고 원격 `ik_yejin_front`의 `8ea5c63`을 `fix/recovery-ui-sync`에 병합했다. 수정 전후 비교와 사용자 Brief 시험을 유지하며, 신규 저장 사건은 `storage.result_persisted` 한 번만 기록한다. 과거 `planning.record_persisted`는 읽기 호환성을 유지한다. 저장과 승인 대기의 순서는 백엔드 트랜잭션 실행 순서를 따른다.
+
+- 관련 백엔드 검사 149개, 경로 JS 검사 3개, 데스크톱·모바일 fixture 검사 2개와 프론트엔드 빌드 통과.
+- 실제 오류 주입 5종 모두 PASS. 시연 비교 데이터의 수정 전후 설명과 fallback 근거도 확인했다. 증거: `frontend-web/test-results/fault-path-merged/`.
+- 사용자 기획 입력 시연 2종 모두 PASS. Planner 응답 오류 시험 `f310e016-6229-4e1a-b1e1-de4636a9fe82`, 설명 수정 시험 `a7eb5bc1-f940-44ec-bcda-112caa0e3e18`. 사용자가 입력한 목표 유지, Planner 보상 생성, 저장 사건 1회, 저장 후 승인 대기와 UI 저장 문구를 확인했다. 증거: `frontend-web/test-results/fault-path-merged-custom/`.
+- LAN HTTP 브라우저에서 두 입력 시연을 다시 실행해 PASS 확인. `34c4b25c-516c-4ff5-ba4e-43e4f724155e`(재시도), `97bf2278-8646-4af3-ad85-b00c3baa87fa`(수정). 마지막 사건은 최종 검증 → 저장 완료 → Supervisor 전이 → 승인 대기였다. Web Crypto digest/randomUUID가 없는 LAN에서도 요청이 접수됐고 화면 오류는 없었다.
+- API 8183/MCP 8184/UI 5184를 재시작해 유지했으며 DB CLEAN, 활성 정책 버전 1을 확인했다. canonical_planning.py의 기존 Ruff 위반 4건은 그대로 남아 있다.
+
 ## 후속 검증: 저장 이후 승인 대기 (2026-10-12)
 
 카탈로그 `fault-lab-v1.3`에서 최종 검증 이후 결과 INSERT를 먼저 flush하고, 승인 대기 전이와 결과·Trace·WorkflowOperation을 함께 커밋한다. 실패한 INSERT에는 승인 대기 기록이 없으며, 전이 단계 실패에는 저장도 롤백된다. 커밋 성공 이후 journal 공개 순서는 저장 완료 → Supervisor 전이 → 운영자 승인 대기다. 기존 결과는 변경하지 않는다.

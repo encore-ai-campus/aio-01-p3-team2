@@ -1,6 +1,7 @@
 import "./styles.css";
 import { renderWorkflowGraph } from "./workflow-progress.js";
 import { mountFaultLab, renderFaultLab } from "./fault-lab-topology.js";
+import { requestId } from "./request-id.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const app = $("#app");
@@ -17,6 +18,9 @@ let runtimeProgressEventId = "";
 let runtimeProgressLoading = false;
 let runtimeProgressError = "";
 let faultRun = null;
+let planningDemoRun = null;
+let planningDemoPollTimer = null;
+let planningDemoPollError = "";
 let policyState = null;
 let policyPreview = null;
 const policyActionKeyStorage = "eventquest.policyActionKeys";
@@ -43,6 +47,8 @@ let runtimeApplyPending = false;
 const demoGameUrl = "http://127.0.0.1:5173/";
 
 async function requestFingerprint(value) {
+  // Client equality key only; the API validates the authoritative request hash.
+  if (!crypto.subtle) return `json:${JSON.stringify(value)}`;
   const bytes = new TextEncoder().encode(JSON.stringify(value));
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -52,7 +58,7 @@ function pendingRequestKey(operation, fingerprint, extra = {}) {
   const previous = pendingActionKeys.get(operation);
   const request = previous?.fingerprint === fingerprint
     ? previous
-    : { fingerprint, key: crypto.randomUUID(), ...extra };
+    : { fingerprint, key: requestId(), ...extra };
   pendingActionKeys.set(operation, request);
   sessionStorage.setItem(pendingActionKeyStorage, JSON.stringify([...pendingActionKeys]));
   return request;
@@ -85,20 +91,24 @@ function loginScreen() {
     event.preventDefault();
     loggedIn = true;
     activeView = "create";
-    userStartedCreating = true;
+    userStartedCreating = false;
     render();
+    restoreLatestWorkflow();
   });
 }
 
 function logout() {
   loggedIn = false;
   clearTimeout(workflowPollTimer);
+  clearTimeout(planningDemoPollTimer);
   localStorage.removeItem("eventquest.latestWorkflow");
   currentRun = null;
   briefDraft = null;
   runtimeProgress = null;
   runtimeProgressEventId = "";
   faultRun = null;
+  planningDemoRun = null;
+  planningDemoPollError = "";
   policyState = null;
   logsState = null;
   activeView = "create";
@@ -195,11 +205,14 @@ function traceEventLabel(event) {
     "supervisor.transition_decided": "Supervisor 상태 전이 결정",
     "supervisor.state_transition_decided": "Supervisor 상태 전이 결정",
     "planner.started": "Planner 기획 시작",
+    "planner.demo_contract_error_injected": "시연용 Planner 응답 오류 주입",
     "planner.output_validated": "기획 초안 검증",
     "capability.scope_checked": "게임 지원 범위 확인",
     "rule_balance.validation_completed": "게임 규칙·보상 검증",
     "critic.review_completed": "기획안 검토",
     "final_consistency.checked": "최종 일관성 확인",
+    "storage.result_persisted": "기획 결과·Trace 저장 완료",
+    "planning.record_persisted": "기획 결과·Trace 저장 완료",
     "approval.pending": "사용자 승인 대기",
     "approval.decision_recorded": "사용자 승인 결정",
     "runtime.event_registered": "가상 게임 이벤트 등록",
@@ -329,11 +342,13 @@ function createView() {
         <div class="space-mission-list">${spaceRows}</div>
         <p class="field-hint">공간별 첫 클리어 보상 아이템·수량은 기획 에이전트가 제안하며, 게임 규칙 검증 후 기획안에 표시됩니다.</p></div>
         <label>기대 지표<input name="impact" value="퀘스트 참여율" required /><span class="field-hint">관측 근거가 없으면 결과를 임의 추정하지 않고 ‘근거 부족 · 미산출’로 표시합니다.</span></label>
+        <label>실행 방식<select name="execution_mode"><option value="normal">일반 기획안 실행</option><option value="planner_output_invalid">시험: Planner 오류 1회 후 재시도</option><option value="planner_explanation_mismatch">시험: 검수 오류 1회 후 기획안 수정</option></select><span class="field-hint">시험 방식은 입력한 기획안을 격리 DB에서 실행합니다. 복구 과정은 진행 기록에서 확인할 수 있습니다.</span></label>
       </section>
       ${briefError ? `<div class="notice-list warning-note form-error" role="alert"><b>요청을 다시 확인하세요</b><p>${escapeHtml(briefError)}</p></div>` : ""}
       <div class="form-footer"><div class="privacy-note"><span>ⓘ</span><span>이 단계는 게임 데이터를 읽고 계획을 검증합니다.<br/>승인 전에는 게임 상태와 보상을 변경하지 않습니다.</span></div><button class="primary-button" type="submit" ${loading ? "disabled" : ""}>${loading ? "검증 중…" : "기획안 검증 시작"}<span>→</span></button></div>
     </form>`;
 }
+
 
 async function loadPlanningCatalog() {
   if (planningCatalogLoading || planningCatalog) return;
@@ -635,17 +650,9 @@ async function submitBrief(event) {
   const form = new FormData(formElement);
   const selectedSpaces = selectedSpaceRows.map((row) => ({ space_id: row.dataset.spaceId }));
   const inputData = {
-    ...Object.fromEntries([...form.entries()].filter(([key]) => key !== "space_enabled")),
+    ...Object.fromEntries([...form.entries()].filter(([key]) => !["space_enabled", "execution_mode"].includes(key))),
     spaces: selectedSpaces,
   };
-  const inputFingerprint = await requestFingerprint(inputData);
-  const previous = pendingActionKeys.get("event-brief");
-  const stableIds = previous?.fingerprint === inputFingerprint
-    ? previous
-    : {
-      requestId: crypto.randomUUID(),
-    };
-  const pending = pendingRequestKey("event-brief", inputFingerprint, stableIds);
   const template = planningCatalog.templates[0];
   const actions = selectedSpaces.map((space) => ({
     action_type: "special_dungeon_space_clear",
@@ -663,6 +670,20 @@ async function submitBrief(event) {
     impact_targets: [{ metric: form.get("impact"), unit: "users", measurement_time: "event_end", evidence_refs: [] }],
     source_game_version: planningCatalog.versions.game_data_snapshot_id,
   };
+  const executionMode = form.get("execution_mode");
+  if (executionMode !== "normal") {
+    await submitPlanningDemo(brief, executionMode);
+    return;
+  }
+  clearTimeout(planningDemoPollTimer);
+  planningDemoRun = null;
+  planningDemoPollError = "";
+  const inputFingerprint = await requestFingerprint(inputData);
+  const previous = pendingActionKeys.get("event-brief");
+  const stableIds = previous?.fingerprint === inputFingerprint
+    ? previous
+    : { requestId: requestId() };
+  const pending = pendingRequestKey("event-brief", inputFingerprint, stableIds);
   loading = true;
   render();
   try {
@@ -691,6 +712,58 @@ async function submitBrief(event) {
   }
 }
 
+async function submitPlanningDemo(brief, scenarioId) {
+  loading = true;
+  planningDemoPollError = "";
+  render();
+  try {
+    const statusResponse = await fetch("/api/test/fault-status");
+    if (!statusResponse.ok || (await statusResponse.json()).environment !== "isolated") {
+      throw new Error("격리 시험실이 연결되지 않았습니다. powershell -File infra/fault-lab-local.ps1 실행 후 다시 시도하세요.");
+    }
+    const requestBody = { scenario_id: scenarioId, pattern: "once", first_n: 1, profile: "retry_allowed", brief };
+    const fingerprint = await requestFingerprint(requestBody);
+    const pending = pendingRequestKey("planning-demo", fingerprint);
+    const response = await fetch("/api/test/fault-runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": pending.key },
+      body: JSON.stringify(requestBody),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.detail?.code ?? "복구 시험 요청에 실패했습니다.");
+    clearPendingRequestKey("planning-demo");
+    clearTimeout(planningDemoPollTimer);
+    planningDemoRun = body;
+    currentRun = null;
+    activeView = "workflow";
+    pollPlanningDemo(body.id);
+  } catch (error) {
+    briefError = error.message;
+    toast(error.message, true);
+  } finally {
+    loading = false;
+    render();
+  }
+}
+
+async function pollPlanningDemo(id) {
+  try {
+    const response = await fetch(`/api/test/fault-runs/${id}`);
+    if (!response.ok) throw new Error("격리 시험의 진행 상태를 읽지 못했습니다.");
+    const body = await response.json();
+    if (planningDemoRun?.id !== id) return;
+    planningDemoRun = body;
+    planningDemoPollError = "";
+    if (["QUEUED", "RUNNING"].includes(body.lifecycle)) {
+      planningDemoPollTimer = setTimeout(() => pollPlanningDemo(id), 800);
+    }
+  } catch (error) {
+    if (planningDemoRun?.id !== id) return;
+    planningDemoPollError = error.message;
+  }
+  if (activeView === "workflow") render();
+}
+
 function scheduleWorkflowPoll() {
   clearTimeout(workflowPollTimer);
   if (!currentRun || workflowFinishedStates.has(currentRun.current_status ?? currentRun.workflow_status)) return;
@@ -711,7 +784,48 @@ function scheduleWorkflowPoll() {
   }, workflowPollError ? 3000 : 700);
 }
 
+function autoHealingPanel(run) {
+  const trace = Array.isArray(run.trace) ? run.trace : [];
+  const decisions = trace.filter((row) => /\.recovery_decided$/.test(row.event ?? ""));
+  const resolved = trace.filter((row) => /\.recovery_resolved$/.test(row.event ?? ""));
+  const revision = resolved.findLast((row) => row.recovery_kind === "PLAN_REVISION" && row.before_summary != null);
+  const error = decisions.find((row) => row.error_code) ?? trace.find((row) => row.event === "workflow.safe_stopped");
+  const demoError = trace.find((row) => row.event === "planner.demo_contract_error_injected" && row.demo_injected);
+  const status = run.current_status ?? run.workflow_status;
+  const finished = workflowFinishedStates.has(status);
+  const stopped = status === "SAFE_STOP" || status === "FAILED";
+  const heading = stopped ? "안전 종료" : !finished ? decisions.length ? "복구 진행 중" : "진행 중" : decisions.length ? "복구 완료 · 기획 정상 완료" : "정상 실행 · 복구 없음";
+  const actionNames = {RETRY:"재시도",RETRY_AGENT:"Agent 재시도",RETRY_OPERATION:"작업 재시도",RUN_AGENT:"기획안 재작성",REVISE_PLAN:"기획안 수정",REPLAN:"기획안 재작성",REVISE:"기획안 수정",TOOL_FALLBACK:"대체 조회",FALLBACK:"대체 경로 사용",SAFE_STOP:"안전 중단",STOP:"안전 중단"};
+  const actions = [...new Set(decisions.map((row) => actionNames[row.action ?? row.status] ?? row.action ?? row.status).filter(Boolean))];
+  const causeRecord = demoError ?? error;
+  const cause = causeRecord ? `${causeRecord.reason ?? run.error?.message ?? "오류가 감지되었습니다."}${causeRecord.error_code ? ` (${causeRecord.error_code})` : ""}` : finished ? "감지된 복구 대상 오류가 없습니다." : "실행 기록을 확인하는 중입니다.";
+  const response = actions.length ? actions.join(" → ") : stopped ? "안전 중단" : finished ? "별도 복구 조치 없이 진행했습니다." : "복구 결정 기록을 기다리고 있습니다.";
+  const finalState = status === "WAITING_APPROVAL" && finished ? "기획안 생성 완료 · 승인 대기" : finished ? workflowStatusLabel(status) : "실행 중";
+  let comparison = !finished ? "실행 기록을 확인하는 중입니다." : !decisions.length ? "오류가 없어 자동 복구나 수정이 필요하지 않았습니다." : stopped ? "기획안 자동 수정 없음 · 안전 종료했습니다." : "기획안 내용 수정 없이 오류에 대응했습니다.";
+  if (revision) comparison = `<div class="auto-healing-comparison"><div><b>수정 전 Planner 설명</b><p>${escapeHtml(revision.before_summary)}</p></div><div><b>재작성한 Planner 설명</b><p>${escapeHtml(revision.after_summary)}</p></div></div>${revision.review_reason ? `<p>수정 이유: ${escapeHtml(revision.review_reason)}</p>` : ""}`;
+  else if (demoError && resolved.length) comparison = "첫 응답: 미션 설명 목록 누락 → 재시도 응답: 출력 계약 통과. 기획안 입력은 변경하지 않았습니다.";
+  else if (resolved.some((row) => row.event === "mcp.recovery_resolved")) comparison = "게임 데이터 조회 오류 후 대체 조회로 진행했습니다. 기획안 입력은 변경하지 않았습니다.";
+  else if (resolved.length) comparison = "오류가 난 작업을 다시 실행했습니다. 기획안 입력은 변경하지 않았습니다.";
+  return `<section class="panel auto-healing-panel" aria-label="Auto Healing 실행 결과"><h2>Auto Healing</h2><h3>${escapeHtml(heading)}</h3><div class="auto-healing-facts"><div><b>발생한 문제</b><div class="auto-healing-value">${escapeHtml(cause)}</div></div><div><b>자동 대응</b><div class="auto-healing-value">${escapeHtml(response)}</div></div><div><b>대응 전후</b><div class="auto-healing-value">${comparison}</div></div><div><b>최종 상태</b><div class="auto-healing-value">${escapeHtml(finalState)}</div></div></div><p>실제 Workflow Trace에 기록된 단계만 표시합니다.</p></section>`;
+}
+
+function planningDemoView() {
+  const result = planningDemoRun.results?.at(-1);
+  const workflow = result?.workflow;
+  const lifecycle = planningDemoRun.lifecycle;
+  const completed = !["QUEUED", "RUNNING"].includes(lifecycle);
+  const outcome = result?.recovered ? "복구 완료" : result?.actual_terminal === "SAFE_STOP" ? "안전 종료" : result?.actual_terminal ?? "결과 확인 필요";
+  const banner = `<section class="panel planning-demo-banner"><div><span class="eyebrow">ISOLATED PLANNING RUN</span><h2>입력한 기획안의 복구 실행 기록</h2><p>격리 시험 DB에서 처리했습니다. 승인이나 게임 등록은 이 실행에서 사용할 수 없습니다.</p></div><span class="state-chip warning-chip">${escapeHtml(lifecycle)} · ${escapeHtml(completed ? outcome : "진행 중")}</span></section>`;
+  if (!workflow) return `${banner}<section class="panel planning-demo-wait" role="status"><h3>${completed ? "실행 결과를 확인할 수 없습니다" : "복구 실행 중"}</h3><p>${escapeHtml(planningDemoPollError || (completed ? planningDemoRun.error ?? "원본 실행 기록이 생성되지 않았습니다." : "오류 검출과 정책 대응이 끝나면 이곳에 실제 Trace와 기획안이 표시됩니다."))}</p>${planningDemoPollError ? '<button type="button" class="secondary-button" id="retry-planning-demo-poll">상태 다시 확인</button>' : ""}</section>`;
+  const graph = renderWorkflowGraph(workflow, { escapeHtml, traceEventLabel, traceStatusLabel, traceStatusTone, planStatusLabel });
+  const plan = workflow.plan;
+  const verdict = result.verdict === "PASS" ? "기대한 대응과 검증 기준에 일치" : "검증 항목 확인 필요";
+  const planSummary = plan ? `<section class="panel planning-demo-plan"><h3>생성된 기획안</h3><p>${escapeHtml(plan.objective ?? workflow.brief?.objective ?? "기획 목표 정보가 없습니다.")}</p><span class="state-chip">${escapeHtml(planStatusLabel(plan))}</span></section>` : `<section class="panel planning-demo-plan"><h3>기획안 생성 전 종료</h3><p>${escapeHtml(workflow.error?.message ?? "기획안 결과가 없습니다.")}</p></section>`;
+  return `${banner}${autoHealingPanel(workflow)}<section class="panel planning-demo-verdict"><b>시험 판정: ${escapeHtml(result.verdict ?? "판정 대기")}</b><p>${escapeHtml(verdict)} · 재시도 ${result.retries ?? 0}회 · 기획 수정 ${result.plan_revisions ?? 0}회</p></section><div class="workflow-grid workflow-progress"><section class="panel workflow-board"><div class="panel-heading"><div><span class="step">WORKFLOW MAP</span><h3>진행 기록</h3></div><span class="link-badge">격리 실행 이력</span></div>${graph}<details><summary>전체 Trace와 검증 항목</summary><pre>${escapeHtml(JSON.stringify({ trace: result.trace, checks: result.checks }, null, 2))}</pre></details></section>${planSummary}</div>`;
+}
+
 function workflowView() {
+  if (planningDemoRun) return planningDemoView();
   if (!currentRun) return `<div class="empty-state"><div class="empty-icon">⌁</div><h2>진행 기록이 없습니다.</h2><p>기획안 만들기에서 Brief를 제출하면 실제 workflow event와 검증 결과가 표시됩니다.</p><button class="secondary-button" data-goto="create">기획안 만들기 →</button></div>`;
   const graph = renderWorkflowGraph(currentRun, { escapeHtml, traceEventLabel, traceStatusLabel, traceStatusTone, planStatusLabel });
   const findings = currentRun.plan?.validation_summary?.findings ?? [];
@@ -729,7 +843,7 @@ function workflowView() {
     : !workflowFinishedStates.has(currentRun.current_status ?? currentRun.workflow_status)
       ? `<button class="secondary-button" id="cancel-workflow">진행 취소</button>` : "";
 
-  return '<div class="page-intro"><div><span class="eyebrow">WORKFLOW ' + escapeHtml(currentRun.workflow_id) + '</span><h2>실제 검증 경로와 결과</h2><p>주 흐름에서 갈라지는 검증·평가와 조정·복구 경로를 함께 확인하세요.</p></div><span class="state-chip">' + workflowStatusLabel(currentRun.current_status ?? currentRun.workflow_status) + '</span></div><div class="workflow-grid workflow-progress"><section class="panel workflow-board"><div class="panel-heading"><div><span class="step">WORKFLOW MAP</span><h3>진행 기록</h3></div><span class="link-badge">실행 이력</span></div><div class="route-legend"><span class="route-legend-process">실행 순서 · 분기 · 합류</span><span class="route-legend-control">Supervisor 조정·복구</span><span class="route-legend-spine">주 흐름 기준선</span></div>' + graph + '<details><summary>실행 정보와 전체 Trace</summary><pre>' + escapeHtml(JSON.stringify({ workflow_id: currentRun.workflow_id, execution_profile: currentRun.execution_profile, recovery_policy_version: currentRun.recovery_policy_version, snapshot_digest: currentRun.snapshot_digest, created_at: currentRun.created_at, trace: currentRun.trace }, null, 2)) + '</pre></details><div class="workflow-review-summary">' + reviewSummary + '</div></section><section class="panel plan-mini ' + (runtimePanel ? "has-runtime-progress" : "") + '">' + outcome + controlPanel + runtimePanel + '</section></div>';
+  return '<div class="page-intro"><div><span class="eyebrow">WORKFLOW ' + escapeHtml(currentRun.workflow_id) + '</span><h2>실제 검증 경로와 결과</h2><p>주 흐름에서 갈라지는 검증·평가와 조정·복구 경로를 함께 확인하세요.</p></div><span class="state-chip">' + workflowStatusLabel(currentRun.current_status ?? currentRun.workflow_status) + '</span></div>' + autoHealingPanel(currentRun) + '<div class="workflow-grid workflow-progress"><section class="panel workflow-board"><div class="panel-heading"><div><span class="step">WORKFLOW MAP</span><h3>진행 기록</h3></div><span class="link-badge">실행 이력</span></div><div class="route-legend"><span class="route-legend-process">실행 순서 · 분기 · 합류</span><span class="route-legend-control">Supervisor 조정·복구</span><span class="route-legend-spine">주 흐름 기준선</span></div>' + graph + '<details><summary>실행 정보와 전체 Trace</summary><pre>' + escapeHtml(JSON.stringify({ workflow_id: currentRun.workflow_id, execution_profile: currentRun.execution_profile, recovery_policy_version: currentRun.recovery_policy_version, snapshot_digest: currentRun.snapshot_digest, created_at: currentRun.created_at, trace: currentRun.trace }, null, 2)) + '</pre></details><div class="workflow-review-summary">' + reviewSummary + '</div></section><section class="panel plan-mini ' + (runtimePanel ? "has-runtime-progress" : "") + '">' + outcome + controlPanel + runtimePanel + '</section></div>';
 }
 
 function compatiblePolicyRoutes(version) {
@@ -797,7 +911,7 @@ async function policyAction(path, body = null) {
     const requestBody = body ? JSON.stringify(body) : null;
     const fingerprint = requestBody ?? "";
     const previous = policyActionKeys.get(path);
-    const idempotencyKey = previous?.fingerprint === fingerprint ? previous.key : crypto.randomUUID();
+    const idempotencyKey = previous?.fingerprint === fingerprint ? previous.key : requestId();
     policyActionKeys.set(path, { fingerprint, key: idempotencyKey });
     sessionStorage.setItem(policyActionKeyStorage, JSON.stringify([...policyActionKeys]));
     const response = await fetch(`/api/v1/recovery-policies${path}`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey }, ...(requestBody ? { body: requestBody } : {}) });
@@ -852,7 +966,7 @@ async function runFaultScenario() {
       duration: 2,
       objective: "허용된 오류 복구 경로와 안전 종료를 확인한다.",
       game_source: "opong",
-      idempotency_key: crypto.randomUUID(),
+      idempotency_key: requestId(),
       fault_type: selectedFault,
     };
     const response = await fetch("/api/test/events/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -934,6 +1048,8 @@ async function selectLoggedWorkflow(workflowId) {
     const body = await response.json();
     if (!response.ok) throw new Error("선택한 Workflow를 읽지 못했습니다.");
     currentRun = body;
+    clearTimeout(planningDemoPollTimer);
+    planningDemoRun = null;
     revisionOpen = false;
     localStorage.setItem("eventquest.latestWorkflow", body.workflow_id);
     scheduleWorkflowPoll();
@@ -951,10 +1067,10 @@ async function restoreLatestWorkflow() {
     const body = Array.isArray(recent) ? recent[0] : null;
     if (!body?.workflow_id) throw new Error("최근 Workflow가 없습니다.");
     localStorage.setItem("eventquest.latestWorkflow", body.workflow_id);
-    if (!currentRun && activeView === "create" && !userStartedCreating) {
+    if (!currentRun) {
       currentRun = body;
-      activeView = "workflow";
-      render();
+      if (activeView === "create" && !userStartedCreating) activeView = "workflow";
+      if (activeView === "workflow") render();
     }
   } catch (error) {
     if (!savedWorkflowId) return;
@@ -962,10 +1078,10 @@ async function restoreLatestWorkflow() {
       const response = await fetch(`/api/v1/workflows/${encodeURIComponent(savedWorkflowId)}`);
       const body = await response.json();
       if (!response.ok) throw new Error("저장된 Workflow를 복원하지 못했습니다.");
-      if (!currentRun && activeView === "create" && !userStartedCreating) {
+      if (!currentRun) {
         currentRun = body;
-        activeView = "workflow";
-        render();
+        if (activeView === "create" && !userStartedCreating) activeView = "workflow";
+        if (activeView === "workflow") render();
       }
     } catch (restoreError) { toast(restoreError.message, true); }
   }
@@ -992,7 +1108,7 @@ function render() {
   $("#view-root").innerHTML = content;
   $("#view-root").dataset.view = activeView;
   if (activeView === "create" && briefDraft && $("#brief-form")) {
-    for (const name of ["objective", "segment", "operation_mode", "duration", "impact"]) {
+    for (const name of ["objective", "segment", "operation_mode", "duration", "impact", "execution_mode"]) {
       const field = $(`[name="${name}"]`);
       if (field && briefDraft.fields[name] !== undefined) field.value = briefDraft.fields[name];
     }
@@ -1004,6 +1120,7 @@ function render() {
     }
   }
   $("#brief-form")?.addEventListener("submit", submitBrief);
+  $("#retry-planning-demo-poll")?.addEventListener("click", () => pollPlanningDemo(planningDemoRun.id));
   $("#brief-form")?.addEventListener("input", (event) => {
     userStartedCreating = true;
     const field = event.target;

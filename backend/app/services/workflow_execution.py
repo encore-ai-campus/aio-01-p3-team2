@@ -266,9 +266,8 @@ def finalize_execution(record: dict[str, Any]):
         if annotation is not None:
             annotations.remove(annotation)
         actual.append({**(annotation or {}), **item})
-    record["trace"] = [
-        {**item, "sequence": index} for index, item in enumerate([*actual, *annotations], 1)
-    ]
+    combined_trace = [*actual, *annotations]
+    record["trace"] = [{**item, "sequence": index} for index, item in enumerate(combined_trace, 1)]
     record["operation_status"] = "FINISHED"
     record["current_status"] = record["supervisor_state"]["status"]
 

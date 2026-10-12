@@ -95,6 +95,7 @@ def oracle(
     workflow: dict,
     before: dict,
     after: dict,
+    brief_data: dict | None = None,
 ) -> dict:
     """Compare observed behavior against independently declared policy limits."""
     applied = [row for row in journal if row.get("applied")]
@@ -261,7 +262,9 @@ def oracle(
         )
     result_brief = workflow.get("brief")
     if result_brief and scenario["target_id"] != "scope.fixture":
-        fixed = EventBriefInput.model_validate(brief_fixture()).model_dump(mode="json")
+        fixed = EventBriefInput.model_validate(
+            brief_fixture() if brief_data is None else brief_data
+        ).model_dump(mode="json")
         checks.append(
             {
                 "name": "fixed_request",
@@ -293,7 +296,15 @@ def oracle(
                 },
             }
         )
-        for field in ("actions", "rewards"):
+        fixed_fields = (
+            ("actions",)
+            if fixed["reward_selection"] == "planner"
+            else (
+                "actions",
+                "rewards",
+            )
+        )
+        for field in fixed_fields:
             expected = [
                 {k: v for k, v in row.items() if k not in {"action_id", "reward_id"}}
                 for row in fixed[field]
@@ -309,7 +320,26 @@ def oracle(
             (action_ids.index(row["action_id"]), reward_ids.index(row["reward_id"]))
             for row in result_brief["mission_reward_links"]
         ]
-        checks.append({"name": "fixed_reward_links", "expected": [(0, 0)], "actual": links})
+        if fixed["reward_selection"] == "planner":
+            valid_links = (
+                bool(reward_ids)
+                and len(links) == len(reward_ids)
+                and {reward_index for _, reward_index in links} == set(range(len(reward_ids)))
+            )
+            checks.append(
+                {
+                    "name": "planner_reward_links_valid",
+                    "expected": True,
+                    "actual": valid_links,
+                }
+            )
+        else:
+            expected_links = [
+                (row["action_index"], row["reward_index"]) for row in fixed["mission_reward_links"]
+            ]
+            checks.append(
+                {"name": "fixed_reward_links", "expected": expected_links, "actual": links}
+            )
     topology = next(t for t in catalog()["topologies"] if t["route"] == scenario["route"])
     mapped_events = {event for node in topology["nodes"] for event in node["observed_events"]}
     # Known metadata has no graph node. Error-bearing rows are never downgraded.
@@ -387,10 +417,73 @@ def oracle(
     }
 
 
+def recovery_comparison(result: dict, workflow: dict) -> dict:
+    """Summarize observed recovery evidence without inventing a plan diff."""
+    trace = workflow.get("trace", [])
+    revision = next(
+        (
+            row
+            for row in reversed(trace)
+            if row.get("event") == "agent.recovery_resolved"
+            and row.get("recovery_kind") == "PLAN_REVISION"
+        ),
+        None,
+    )
+    if revision:
+        return {
+            "kind": "plan_revision",
+            "before_label": "수정 전 Planner 설명",
+            "before": revision.get("before_summary", ""),
+            "after_label": "재작성한 Planner 설명",
+            "after": revision.get("after_summary", ""),
+            "reason": revision.get("review_reason", ""),
+        }
+    if not result.get("recovered"):
+        terminal = result.get("actual_terminal")
+        message = (
+            "기획안 변경 없음 · 정책에 따라 안전 종료했습니다."
+            if terminal == "SAFE_STOP"
+            else "기획안 변경 없음 · 최종 대응은 위 정책 결정과 최종 상태를 확인하세요."
+        )
+        return {
+            "kind": "unchanged",
+            "message": message,
+        }
+    if result.get("fallback_calls", 0):
+        return {
+            "kind": "fallback",
+            "before_label": "Primary 조회 시도",
+            "before": result["scenario"]["safe_message"],
+            "after_label": "대체 조회 후",
+            "after": "검증된 대체 게임 규칙을 조회하고 기획 흐름을 계속했습니다.",
+        }
+    if result.get("retries", 0):
+        return {
+            "kind": "retry",
+            "before_label": "첫 시도",
+            "before": result["scenario"]["safe_message"],
+            "after_label": "재시도 후",
+            "after": "같은 작업을 다시 실행해 사람 승인 대기까지 진행했습니다. 기획안 입력은 변경하지 않았습니다.",
+        }
+    if result["scenario"]["fault_id"] == "db_write_outcome_unknown":
+        return {
+            "kind": "reconciled",
+            "before_label": "저장 응답",
+            "before": "저장 결과 확인 응답을 받지 못했습니다.",
+            "after_label": "결과 조회 후",
+            "after": "이미 저장된 결과를 조회해 확인했습니다. 쓰기를 다시 실행하지 않았습니다.",
+        }
+    return {
+        "kind": "unchanged",
+        "message": "기획안 내용 변경 없음 · 정책 대응 후 작업을 계속했습니다.",
+    }
+
+
 def run_case(id_: str, index: int) -> dict:
     record = store.read(id_)
     request = record["request"].get("cases", [record["request"]])[index]
     scenario = validate_request(request)
+    brief_data = request.get("brief") or brief_fixture()
     original = next(v for v in policies.list_policies()["versions"] if v["status"] == "ACTIVE")
     started = time.monotonic()
     journal = []
@@ -440,7 +533,7 @@ def run_case(id_: str, index: int) -> dict:
             policies.activate_version(version, idempotency_key=f"lab-activate-{id_}-{index}")
             changed = True
         before = runtime_snapshot()
-        brief = EventBriefInput.model_validate(brief_fixture())
+        brief = EventBriefInput.model_validate(brief_data)
         with policies.pin_active_policy() as pinned:
             with injection_context(id_, request, scenario["target_id"], emit):
                 if scenario["route"] == "legacy_task":
@@ -515,6 +608,7 @@ def run_case(id_: str, index: int) -> dict:
                 workflow,
                 before,
                 after,
+                brief_data,
             )
             if scenario["route"] == "canonical_planning" and not scenario["target_id"].startswith(
                 "input."
@@ -562,12 +656,27 @@ def run_case(id_: str, index: int) -> dict:
                 if not same or persisted != expected_rows:
                     result.update(verdict="FAIL", recovered=False)
             result["fixture_digest"] = hashlib.sha256(
-                json.dumps(brief_fixture(), sort_keys=True).encode()
+                json.dumps(brief_data, sort_keys=True).encode()
             ).hexdigest()
             result["scenario"] = scenario
             from backend.app.fault_injection.execution_path import execution_path
 
             result.update(execution_path(scenario, journal))
+            result["recovery_comparison"] = recovery_comparison(result, workflow)
+            if request.get("brief") is not None:
+                result["workflow"] = {
+                    key: workflow.get(key)
+                    for key in (
+                        "workflow_id",
+                        "workflow_status",
+                        "current_status",
+                        "trace",
+                        "plan",
+                        "error",
+                        "brief",
+                        "agent_analysis",
+                    )
+                }
             detected_times = [
                 row["elapsed_monotonic_seconds"]
                 for row in journal

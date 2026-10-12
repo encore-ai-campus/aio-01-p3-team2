@@ -28,6 +28,7 @@ MCP 응답 키는 `target_user`, `duration`, ID별 객체 `contents`·`items`, �
 - MCP 팀: 기획용 Tool과 응답 계약, 필요 시 검증된 Fallback 데이터 제공 방식.
 - Backend B: 조회 → 응답 검증 → 제한된 Planner Context 전달 → 생성 → 기존 Tool 재조회·규칙 검증 순서, Supervisor 복구 및 Trace 이벤트 생성.
 - Backend A: API·공통 Schema·Repository·Trace 저장과 실행 설정의 연결. 외부 이벤트 생성 API의 네 입력 항목은 유지한다.
+- canonical Workflow 결과를 저장할 때 `planning.record_persisted` Trace 이벤트를 함께 기록한다. 격리 복구 시연의 고정 그래프는 이 이벤트를 `기획안·Trace 저장` 단계 완료 근거로 사용한다.
 - Frontend: Trace 계약이 확정된 뒤 실제 실행 순서에 맞춰 화면·데모를 조정한다.
 
 정확한 Tool 응답 필드·타입, Fallback 제공 방식, 버전 변경 시 재조회 범위와 Trace 구분 필드는 팀 간 계약으로 확정한다. 이 문서는 미확정 세부 규격을 구현 완료로 간주하지 않는다.

@@ -1,6 +1,7 @@
 const MAIN_EVENTS = new Set([
   "brief.accepted", "planner.started", "planner.execution_recorded", "planner.output_validated", "approval.pending",
   "approval.decision_recorded", "runtime.event_registered", "workflow.safe_stopped",
+  "storage.result_persisted", "planning.record_persisted",
 ]);
 const OMITTED_EVENTS = new Set(["llm.usage_recorded"]);
 const LANES = { main: 24, review: 348, supervisor: 672 };
