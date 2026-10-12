@@ -23,9 +23,9 @@
 | 변경 영향 계산 | `deployment_impact.py`와 `change_rules.json`에 역할별 규칙 있음 |
 | 선택 업데이트 release 구성 | `release_plan.py` 추가. 서비스별 실제 source 기준 영향 계산·미선택 버전 보존 |
 | host 이미지 교체 | `host_release.py`에 digest/revision 확인·Compose up·health 검사 있음 |
-| 전체 fleet 업데이트 자동 실행·수용 | 미완료. host 준비/manifest 배치/점검·drain/선택 SSM 실행/전체 연결 수용/성공 baseline 기록 연결 필요 |
-| ikonly push → 자동 CD | 미활성. OIDC/protection 확인 및 운영 실행 workflow 연결 필요 |
-| 전체 초기화 자동 workflow | 미완료. 이번 초기화는 계정·태그·manifest를 확인한 로컬 운영 실행이며 자동화 완료로 표현하지 않음 |
+| 전체 fleet 업데이트 자동 실행·수용 | 코드 연결 완료: immutable 배치→점검/drain→선택 SSM→전체 연결 수용→baseline 기록. 새 경로 실제 수용은 미완료 |
+| ikonly push → 자동 CD | workflow 연결, IAM/OIDC 생성. 실제 인증 검증 후 CD 변수 활성화 |
+| 전체 초기화 | 로컬 operations reset 연결: 증거 다운로드·SHA 확인→역순 stack 삭제→보존 자원 삭제→잔존 검사. 새 경로 실제 수용은 미완료 |
 
 ## 3. 시스템별 업데이트 계약
 
@@ -71,3 +71,7 @@ backend/.venv/Scripts/python.exe -m infra.aws.release_plan --candidate <candidat
 ## 5. 확인 범위
 
 이번 변경은 선택 업데이트 계획 모듈 및 수명주기 기준을 구체화했다. 모듈 Ruff lint/format 확인과 실제 AWS 자원 삭제/잔존 조회를 수행했다. 업데이트 시나리오의 신규 자동 테스트와 재배포/실제 업데이트는 수행하지 않았으며 성공으로 기록하지 않는다.
+
+## 2026-10-12 구현 연결
+
+사용자는 배포 인증 연결 유지 및 첫 배포 로컬 키 공급을 확정했다. 제어 IAM 역할 두 개와 공유 OIDC 연결은 초기화 대상에서 제외한다. 앱 키/DB/이미지/로그/증거는 초기화 대상이다. 첫 배포와 초기화는 로컬에서 실행하고 GitHub는 ACTIVE 환경 업데이트 및 복구를 담당한다. 정확한 명령·실패 의미는 [운영 가이드 26](26_AWS_배포운영_실행가이드.md)를 따른다.

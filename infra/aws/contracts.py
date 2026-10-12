@@ -67,11 +67,13 @@ class ServiceRelease(Contract):
     image: Literal["web", "application"]
     digest: Digest
     source_sha: Sha
+    deployment_id: Sha | None = None
 
 
 class ReleaseManifest(Contract):
     environment_id: Literal["ikonly-demo"]
     source_sha: Sha
+    release_id: Sha | None = None
     ci_run_id: str = Field(pattern=r"^[0-9]+$")
     ci_attempt: int = Field(ge=1)
     services: dict[Role, ServiceRelease]

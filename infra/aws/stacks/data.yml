@@ -108,6 +108,7 @@
           "Fn::Sub": "{{resolve:ssm-secure:/multi-agent-autohealing/ikonly-demo/operations/master-password:${MasterPasswordVersion}}}"
         },
         "BackupRetentionPeriod": 7,
+        "DeleteAutomatedBackups": true,
         "CopyTagsToSnapshot": true,
         "DeletionProtection": true,
         "EnableCloudwatchLogsExports": [
@@ -137,7 +138,69 @@
         ]
       },
       "DeletionPolicy": "Snapshot",
-      "UpdateReplacePolicy": "Snapshot"
+      "UpdateReplacePolicy": "Snapshot",
+      "DependsOn": [
+        "PostgresqlLogs",
+        "UpgradeLogs"
+      ]
+    },
+    "PostgresqlLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/rds/instance/ikonly-demo-postgres/postgresql",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "database"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
+    },
+    "UpgradeLogs": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/rds/instance/ikonly-demo-postgres/upgrade",
+        "RetentionInDays": 14,
+        "Tags": [
+          {
+            "Key": "Environment",
+            "Value": "ikonly-demo"
+          },
+          {
+            "Key": "ManagedBy",
+            "Value": "ikonly-iac"
+          },
+          {
+            "Key": "OwnerStack",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          },
+          {
+            "Key": "ServiceRole",
+            "Value": "database"
+          }
+        ]
+      },
+      "DeletionPolicy": "Retain",
+      "UpdateReplacePolicy": "Retain"
     }
   },
   "Outputs": {

@@ -342,3 +342,7 @@ RDS는 일시 중지 7일 후 자동 재시작하며 저장소 비용도 남는�
 특히 다른 EC2의 웹 proxy는 현재 loopback 검사에서 차단되므로 cloud 접근 계약을 먼저 구현한다. 시험 RDS guard를 local guard와 구분하고, runtime `create_all`/시험 DDL을 migration으로 이전한다. 001~016 SQL만으로 모든 ORM/시험 테이블이 완성됐다고 가정하지 않고 baseline을 대조한다. RDS TLS는 CA와 hostname을 검증한다.
 
 다중 호스트 배포에는 공유 maintenance·lock·drain이 필요하다. 짧은 운영에서도 첫 상태 저장 후 백업을 남기고 종료 전에 복원을 확인한다. cleanup은 계정·자원 소유권 manifest로 수행하며 Retain/cross-stack export 해제와 임시 복원 RDS 삭제까지 포함한다. 이번 점검은 문서·코드 읽기이며 container·AWS 동작 검증을 실행한 결과는 아니다.
+
+## 배포 수명주기 최신 실행 기준
+
+첫 배포·선택 업데이트·복구·전체 초기화의 최신 구현 및 검증 범위는 [운영 가이드 26](26_AWS_배포운영_실행가이드.md)를 따른다. 기존 배포 성공 이력과 새 자동화 경로 수용 시험을 구분한다.

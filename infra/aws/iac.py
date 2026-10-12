@@ -248,6 +248,7 @@ def data():
             + "operations/master-password:${MasterPasswordVersion}}}"
         ),
         BackupRetentionPeriod=7,
+        DeleteAutomatedBackups=True,
         CopyTagsToSnapshot=True,
         DeletionProtection=True,
         EnableCloudwatchLogsExports=["postgresql", "upgrade"],
@@ -255,6 +256,15 @@ def data():
         Tags=tags("database"),
     )
     r["Database"].update(DeletionPolicy="Snapshot", UpdateReplacePolicy="Snapshot")
+    for logical_name, suffix in (("PostgresqlLogs", "postgresql"), ("UpgradeLogs", "upgrade")):
+        r[logical_name] = resource(
+            "Logs::LogGroup",
+            LogGroupName="/aws/rds/instance/ikonly-demo-postgres/" + suffix,
+            RetentionInDays=14,
+            Tags=tags("database"),
+        )
+        r[logical_name].update(DeletionPolicy="Retain", UpdateReplacePolicy="Retain")
+    r["Database"]["DependsOn"] = ["PostgresqlLogs", "UpgradeLogs"]
     t["Outputs"]["Endpoint"] = {"Value": att("Database", "Endpoint.Address")}
     t["Outputs"]["DatabaseId"] = {"Value": ref("Database")}
     return t

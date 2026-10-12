@@ -20,7 +20,7 @@ def selected_image(manifest, role, account, release_id, manifest_hash, raw):
         raise ValueError("Release manifest hash mismatch")
     if (
         manifest.get("environment_id") != "ikonly-demo"
-        or manifest.get("source_sha") != release_id
+        or (manifest.get("release_id") or manifest.get("source_sha")) != release_id
         or not re.fullmatch(r"[a-f0-9]{40}", release_id)
         or set(manifest.get("services", {})) != set(ROLES)
         or not re.fullmatch(r"\d{12}", account)
@@ -30,7 +30,8 @@ def selected_image(manifest, role, account, release_id, manifest_hash, raw):
     image = "web" if role.endswith("-web") else "application"
     if (
         service.get("image") != image
-        or service.get("source_sha") != release_id
+        or not re.fullmatch(r"[a-f0-9]{40}", service.get("source_sha", ""))
+        or (service.get("deployment_id") or service.get("source_sha")) != release_id
         or not re.fullmatch(r"sha256:[a-f0-9]{64}", service.get("digest", ""))
     ):
         raise ValueError("Service image identity is invalid")
@@ -101,7 +102,7 @@ def apply_release(release_id, manifest_hash):
                 '{{index .Config.Labels "org.opencontainers.image.revision"}}',
             ]
         )
-        if revision != release_id:
+        if revision != manifest["services"][role]["source_sha"]:
             raise ValueError("Image source revision mismatch")
         support = Path(__file__).parent
         web = role.endswith("-web")

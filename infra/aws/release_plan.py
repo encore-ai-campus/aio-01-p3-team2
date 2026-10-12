@@ -1,6 +1,7 @@
 """Plan first or selective updates from each service's deployed Git baseline."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -21,7 +22,7 @@ def build(candidate, previous=None, *, full=False):
         manual = False
     else:
         previous = ReleaseManifest.model_validate(previous)
-        previous_id = previous.source_sha
+        previous_id = previous.release_id or previous.source_sha
         evidence = {
             role: plan_from_git(service.source_sha, head, baseline="deployed")
             for role, service in previous.services.items()
@@ -39,8 +40,25 @@ def build(candidate, previous=None, *, full=False):
         for pair in (("main-api", "fault-api"), ("main-mcp", "fault-mcp")):
             if set(pair) & set(targets):
                 targets = [role for role in ROLES if role in set(targets) | set(pair)]
+        if (
+            all(
+                previous.services[role].digest == candidate.services[role].digest
+                and previous.services[role].source_sha == candidate.services[role].source_sha
+                for role in ROLES
+            )
+            and not changed
+        ):
+            targets = []
     release = candidate.model_dump()
     release["previous_release_id"] = previous_id
+    deployment_id = hashlib.sha256(
+        json.dumps(
+            {"candidate": release, "previous": previous_id, "targets": targets}, sort_keys=True
+        ).encode()
+    ).hexdigest()[:40]
+    release["release_id"] = deployment_id
+    for role in targets:
+        release["services"][role]["deployment_id"] = deployment_id
     if previous is not None:
         for role in ROLES:
             if role not in targets:

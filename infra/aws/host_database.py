@@ -12,7 +12,14 @@ from infra.aws.infrastructure import Aws
 
 
 def operation(image, endpoint, release_id, action):
-    if os.geteuid() != 0 or action not in ("initialize", "enable", "disable", "status", "drain"):
+    if os.geteuid() != 0 or action not in (
+        "initialize",
+        "migrate",
+        "enable",
+        "disable",
+        "status",
+        "drain",
+    ):
         raise ValueError("Invalid privileged database operation")
     aws = Aws("ap-northeast-2")
     expected = "bootstrap" if action == "initialize" else "migration"
@@ -87,6 +94,7 @@ def operation(image, endpoint, release_id, action):
                 ]
             )
             print(result)
+            return json.loads(result)
         finally:
             Path(filename).unlink(missing_ok=True)
 
@@ -103,7 +111,7 @@ def operation(image, endpoint, release_id, action):
     for purpose in ("main", "fault"):
         args = ["--purpose", purpose, "--environment", "ikonly-demo"]
         extra = {"MIGRATION_DATABASE_URL": values["operations/" + purpose + "-owner-url"]}
-        if action == "initialize":
+        if action in ("initialize", "migrate"):
             execute("backend.app.deployment.migrate", [*args, "--apply"], extra)
             execute(
                 "backend.app.deployment.bootstrap",
@@ -116,11 +124,16 @@ def operation(image, endpoint, release_id, action):
                 ],
                 extra,
             )
-        execute(
-            "backend.app.deployment.maintenance",
-            ["enable" if action == "initialize" else action, *args, "--release-id", release_id],
-            extra,
-        )
+        if action != "migrate":
+            if action == "disable":
+                current = execute("backend.app.deployment.maintenance", ["status", *args], extra)
+                if not current["enabled"]:
+                    continue
+            execute(
+                "backend.app.deployment.maintenance",
+                ["enable" if action == "initialize" else action, *args, "--release-id", release_id],
+                extra,
+            )
 
 
 def main():

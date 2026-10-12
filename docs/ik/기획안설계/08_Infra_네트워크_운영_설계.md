@@ -107,3 +107,7 @@ cloud runtime DDL 차단과 별도 migration CLI를 구현했다. PostgreSQL은 
 ## 2026-10-12 TLS·권한·bootstrap 후속 동기화
 
 cloud DB guard·6개 role/2개 DB provision·owner 초기화와 정책 hash/audit를 구현했다. core 483 PASS / 1 SKIP, 실제 임시 TLS DB·migration 14 PASS, 기존 local 승인→게임 보상 연동 2 PASS. Python inventory 67개(core 49, postgres 13, external 3, compatibility 2), JS 7개. 시험은 CLOUD_DATABASE_TESTS=true와 기존 postgres profile의 loopback test URL을 명시해야 하며 별도의 소유 컨테이너와 자체 CA를 사용한다. 실제 RDS 수용은 아직 아니다. 운영 명령·비밀 설정·권한과 보존·실험 진단/정리·남은 범위는 [구현 계획 24 §12](24_AWS_배포_CICD_구현계획.md#12-rds-tlsdb-권한초기-데이터-준비-구현-2026-10-12)를 따른다.
+
+## 배포 수명주기 최신 실행 기준
+
+첫 배포·선택 업데이트·복구·전체 초기화의 최신 구현 및 검증 범위는 [운영 가이드 26](26_AWS_배포운영_실행가이드.md)를 따른다. 기존 배포 성공 이력과 새 자동화 경로 수용 시험을 구분한다.

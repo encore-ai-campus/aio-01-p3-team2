@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import tarfile
 import tempfile
@@ -45,16 +46,38 @@ def archive_identity(path, metadata, source_sha):
         return identifiers
 
 
-def verify(directory, run_metadata, jobs):
+def verify(directory, run_metadata, jobs, *, allow_current_run=False):
     directory = Path(directory)
     candidate = json.loads((directory / "candidate.json").read_text())
     approved = json.loads((directory / "ci-verified.json").read_text())
+    current = (
+        allow_current_run
+        and os.getenv("GITHUB_ACTIONS") == "true"
+        and os.getenv("GITHUB_JOB") == "deploy"
+        and os.getenv("GITHUB_REF") == "refs/heads/ikonly"
+        and os.getenv("GITHUB_REPOSITORY") == "ik-e/multi-agent-autohealing"
+        and os.getenv("GITHUB_RUN_ID") == str(run_metadata.get("id"))
+        and os.getenv("GITHUB_SHA") == run_metadata.get("head_sha")
+        and run_metadata.get("status") == "in_progress"
+    )
+    completed = {j["name"]: j["conclusion"] for j in jobs}
+    failed_deploy_only = (
+        run_metadata.get("status") == "completed"
+        and run_metadata.get("conclusion") == "failure"
+        and all(completed.get(name) == "success" for name in JOBS | {"release-gate"})
+        and {name for name, result in completed.items() if result == "failure"} == {"deploy"}
+    )
     if (
         run_metadata.get("head_branch") != "ikonly"
-        or run_metadata.get("event") != "push"
+        or run_metadata.get("event") not in ("push", "workflow_dispatch")
         or run_metadata.get("path") != ".github/workflows/ikonly-ci.yml"
-        or run_metadata.get("status") != "completed"
-        or run_metadata.get("conclusion") != "success"
+        or (
+            not current
+            and (
+                run_metadata.get("status") != "completed"
+                or (run_metadata.get("conclusion") != "success" and not failed_deploy_only)
+            )
+        )
         or run_metadata.get("head_repository", {}).get("full_name")
         != "ik-e/multi-agent-autohealing"
         or candidate.get("source_sha") != run_metadata.get("head_sha")
@@ -64,7 +87,6 @@ def verify(directory, run_metadata, jobs):
         or any(approved.get(k) != v for k, v in candidate.items())
     ):
         raise ValueError("Trusted CI provenance or approval mismatch")
-    completed = {j["name"]: j["conclusion"] for j in jobs}
     if any(completed.get(name) != "success" for name in JOBS | {"release-gate"}):
         raise ValueError("Required remote CI job is not successful")
     with tempfile.TemporaryDirectory(prefix="ikonly-source-") as temporary:
@@ -107,7 +129,7 @@ def verify(directory, run_metadata, jobs):
     return candidate
 
 
-def publish(config, directory, run_id, output):
+def publish(config, directory, run_id, output, *, allow_current_run=False):
     aws = Aws(config["region"])
     preflight(aws, config)
     metadata = json.loads(
@@ -124,7 +146,12 @@ def publish(config, directory, run_id, output):
             ]
         )
     )
-    candidate = verify(directory, metadata, [job for page in jobs for job in page["jobs"]])
+    candidate = verify(
+        directory,
+        metadata,
+        [job for page in jobs for job in page["jobs"]],
+        allow_current_run=allow_current_run,
+    )
     registry = config["account_id"] + ".dkr.ecr.ap-northeast-2.amazonaws.com"
     token = run(["aws", "--region", config["region"], "ecr", "get-login-password"])
     digests = {}
@@ -136,6 +163,28 @@ def publish(config, directory, run_id, output):
             identifiers = archive_identity(
                 Path(directory) / image["tar"], image, candidate["source_sha"]
             )
+            existing = aws(
+                "ecr",
+                "batch-get-image",
+                "--repository-name",
+                "ikonly-demo/" + kind,
+                "--image-ids",
+                "imageTag=" + candidate["source_sha"],
+            )
+            if existing.get("images"):
+                if len(existing["images"]) != 1:
+                    raise ValueError("Existing immutable image tag is ambiguous")
+                entry = existing["images"][0]
+                manifest = json.loads(entry["imageManifest"])
+                if manifest.get("config", {}).get("digest") != image["image_id"]:
+                    raise ValueError(
+                        "Existing immutable tag differs from this exact CI archive; use a new commit"
+                    )
+                digests[kind] = entry["imageId"]["imageDigest"]
+                run(["docker", "load", "--input", str(Path(directory) / image["tar"])])
+                continue
+            if any(f.get("failureCode") != "ImageNotFound" for f in existing.get("failures", [])):
+                raise ValueError("Image registry lookup failed")
             run(["docker", "load", "--input", str(Path(directory) / image["tar"])])
             loaded = json.loads(run(["docker", "image", "inspect", image["tag"]]))[0]
             if (

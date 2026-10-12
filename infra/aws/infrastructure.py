@@ -258,6 +258,11 @@ def plan(aws, config, stage, parameters):
             {"Key": "ManagedBy", "Value": "ikonly-iac"},
         ],
     }
+    if config.get("cloudformation_role_arn"):
+        expected = "arn:aws:iam::" + config["account_id"] + ":role/ikonly-control-cloudformation"
+        if config["cloudformation_role_arn"] != expected:
+            raise ValueError("Unexpected CloudFormation execution role")
+        request["RoleARN"] = expected
     created = aws("cloudformation", "create-change-set", payload=request)
     record.update(
         stage=stage,

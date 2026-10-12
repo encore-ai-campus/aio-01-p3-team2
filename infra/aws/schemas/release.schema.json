@@ -3,6 +3,19 @@
     "ServiceRelease": {
       "additionalProperties": false,
       "properties": {
+        "deployment_id": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Deployment Id"
+        },
         "digest": {
           "pattern": "^sha256:[0-9a-f]{64}$",
           "title": "Digest",
@@ -76,6 +89,19 @@
         }
       ],
       "title": "Previous Release Id"
+    },
+    "release_id": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Release Id"
     },
     "schema_checksum": {
       "pattern": "^sha256:[0-9a-f]{64}$",
