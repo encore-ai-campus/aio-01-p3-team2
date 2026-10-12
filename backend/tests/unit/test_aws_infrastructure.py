@@ -767,3 +767,54 @@ def test_explicit_service_update_preserves_other_versions_and_requires_dependenc
     candidate["schema_checksum"] = "sha256:" + "d" * 64
     with pytest.raises(ValueError, match="required dependency"):
         release_plan.build(candidate, previous, services=["game-web"])
+
+
+def test_reset_resume_skips_stopped_hosts_and_preserves_evidence_directory(tmp_path, monkeypatch):
+    import contextlib
+    import sys
+
+    from infra.aws import operations
+    from infra.aws.operation_state import write
+
+    config = valid_config()
+    output = tmp_path / "reset-evidence"
+    cfg = tmp_path / "config.json"
+    write(cfg, config)
+    state = {
+        "lifecycle": "RESETTING",
+        "config": config,
+        "release": {"source_sha": "a" * 40},
+        "reset": {"quiesced": True, "evidence_directory": str(output.resolve())},
+    }
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "operations",
+            "reset",
+            "--config",
+            str(cfg),
+            "--confirm-environment",
+            "ikonly-demo",
+            "--output",
+            str(output),
+        ],
+    )
+    monkeypatch.setattr(operations, "Aws", lambda region: object())
+    monkeypatch.setattr(operations, "preflight", lambda *args: {"account_id": config["account_id"]})
+    monkeypatch.setattr(operations, "read_state", lambda *args: state)
+    monkeypatch.setattr(operations, "operation_lock", lambda *args: contextlib.nullcontext())
+
+    def stopped_host(*args):
+        raise AssertionError("Resume must not contact terminated API hosts")
+
+    monkeypatch.setattr(operations, "database", stopped_host)
+    calls = []
+    monkeypatch.setattr(operations, "reset", lambda *args: calls.append(args[-1]))
+    operations.main()
+    assert calls == [output]
+    assert json.loads((output / "result.json").read_text())["status"] == "RESET_COMPLETE"
+    state["reset"]["evidence_directory"] = str(tmp_path / "different-evidence")
+    with pytest.raises(ValueError, match="original persistent evidence"):
+        operations.main()

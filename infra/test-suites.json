@@ -917,7 +917,8 @@
         "test_fleet_acceptance_checks_actual_private_bind",
         "test_initial_resume_refuses_app_parameters_and_mismatched_origin",
         "test_host_command_stdin_preserves_lf_bytes",
-        "test_explicit_service_update_preserves_other_versions_and_requires_dependencies"
+        "test_explicit_service_update_preserves_other_versions_and_requires_dependencies",
+        "test_reset_resume_skips_stopped_hosts_and_preserves_evidence_directory"
       ]
     },
     {

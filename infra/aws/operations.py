@@ -352,12 +352,29 @@ def main():
         else:
             if args.confirm_environment != "ikonly-demo":
                 raise ValueError("Reset needs explicit --confirm-environment ikonly-demo")
-            if state and state.get("release"):
+            resuming_reset = state and state.get("lifecycle") == "RESETTING"
+            if resuming_reset and state.get("reset", {}).get("quiesced") is not True:
+                raise ValueError("Reset resume requires a recorded completed quiesce")
+            if resuming_reset and state.get("reset", {}).get("evidence_directory") != str(
+                args.output.resolve()
+            ):
+                raise ValueError("Resume reset in its original persistent evidence directory")
+            if state and state.get("release") and not resuming_reset:
                 release = state["release"]
                 if state.get("failure"):
                     release = {**release, "release_id": state["failure"]["release_id"]}
                 database(aws, config, state, release, "enable", args.output / "quiesce")
                 database(aws, config, state, release, "drain", args.output / "quiesce")
+            if state and not resuming_reset:
+                state = {
+                    **state,
+                    "lifecycle": "RESETTING",
+                    "reset": {
+                        "quiesced": True,
+                        "evidence_directory": str(args.output.resolve()),
+                    },
+                }
+                commit_state(aws, state)
             reset(aws, config, state, args.output)
             write(
                 args.output / "result.json",

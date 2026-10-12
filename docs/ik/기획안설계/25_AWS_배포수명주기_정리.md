@@ -23,9 +23,9 @@
 | 변경 영향 계산 | `deployment_impact.py`와 `change_rules.json`에 역할별 규칙 있음 |
 | 선택 업데이트 release 구성 | `release_plan.py` 추가. 서비스별 실제 source 기준 영향 계산·미선택 버전 보존 |
 | host 이미지 교체 | `host_release.py`에 digest/revision 확인·Compose up·health 검사 있음 |
-| 전체 fleet 업데이트 자동 실행·수용 | 코드 연결 완료: immutable 배치→점검/drain→선택 SSM→전체 연결 수용→baseline 기록. 새 경로 실제 수용은 미완료 |
-| ikonly push → 자동 CD | workflow 연결, IAM/OIDC 생성. 실제 인증 검증 후 CD 변수 활성화 |
-| 전체 초기화 | 로컬 operations reset 연결: 증거 다운로드·SHA 확인→역순 stack 삭제→보존 자원 삭제→잔존 검사. 새 경로 실제 수용은 미완료 |
+| 전체 fleet 업데이트 자동 실행·수용 | 코드 연결 완료: immutable 배치→점검/drain→선택 SSM→전체 연결 수용→baseline 기록. 실제 first-deploy/rollback/GitHub full 수용 PASS |
+| ikonly push → 자동 CD | workflow/IAM/OIDC 실제 인증 PASS, CD 활성화. ABSENT push는 INACTIVE로 자원 재생성 없음 |
+| 전체 초기화 | 로컬 operations reset 연결: 증거 다운로드·SHA 확인→역순 stack 삭제→보존 자원 삭제→잔존 검사. 실제 first-deploy/rollback/GitHub full 수용 PASS |
 
 ## 3. 시스템별 업데이트 계약
 
@@ -75,3 +75,7 @@ backend/.venv/Scripts/python.exe -m infra.aws.release_plan --candidate <candidat
 ## 2026-10-12 구현 연결
 
 사용자는 배포 인증 연결 유지 및 첫 배포 로컬 키 공급을 확정했다. 제어 IAM 역할 두 개와 공유 OIDC 연결은 초기화 대상에서 제외한다. 앱 키/DB/이미지/로그/증거는 초기화 대상이다. 첫 배포와 초기화는 로컬에서 실행하고 GitHub는 ACTIVE 환경 업데이트 및 복구를 담당한다. 정확한 명령·실패 의미는 [운영 가이드 26](26_AWS_배포운영_실행가이드.md)를 따른다.
+
+## 최종 시험 완료
+
+첫 배포(중단 전 인프라 기록 검증 이어받기 포함), 실제 이미지 실패 rollback, 게임 웹 1개 선택 업데이트, GitHub OIDC full 업데이트, full reset/empty reset 재실행을 확인했다. 앱 잔존 18개 영역 0, 제어 역할 2개 유지. 정책 및 image/DB 실패 범위와 증거는 [최종 검증 기록](../검증산출물/2026-10-12_AWS_배포수명주기_구현검증.md)을 따른다.
