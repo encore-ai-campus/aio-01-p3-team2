@@ -1008,7 +1008,7 @@
     {
       "file": "frontend-web/game-e2e/game-smoke.spec.js",
       "suite": "game_e2e",
-      "reason": "Actual Phaser rendering, authoritative API display, tab navigation and disconnected state"
+      "reason": "Actual Phaser rendering, authoritative API display, tab navigation, disconnected state and persisted growth/combat commands in an isolated DB"
     },
     {
       "file": "frontend-web/e2e/production-images.spec.js",

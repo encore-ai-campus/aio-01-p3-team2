@@ -443,6 +443,15 @@
       "title": "Preferences",
       "type": "array"
     },
+    "reward_selection": {
+      "default": "explicit",
+      "enum": [
+        "explicit",
+        "planner"
+      ],
+      "title": "Reward Selection",
+      "type": "string"
+    },
     "rewards": {
       "items": {
         "$ref": "#/$defs/RewardSpec"

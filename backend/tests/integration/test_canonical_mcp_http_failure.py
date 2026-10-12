@@ -96,7 +96,11 @@ def test_http_mcp_failure_retries_then_persists_safe_stop_three_times(
                     row for row in result["trace"] if row["event"] == "mcp.recovery_decided"
                 ]
                 assert [row["status"] for row in recovery] == ["RETRY"] * 3 + ["SAFE_STOP"]
-                assert result["trace"][-1]["event"] == "workflow.safe_stopped"
+                assert [row["event"] for row in result["trace"][-2:]] == [
+                    "workflow.safe_stopped",
+                    "storage.result_persisted",
+                ]
+                assert result["supervisor_state"]["status"] == "SAFE_STOP"
                 persisted = client.get(f"/api/v1/workflows/{result['workflow_id']}").json()
                 assert persisted["workflow_status"] == "SAFE_STOP"
                 assert persisted["trace"] == result["trace"]

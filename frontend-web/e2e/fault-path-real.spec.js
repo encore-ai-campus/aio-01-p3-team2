@@ -31,7 +31,10 @@ for (const scenario of ["planner_output_invalid", "planner_explanation_mismatch"
     expect(result.verdict).toBe("PASS");
     expect(result.workflow.current_status).toBe("WAITING_APPROVAL");
     expect(result.workflow.brief.objective).toBe(record.request.brief.objective);
+    expect(result.workflow.brief.reward_selection).toBe("planner");
+    expect(record.request.brief.rewards).toEqual([]);
     expect(result.workflow.brief.rewards.length).toBeGreaterThan(0);
+    expect(result.workflow.plan.rewards.length).toBeGreaterThan(0);
     expect(result.recovery_comparison.kind).toBe(scenario==="planner_output_invalid"?"retry":"plan_revision");
     const events=result.workflow.trace.map(step=>step.event);
     expect(events.indexOf("storage.result_persisted")).toBeGreaterThan(events.indexOf("final_consistency.checked"));

@@ -53,7 +53,8 @@ def test_unknown_mode_and_cloud_memory_fallback_are_rejected(monkeypatch):
 def test_migration_plan_is_ordered_and_fault_specific():
     main = migration_plan("main")
     fault = migration_plan("fault")
-    assert len(main) == 18
+    assert len(main) == 19
+    assert main[-1][0] == "018_canonical_plan_revision.sql"
     assert [entry for entry in fault if entry[0] != "fault_lab_baseline_v1"] == main
     assert fault[1][0] == "fault_lab_baseline_v1"
     assert all(len(checksum) == 64 for _, checksum, _ in fault)
