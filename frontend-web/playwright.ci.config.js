@@ -6,7 +6,7 @@ const phases = {
   restart: { testMatch: "workflow-connected.spec.js", grep: /restores durable workflow/ },
   mcp503: { testMatch: "planning-flow.spec.js", grep: /real MCP HTTP 503/ },
   game: { testDir: "./game-e2e", testMatch: "game-smoke.spec.js" },
-  "fault-display": { testMatch: "fault-lab.spec.js", grep: /^live report presentation uses|^live human review terminal/ },
+  "fault-display": { testMatch: "fault-lab.spec.js", grep: /live report presentation uses|live human review terminal/ },
 };
 if (!phases[phase]) throw new Error("Unknown CI UI phase");
 const game = phase === "game";
