@@ -223,8 +223,14 @@ jobs:
             test-results/images.xml
             test-results/production-browser.xml
             test-results/verify-images.json
-            frontend-web/test-results/production
           if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: image-traces-${{ github.sha }}-${{ github.run_attempt }}
+          path: frontend-web/test-results/production
+          if-no-files-found: warn
           retention-days: 7
 
   release-gate:

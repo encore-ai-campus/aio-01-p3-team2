@@ -46,7 +46,8 @@ class EnvironmentManifest(Contract):
         if any(not value.startswith("i-") for value in self.roles.values()):
             raise ValueError("Role values must be EC2 instance IDs")
         ids = [item.id for item in self.resources]
-        if len(ids) != len(set(ids)) or not set(self.roles.values()).issubset(ids):
+        keys = [(item.kind, item.id) for item in self.resources]
+        if len(keys) != len(set(keys)) or not set(self.roles.values()).issubset(ids):
             raise ValueError("Resources must include each unique role instance")
         if any(item.environment_id != self.environment_id for item in self.resources):
             raise ValueError("Resources from another environment are forbidden")
@@ -105,7 +106,7 @@ class CleanupPlan(Contract):
     @model_validator(mode="after")
     def check_resources(self):
         resources = self.delete + self.retain
-        ids = [item.id for item in resources]
+        ids = [(item.kind, item.id) for item in resources]
         if len(ids) != len(set(ids)):
             raise ValueError("Delete and retain lists must be unique and disjoint")
         if any(item.environment_id != self.environment_id for item in resources):

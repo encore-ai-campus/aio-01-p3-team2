@@ -138,6 +138,15 @@ def test_environment_and_cleanup_contract_scope():
         "stop_after": datetime.now(UTC),
     }
     EnvironmentManifest.model_validate(environment)
+    bucket = {**resources[0], "id": "owned-bucket", "kind": "AWS::S3::Bucket"}
+    bucket_policy = {**bucket, "kind": "AWS::S3::BucketPolicy"}
+    EnvironmentManifest.model_validate(
+        {**environment, "resources": [*resources, bucket, bucket_policy]}
+    )
+    with pytest.raises(ValidationError):
+        EnvironmentManifest.model_validate(
+            {**environment, "resources": [*resources, bucket, bucket]}
+        )
     with pytest.raises(ValidationError):
         EnvironmentManifest.model_validate({**environment, "stop_after": "2026-10-12T12:00:00"})
     cleanup = {

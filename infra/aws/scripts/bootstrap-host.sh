@@ -4,7 +4,11 @@ set -euo pipefail
 umask 077
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y docker.io docker-compose-v2 awscli jq iptables
+apt-get install -y docker.io docker-compose-v2 jq iptables
+if ! command -v aws >/dev/null 2>&1; then
+  snap install aws-cli --classic
+  ln -sf /snap/bin/aws /usr/local/bin/aws
+fi
 systemctl enable --now docker
 if ! snap list amazon-ssm-agent >/dev/null 2>&1; then
   snap install amazon-ssm-agent --classic

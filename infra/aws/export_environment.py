@@ -62,8 +62,8 @@ def export(aws, config, *, partial=False):
             token = response.get("NextToken")
             if not token:
                 break
-    # Physical ID strings are not globally unique (IAM RoleName/SSM document can collide).
-    if len({item["id"] for item in resources}) != len(resources):
+    # Physical IDs are unique within resource types, not across types (S3 Bucket/Policy).
+    if len({(item["kind"], item["id"]) for item in resources}) != len(resources):
         raise ValueError("Physical ID collision requires manifest contract review")
     if partial:
         return {
