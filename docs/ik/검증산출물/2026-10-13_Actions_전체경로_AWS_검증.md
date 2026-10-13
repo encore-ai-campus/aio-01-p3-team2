@@ -20,3 +20,10 @@ GitHub Actions 첫 배포 → 시스템별 업데이트 → 증거 로컬 보존
 ## 실제 첫 배포 진행
 
 CI 38326771862(source e476376)는 전체 승인 성공. Actions initial 38327297896이 실제 OIDC로 실행되어 network/access/data/application 스택 생성 완료, RDS available을 확인했다. 아직 서비스 최종 수용 전이므로 완료로 판정하지 않는다. 다음 시스템별 배포 시험은 기능 코드 변경 없이 이 진행 문서를 포함하는 새 Git revision의 검증 이미지를 사용한다. 이미지 revision/digest 및 선택 역할 변경, 나머지 역할 보존을 실제 대조한다. 시간은 Actions/job/step과 CloudFormation 이벤트에서 기록한다.
+
+## 첫 배포와 첫 선택 업데이트 수용
+
+- Actions initial 38327297896: INITIAL_ACCEPTED, release 3f4f2719ff81d09d02a5d180751c28691e38a8df, 5 stack/6 host 및 HTTPS 수용. 실행 27분 31초, 대기 4초. 암호화 artifact를 로컬 복호화하고 SHA256 ff7c92f738478d8dedfa90b28fea6687d156d08df2946190ca0656bfffe78db1을 확인했다.
+- Actions update 38328823504: game-web만 ACCEPTED. API/MCP/기획 웹의 service manifest 5개가 이전과 정확히 같고 6개 instance ID도 유지됐다. 기능 코드가 같은 문서 revision 4194f66 이미지로 선택 배포 경로를 검증했다.
+- 실제 RDS DB: eventquest_demo / eventquest_fault_test, SSL=true 각각 확인. fault API 원래 서버 환경에는 OpenAI 키가 없다. 추가 메타데이터 도구의 날짜 JSON 변환 실패는 도구에 default=str을 추가해 재확인했고 앱 코드는 변경하지 않았다.
+- 다음 기획 웹 선택 배포도 새 기록 revision의 승인 이미지를 사용한다. SHA별 immutable ECR tag 계약 때문에 같은 SHA를 새로 빌드한 다른 archive로 덮어쓰지 않는다.
