@@ -146,6 +146,12 @@ def test_workflow_only_uploads_encrypted_and_safe_outputs():
         "test-results/lifecycle/result/result.json\ntest-results/lifecycle/result/residual-check.json\ntest-results/lifecycle/supply-cleanup/cleanup.json\n",
     ]
     assert "id-token" in config["jobs"]["lifecycle"]["permissions"]
+    # NUL-delimited Git paths preserve Korean names and embedded newlines.
+    validation = next(
+        step["run"] for step in steps if step.get("name", "").startswith("Validate inputs")
+    )
+    assert "'--name-only','-z'" in validation
+    assert ".decode('utf-8').split('\\0')" in validation
 
 
 def test_parameter_secret_is_not_passed_in_cli_argv():
