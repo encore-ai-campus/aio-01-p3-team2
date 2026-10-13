@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "date": "2026-10-13",
+  "branch": "main",
+  "runtime_source_sha": "18bd89e72c2b51c513ca2715a116eac3cb7de6be",
+  "lifecycle": "ACTIVE",
+  "urls": {
+    "plan": "https://54.116.168.109",
+    "game": "https://3.39.181.142"
+  },
+  "runs": [
+    {
+      "id": 38341519452,
+      "head_sha": "aed8a41aebfd1239afca24f414a0efdb37e22fda",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "failure",
+      "run_started_at": "2026-10-13T03:24:00Z",
+      "html_url": "https://github.com/ik-e/multi-agent-autohealing/actions/runs/38341519452",
+      "completed_at": "2026-10-13T03:25:00Z",
+      "elapsed_seconds": 60.0
+    },
+    {
+      "id": 38341780468,
+      "head_sha": "18bd89e72c2b51c513ca2715a116eac3cb7de6be",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "run_started_at": "2026-10-13T03:27:18Z",
+      "html_url": "https://github.com/ik-e/multi-agent-autohealing/actions/runs/38341780468",
+      "completed_at": "2026-10-13T03:33:29Z",
+      "elapsed_seconds": 371.0
+    },
+    {
+      "id": 38342317641,
+      "head_sha": "18bd89e72c2b51c513ca2715a116eac3cb7de6be",
+      "head_branch": "main",
+      "status": "completed",
+      "conclusion": "success",
+      "run_started_at": "2026-10-13T03:34:02Z",
+      "html_url": "https://github.com/ik-e/multi-agent-autohealing/actions/runs/38342317641",
+      "completed_at": "2026-10-13T04:02:14Z",
+      "elapsed_seconds": 1692.0
+    }
+  ],
+  "ci": {
+    "passed": 734,
+    "allowed_skip": 1,
+    "junit_reports": [
+      {
+        "name": "core.xml",
+        "sha256": "sha256:f4235f3226236f04b10af29928bb229896d51fd25980477a298af089e9d95bc8",
+        "passed": 636,
+        "skipped": 1
+      },
+      {
+        "name": "images.xml",
+        "sha256": "sha256:c22b696693aea826f3d2d4357fcbc529cc1962f197b5ed922c8775a7c91b73f5",
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "name": "production-browser.xml",
+        "sha256": "sha256:106db5bf0ab37d742af63fb2f95615b7fcaed31859be7b2546d7536f96cfeb2b",
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "name": "core-pg.xml",
+        "sha256": "sha256:3493f5acf7bbd00b0cdbaee180b1cdd079f7dd7ac2f5037c9e324a8e59c3cca1",
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "name": "postgres.xml",
+        "sha256": "sha256:2b48b4966a3848c7d2efd3274455344bb8b1597b864bb808367cc51699078272",
+        "passed": 53,
+        "skipped": 0
+      },
+      {
+        "name": "ui-connected.xml",
+        "sha256": "sha256:82e04befc641da6d8dc9e0e2b51015ac4b801003510a2d29f61eb641bf77e8d5",
+        "passed": 29,
+        "skipped": 0
+      },
+      {
+        "name": "ui-fault-display.xml",
+        "sha256": "sha256:b7a0944361f0bafe0612219fc81bbfbd634ff5f145fe09c0932f1b14cf42eca9",
+        "passed": 2,
+        "skipped": 0
+      },
+      {
+        "name": "ui-game.xml",
+        "sha256": "sha256:ddeffdda4a4997f0f59fce7f92403cbcd4a19366b4e3b08f988fbc87fe399c37",
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "name": "ui-mcp503.xml",
+        "sha256": "sha256:09036f7ad7eae5682d801a1e1a6f6921f9be19fa9016644d90c08460f505630e",
+        "passed": 1,
+        "skipped": 0
+      },
+      {
+        "name": "ui-restart.xml",
+        "sha256": "sha256:72e2ace6273710b59ecb2c109d6f74bf32ca95dd00bb74056d5f3dad5d05e5ac",
+        "passed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  "normal_flow": {
+    "passed": 17,
+    "checks": [
+      {
+        "name": "anonymous HTTPS access blocked plan",
+        "passed": true
+      },
+      {
+        "name": "anonymous HTTPS access blocked game",
+        "passed": true
+      },
+      {
+        "name": "two web proxies share authoritative game state",
+        "passed": true
+      },
+      {
+        "name": "real LLM workflow reached approval",
+        "passed": true
+      },
+      {
+        "name": "live agent profile and recorded LLM usage",
+        "passed": true
+      },
+      {
+        "name": "planning request idempotency",
+        "passed": true
+      },
+      {
+        "name": "runtime eligible validated plan",
+        "passed": true
+      },
+      {
+        "name": "event apply idempotency",
+        "passed": true
+      },
+      {
+        "name": "exact selected spaces registered",
+        "passed": true
+      },
+      {
+        "name": "gameplay reaches event entry level",
+        "passed": true
+      },
+      {
+        "name": "space clear rift_space_02",
+        "passed": true
+      },
+      {
+        "name": "space clear rift_space_01",
+        "passed": true
+      },
+      {
+        "name": "both first-clear missions completed",
+        "passed": true
+      },
+      {
+        "name": "first-clear event rewards persisted",
+        "passed": true
+      },
+      {
+        "name": "repeat clear does not duplicate event reward",
+        "passed": true
+      },
+      {
+        "name": "both web proxies reflect persisted mutations",
+        "passed": true
+      },
+      {
+        "name": "normal recovery policy preserved",
+        "passed": true
+      }
+    ],
+    "selected_spaces": [
+      "rift_space_01",
+      "rift_space_02"
+    ],
+    "llm_usage": {
+      "calls": 2,
+      "cost": "0.0051228",
+      "currency": "USD",
+      "input_tokens": 10907,
+      "output_tokens": 475,
+      "pricing_version": "openai-standard-2026-10-11-gpt-4.1-mini"
+    }
+  },
+  "database_proof": {
+    "status": "PASS",
+    "records": 2,
+    "encrypted": true,
+    "decrypt_hash_match": true,
+    "ssl": true,
+    "database": "eventquest_demo"
+  },
+  "edge": {
+    "passed": 3,
+    "duration_seconds": 14.369572999999999,
+    "browser_https_exception": true,
+    "windows_trust_store_changed": false
+  },
+  "api_tls_verified_with_exported_roots": true,
+  "ca_public_certificates": {
+    "plan": {
+      "file": "plan-web-root.crt",
+      "sha256_fingerprint": "7A3A1A6FB37CFEF3250C83980530EF6C5A66718096F0A6C9C77D4E0C8205C3B1"
+    },
+    "game": {
+      "file": "game-web-root.crt",
+      "sha256_fingerprint": "3DFE92292FECD3F577E0849FF898E2A003F1E9CCEB832D4634D83617F887EE0F"
+    }
+  },
+  "encrypted_initial_evidence_sha256": "5884ce7b6439b93cb7580b40cb75f3ef88cf174535db1de42c5115c2b5b78178",
+  "bootstrap_supply_remaining_count": 0,
+  "notification": {
+    "subscriptions": 1,
+    "pending_confirmation": 1,
+    "delivery_verified": false
+  },
+  "scope_limit": "One recovery UI scenario; previous full fault campaign was not rerun."
+}

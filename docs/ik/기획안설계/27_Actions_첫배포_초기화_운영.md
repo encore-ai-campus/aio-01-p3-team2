@@ -1,5 +1,7 @@
 # Actions 첫 배포·초기화 운영
 
+2026-10-13 최신 AWS 상태: **ACTIVE**. main source `18bd89e`를 Actions로 첫 배포했고, 실제 LLM 정상 흐름 17 PASS·RDS 암호화/SSL·Edge 3 PASS를 확인했다. [main 첫 배포·접속·증거](../검증산출물/2026-10-13_main_AWS_첫배포.md). 아래 ABSENT·INACTIVE 기록은 이번 배포 전 이력이다.
+
 2026-10-13 현행 통합·CI/CD·OIDC 기준은 `main`이다. 기존 `ikonly` source의 시험은 당시 증거로 보존한다. [main 전환·실행 결과](../검증산출물/2026-10-13_main_CICD_전환과_병합.md).
 
 기준: 2026-10-13, `main`. [운영 가이드 26](26_AWS_배포운영_실행가이드.md)의 첫 배포·초기화 전체를 로컬에서 수행하는 기본 경로를 이 문서로 변경한다. 기존 로컬 명령은 비상 운영 경로로 유지한다. 상위 수명주기·역할별 업데이트 계약은 [25](25_AWS_배포수명주기_정리.md)를 따른다.
@@ -25,7 +27,7 @@ GitHub Actions가 인프라 생성·서비스 배포·AWS 삭제를 실행한다
 2. 사용자 PC에서 아래 명령으로 키와 승인 정책을 공급한다. 입력 파일은 Git 제외 경로이며 값은 명령행에 넣지 않는다.
 
 ```powershell
-backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch stage --config test-results/aws-first-current-2026-10-13/operation-config.json --env-file backend/.env --policy-file test-results/aws-a6/approved-policy.json --approved-policy-sha256 b175379609f2f9615b5b1f49c9140a66c945dd0c11f00e57b927bf708b9fa61b --private-key test-results/aws-actions/evidence-private.pem --output test-results/aws-actions/stage
+backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch stage --config test-results/aws-main-first-2026-10-13/operation-config.json --env-file backend/.env --policy-file test-results/aws-a6/approved-policy.json --approved-policy-sha256 b175379609f2f9615b5b1f49c9140a66c945dd0c11f00e57b927bf708b9fa61b --private-key test-results/aws-main-first-2026-10-13/evidence-private.pem --output test-results/aws-main-first-2026-10-13/stage
 ```
 
 환경의 키·모델·actor·토큰/비용 설정과 승인 정책 원본을 세대별 Standard SecureString으로 나누어 보관한다. 모든 조각을 읽어 payload hash를 확인한 뒤 활성 세대 포인터를 갱신한다. 새 등록이 실패하면 이전 활성 세대를 보존하고 실패한 세대만 제거한다. 공급 계약은 24시간 후 사용을 거부하며, 성공/배포 실행 실패 시 실행이 소유한 세대와 포인터를 삭제한다. 만료는 자동 삭제를 뜻하지 않는다. 앱이 이미 수용된 상태에서는 재공급하지 않는다.
@@ -37,8 +39,8 @@ backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch stage --config 
 5. `lifecycle-encrypted-<run>-<attempt>` artifact를 로컬에 다운로드한다. Actions에는 로그인 정보·원시 로그를 RSA-OAEP(SHA256)+AES-256-GCM으로 암호화한 파일만 업로드한다. 원문 및 복호화 개인키는 업로드하지 않는다. artifact 보존 기간은 7일이므로 성공 직후 다운로드한다.
 
 ```powershell
-gh run download <run-id> --repo ik-e/multi-agent-autohealing --name lifecycle-encrypted-<run-id>-1 --dir test-results/aws-actions/initial-download
-backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch unpack-evidence --config test-results/aws-first-current-2026-10-13/operation-config.json --private-key test-results/aws-actions/evidence-private.pem --evidence-file test-results/aws-actions/initial-download/evidence.bin --output test-results/aws-actions/initial-evidence
+gh run download <run-id> --repo ik-e/multi-agent-autohealing --name lifecycle-encrypted-<run-id>-1 --dir test-results/aws-main-first-2026-10-13/initial-download
+backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch unpack-evidence --config test-results/aws-main-first-2026-10-13/operation-config.json --private-key test-results/aws-main-first-2026-10-13/evidence-private.pem --evidence-file test-results/aws-main-first-2026-10-13/initial-download/evidence.bin --output test-results/aws-main-first-2026-10-13/initial-evidence
 ```
 
 복호화한 폴더에서 web-login.txt, 두 공개 CA, result.json을 확인한다. 새 CA를 Windows에 설치하는 것은 사용자 로컬 절차다. 개인키를 잃으면 artifact를 복호화할 수 없으므로 PC에 안전하게 보존한다. runner 디스크의 원문 작업 파일은 artifact로 올리지 않는다.
@@ -48,14 +50,14 @@ backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch unpack-evidence
 1. 이전 배포가 로컬 first deployment여서 증거 공개키가 없으면 먼저 `register-evidence-key`로 로컬 개인키를 만들고 공개키만 등록한다.
 
 ```powershell
-backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch register-evidence-key --config test-results/aws-first-current-2026-10-13/operation-config.json --private-key test-results/aws-actions/evidence-private.pem --output test-results/aws-actions/key
+backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch register-evidence-key --config test-results/aws-main-first-2026-10-13/operation-config.json --private-key test-results/aws-main-first-2026-10-13/evidence-private.pem --output test-results/aws-main-first-2026-10-13/key
 ```
 
 2. 새 workflow에서 operation `prepare-reset`, confirm_environment `ikonly-demo`를 실행한다. 작업 유입 차단·drain 후 RESETTING으로 동결하고 저널/S3 객체/CloudWatch/RDS 로그를 보관한다. **이 단계에서는 AWS 자원을 삭제하지 않는다.** 서비스가 정지되므로 사용자 테스트를 이어갈 수 없고 자원 비용은 아직 발생한다.
 3. 암호화 artifact를 PC에 내려받고 아래 명령으로 복호화·무결성 확인한다. 현재 동결 release와 같은 archive일 때에만 SSM에 비밀값 없는 로컬 보존 확인을 기록한다.
 
 ```powershell
-backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch confirm-evidence --config test-results/aws-first-current-2026-10-13/operation-config.json --private-key test-results/aws-actions/evidence-private.pem --evidence-file test-results/aws-actions/reset-download/evidence.bin --output test-results/aws-actions/reset-evidence
+backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch confirm-evidence --config test-results/aws-main-first-2026-10-13/operation-config.json --private-key test-results/aws-main-first-2026-10-13/evidence-private.pem --evidence-file test-results/aws-main-first-2026-10-13/reset-download/evidence.bin --output test-results/aws-main-first-2026-10-13/reset-evidence
 ```
 
 4. 새 workflow에서 operation `reset`, confirm_environment `ikonly-demo`, evidence_sha256에 확인 명령이 출력한 값 전체를 입력한다. hash와 release가 일치하지 않으면 삭제하지 않는다. 삭제 순서는 observability → application → data → access → network다. 이미지·스냅샷·로그·S3·앱 Parameter·키 공급/증거 확인용 lifecycle Parameter도 제거한다.
