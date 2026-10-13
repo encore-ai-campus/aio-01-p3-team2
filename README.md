@@ -1,64 +1,117 @@
-# 게임 라이브 이벤트 기획·검수 AutoHealing 시스템
+# 게임 이벤트 기획·검수와 정책 기반 오토힐링
 
-> 가상의 게임사 Okepong Games의 모바일 RPG Opong Heroes를 대상으로, 라이브 이벤트 초안을 만들고 게임 규칙과 수행 가능성을 검수하는 내부 운영용 멀티 에이전트 시스템입니다.
+가상 방치형 RPG **Opong Heroes**의 이벤트를 기획하고, 게임 데이터와 규칙으로 검증한 뒤 사람이 승인한 이벤트를 실제 게임 상태에 반영하는 시스템입니다.
 
-## 프로젝트 소개
+LLM Planner와 Critic이 기획 설명과 의미 검토를 담당하고, **규칙 기반 Supervisor**가 상태·전이와 오류 대응 정책에 따른 다음 작업을 결정합니다. 게임의 진행도와 보상은 Backend API를 통해 DB에 저장됩니다.
 
-Event Planner가 이벤트 초안을 만들고, Balance & Rule Agent와 Critic이 게임 데이터 및 기획 기준에 따라 검수합니다. 문제가 발견되면 Supervisor가 정해진 복구 흐름에 따라 수정·재검증하거나 안전하게 종료합니다. 최종 이벤트 결과는 운영 담당자가 확인하고 승인하는 것을 목표로 합니다.
+**핵심 흐름:** 이벤트 요청 → 게임 근거 조회 → 기획·검증·검토 → 사람 승인 → 이벤트 공간 개방 → 플레이·보상 기록
 
-이 프로젝트는 실제 게임 서버에 이벤트를 배포하는 도구가 아니라, 내부 운영 담당자의 기획과 검수를 돕는 시스템을 대상으로 합니다.
+기준 브랜치는 `ikonly`입니다. 상세 문서의 진입점은 [IK 문서 색인](docs/ik/README.md), 제출본은 [필수 산출물 대문](docs/ik/필수산출물_README.md)입니다.
 
-## 현재 상태
+## 1. 핵심 기능
 
-Frontend 화면과 Dockerfile, Backend A API, Backend B Workflow, MCP 서버가 저장소에 구현되어 있습니다. `feature/demo-game`에서 `backend_b_mcp` API와 실제 MCP HTTP 서버를 연결해 기획 전 조회부터 검증·Trace·복구까지 확인했습니다. 이 경로는 Mock LLM, JSON 기본 게임 데이터, 인메모리 Repository를 사용했습니다. 이후 Planner·Balance & Rule·Critic·Supervisor의 실제 LLM 선택 시험 2건과, 실제 OpenAI·MCP HTTP·격리된 임시 PostgreSQL을 함께 사용하는 정상 API 요청 1건도 통과했습니다. 공용 PostgreSQL 연동과 실제 LLM의 반복 품질 평가는 별도 검증 대상입니다. 자세한 범위는 [Backend B 작업 Handoff](docs/team/backend-2/handoff.md)를 참고하세요.
+| 기능 | 설명 |
+|---|---|
+| 이벤트 기획·검수 | 요청과 게임 데이터·지원 범위를 연결하고 계약·규칙 검증 및 LLM 의미 검토 결과 제공 |
+| 승인·게임 적용 | 승인과 적용을 별도 단계로 처리. 특별 던전의 3개 공간 중 선택한 공간을 개방하고 미션·보상 연결 |
+| 가상 게임 | 스테이지·던전 전투, 성장, 재화·보관함·스킨·상점과 이벤트 진행 |
+| 정책 기반 오토힐링 | 오류 코드와 활성 정책에 따라 허용된 재시도·기획 수정·사람 검토·안전 중단 선택 |
+| 운영 화면 | 기획 요청·결과·진행 기록·로그, 오류 정책 관리와 격리 오류 주입 시험 |
+| 배포 수명주기 | GitHub Actions로 첫 배포, 선택 시스템 업데이트, 증거 확보 후 전체 초기화 |
 
-## 예정 구성
+현재 게임에서 지원하지 않는 요구는 개발 필요 항목을 포함한 제한 기획안으로 반환할 수 있습니다. 기획안 생성이나 Critic의 통과 판정만으로 승인·게임 적용이 이루어지지는 않습니다.
 
-| 구성 | 계획된 역할 |
-| --- | --- |
-| Frontend | Streamlit 기반 이벤트 입력·결과·운영 화면 |
-| Backend | FastAPI API, Supervisor, Agent Workflow, 검증·복구 처리 |
-| MCP Server | 게임 규칙·아이템·Mock 게임 데이터 조회 |
-| PostgreSQL | Workflow 상태, Trace, 멱등성 및 테스트 결과 저장 |
-| Ruff | Python 린트, 포맷, import 정렬 기준 |
-| Docker Compose / GitHub Actions | 서비스 통합 실행 및 CI/CD |
+## 2. 시스템 구조
 
-## `yejin` 프론트엔드 AWS 배포
-
-- `infra/frontend-yejin.yml`: ECR, SSM용 IAM Role, Security Group, 프론트엔드 EC2를 CloudFormation으로 관리한다.
-- `.github/workflows/frontend-infrastructure.yml`: 수동으로 인프라를 생성·업데이트하거나 `destroy=true`로 프로젝트 Stack을 삭제한다.
-- `.github/workflows/frontend-deploy.yml`: `yejin` 브랜치의 `frontend/**` 변경을 감지해 테스트, Docker 이미지 빌드, ECR Push, SSM 배포, Health Check를 실행한다.
-
-GitHub Environment `yejin-frontend`에는 `AWS_REGION`, `AWS_ACCOUNT_ID`, `AWS_ROLE_ARN`, `CLOUDFORMATION_ROLE_ARN`, `VPC_ID`, `SUBNET_ID`, `FRONTEND_AMI_ID`, `ALLOWED_FRONTEND_CIDR` 변수가 필요하다. `FRONTEND_ENV_FILE`은 GitHub Secret으로 저장한다.
-
-처음에는 인프라 workflow에서 `apply=true`로 실행하고, 이후 `yejin` 브랜치에 프론트엔드 변경을 Push한다. 테스트가 끝난 뒤에는 같은 인프라 workflow에서 `destroy=true`를 선택해 해당 Stack의 EC2, ECR, IAM, Security Group을 삭제한다.
-
-## 문서 안내
-
-- [Workflow 장애 복구 기록·평가 합의](docs/workflow_evaluation_contract.md): 백엔드 B·백엔드 A·MCP의 Trace 기준, 평가 지표, 담당 범위
-- [시스템 기획안](docs/last/게임%20라이브%20이벤트%20기획·검수%20AutoHealing%20시스템%203f181f168976802fa10cf20099fe09eb.md): 목표, 사용자 흐름, 시스템 정책 및 배포 구상
-- [개발 기획안](docs/last/개발%20기획안%203f181f168976803581dbf5ff867e2125.md): 디렉터리 구조, Agent·데이터 계약, 테스트 및 개발 계획
-- [작업 지침](AGENTS.md): Ruff, 문서 작성, 브랜치 관리 원칙
-- `docs/team/`: Frontend, Backend 1·2, MCP 담당자의 작업 문서 공간
-- `docs/v1/`: 이전 버전의 문서와 검수 기록
-
-## 개발 환경 기준
-
-- Python 대상 버전: 3.11 (현재 Ruff 설정 기준)
-- Python 린트 및 포맷: Ruff
-- 서비스 프레임워크와 배포 방식은 개발 기획안을 기준으로 구현 예정
-
-Ruff 개발 의존성은 구현 시작 후 다음 명령으로 설치할 수 있습니다.
-
-```bash
-pip install -r requirements-dev.txt
-ruff check .
-ruff format --check .
+```mermaid
+flowchart TB
+    UI[기획안 프론트<br/>기획·정책·오류 시험] --> API[일반 Backend]
+    GAME[가상 게임 프론트] --> API
+    API --> SUP[규칙 기반 Supervisor<br/>상태·전이·정책 판단]
+    SUP --> CTX[게임 근거 조회·서버 검증]
+    CTX --> MCP[일반 MCP<br/>게임 데이터·지원 범위]
+    SUP --> P[LLM Planner]
+    P -->|기획 설명·보상 제안| SUP
+    SUP --> C[LLM Critic]
+    C -->|의미 검토·피드백| SUP
+    API --> DB[(일반 DB<br/>기획·게임·정책·Trace)]
+    MCP --> DB
+    UI -->|오류 시험 요청| TEST[시험 Backend]
+    TEST --> TMCP[시험 MCP]
+    TEST --> TDB[(시험 DB)]
+    TMCP --> TDB
+    PROVIDER[외부 LLM API] --- P
+    PROVIDER --- C
 ```
 
-## 협업 방식
+위 그림은 책임과 연결 관계를 요약합니다. 정확한 실행 순서·검증·복구 분기는 [아키텍처 설계서](docs/ik/산출물1_멀티에이전트_아키텍처_설계서.md)를 따릅니다. 권위 ID·지원 판정·승인·DB 쓰기는 서버가 통제합니다.
 
-- `main` 브랜치는 팀장이 관리합니다.
-- 팀원은 본인 작업 브랜치에서 작업하고, 완료 후 브랜치 이름·변경 내용·확인 결과를 팀장에게 공유합니다. PR은 사용하지 않습니다.
-- 팀별 문서는 `docs/team/<role>/`에 작성하고 공통 기준 문서는 `docs/` 아래 공통 위치에서 관리합니다.
-- 비밀값은 저장소에 올리지 않습니다. 실제 환경변수 파일 대신 예시 파일을 사용합니다.
+기획안 프론트는 일반·시험 Backend를 하나의 화면에서 사용합니다. 시험 Backend와 MCP는 별도 프로세스이며, 로컬 PostgreSQL 서버 하나 안에서도 일반·오류 시험·자동 검증 DB를 분리합니다. AWS는 프론트 2개·Backend 2개·MCP 2개의 EC2와 비공개 RDS 구성으로 배포 시험했습니다.
+
+## 3. 로컬 실행
+
+전체 설치·환경 설정·실행 절차는 [팀원 로컬 실행·사용자 가이드](docs/ik/팀원_로컬실행_사용자가이드.md)를 따릅니다.
+
+- 준비 도구: Windows/PowerShell 7, Python 3.11, Node.js 22, pnpm 10.33.0, Docker Desktop, Edge 또는 Chrome.
+- 로컬 Docker는 PostgreSQL 실행에 사용하며 Backend·MCP·프론트는 로컬 프로세스로 실행할 수 있습니다.
+- 기본 모드는 **실제 DB·실제 MCP + 결정적 기획 생성**입니다. 실제 LLM 호출은 가이드 §6에 따라 개인 환경 파일에 OpenAI 키를 설정합니다.
+- 기본 시험 API는 결정적 모드이며 실제 LLM 장애 실험은 별도 절차를 사용합니다.
+
+| 구성 | 기본 로컬 주소 |
+|---|---|
+| 기획안 프론트 | `http://127.0.0.1:5177` |
+| 게임 프론트 | `http://127.0.0.1:5173` |
+| 일반 Backend | `http://127.0.0.1:8004` |
+| 일반 MCP | `http://127.0.0.1:8010/mcp` |
+| 시험 Backend / MCP | `8013` / `8014` |
+| PostgreSQL | `127.0.0.1:5434` |
+
+주소는 기본 설정이며 현재 프로세스가 실행 중이라는 뜻은 아닙니다. API 키와 개인 환경 파일은 커밋하지 않습니다.
+
+## 4. 구현·검증 상태
+
+아래는 **2026-10-13까지 보존된 실행 결과**입니다. 이번 README 변경에서 시험이나 AWS 배포를 다시 실행하지 않았습니다.
+
+| 검증 | 결과 | 근거 |
+|---|---|---|
+| Linux CI | **731 PASS**, 명시적 허용 SKIP 1. source `530fd03`, run `38334819091` | [파이프라인 보고서](docs/ik/산출물3_파이프라인_구현결과_보고서.md) |
+| AWS 정상 업무 | 실제 LLM 기획 → 승인 → 게임 적용·보상·중복 방지 등 **17개 확인 통과** | [배포·복구 보고서](docs/ik/산출물2_배포_및_장애복구_보고서.md) |
+| AWS 정책 시험 | 결정적 오류 주입 **137 PASS** | [사례별 증거](docs/ik/검증산출물/산출물2_장애시험_사례증거.json) |
+| AWS 실제 LLM·통신 시험 | 정상 4 + 오류 9 = **13 PASS**. 오류 중 자동 복구 6, 지속 오류 안전 중단 3 | [AWS 시험 요약](docs/ik/검증산출물/2026-10-13_AWS_시험요약.json) |
+| 배포 화면 확인 | Edge 정상 2 + 복구 8 = **10 PASS** | [AWS 전체 경로 검증](docs/ik/검증산출물/2026-10-13_Actions_전체경로_AWS_검증.md) |
+| 배포 수명주기 | 첫 배포·6개 서버 선택 업데이트·전체 초기화 검증, 소요 시간 기록 | [Actions 운영 절차](docs/ik/기획안설계/27_Actions_첫배포_초기화_운영.md) |
+
+**자동 복구와 시험 통과는 다릅니다.** 정책대로 안전 중단한 사례도 시험은 통과할 수 있습니다. 선정 정책 표본의 자동 복구율은 51/127, 전체 혼합 정책 시험의 보조율은 51/137이며, 실제 LLM·통신 오류 표본은 6/9입니다. 기대 복구 성공률·평균 복구 시간·제외 기준은 [배포·장애 복구 보고서](docs/ik/산출물2_배포_및_장애복구_보고서.md)에 구분해서 기록했습니다. 서로 다른 환경·source·시험 계층의 개수를 합산하지 않습니다.
+
+**AWS 현재 기록:** 2026-10-13 11:28–11:30 KST 독립 검사 기준 앱은 **ABSENT / 잔존 분류 17개 모두 0**입니다. 배포 인증 IAM/OIDC만 유지하며, 과거 시험 주소를 현재 접속 주소로 제공하지 않습니다. [초기화 근거](docs/ik/검증산출물/2026-10-13_Actions_AWS_잔존검사.json)
+
+## 5. 필수 산출물·상세 문서
+
+| 목적 | 문서 |
+|---|---|
+| 제출본·가이드 충족 여부 | [필수 산출물 대문](docs/ik/필수산출물_README.md) |
+| 산출물 1: 역할·계약·상태·Handoff | [멀티 에이전트 아키텍처 설계서](docs/ik/산출물1_멀티에이전트_아키텍처_설계서.md) |
+| 산출물 2: 배포·오류 검출·복구·측정 | [배포 및 장애 복구 보고서](docs/ik/산출물2_배포_및_장애복구_보고서.md) |
+| 산출물 3: CI/CD·차단·실행 증거 | [파이프라인 구현 결과 보고서](docs/ik/산출물3_파이프라인_구현결과_보고서.md) |
+| 현재 기능·운영 범위 | [현재 구현 상태](docs/ik/현재_구현상태.md) |
+| 목표·경계와 상세 설계 | [최상위 설계서](docs/ik/최상위_시스템_설계서.md) · [기획안 설계](docs/ik/기획안설계/README.md) · [게임 설계](docs/ik/게임설계/README.md) |
+| 실행별 증거·문서 대조 | [검증 색인](docs/ik/검증산출물/README.md) · [필수 산출물 재검사](docs/ik/검증산출물/2026-10-13_필수산출물_재검사.md) |
+| 과목 기준 원문 | [보존 가이드](docs/ik/pre/멀티_에이전트_협업_및_서비스_운영_가이드.md) |
+
+상세 문서는 [IK 문서 색인](docs/ik/README.md)에서 탐색합니다. `pre/`는 원문 보존 자료이고, 과거 계획·시험 기록은 당시 기준으로 읽습니다. 보호된 원본 로그·암호화 증거는 로컬에 보존하며 공개 JSON에는 비밀값·개인키·프롬프트/응답 원문을 포함하지 않습니다.
+
+## 6. 한계와 후속 개선
+
+- 성공·실패·지연 알림의 실제 수신과 담당자 에스컬레이션은 **미검증**입니다. 가이드 해당 항목은 부분 충족으로 남깁니다.
+- 기술 재시도에서 이전 실패 문맥과 시도 횟수를 다음 에이전트의 Handoff 입력에 전달하는 부분은 보완이 필요합니다. Workflow 상태·Trace의 재시도 기록 및 Critic의 의미 수정 피드백은 별도로 존재합니다.
+- 다중 사용자 RBAC, migration 후 자동 DB 복원, Redis 운영, 실제 RDS 중단·복합 장애·장기 부하는 이번 완료 근거에 포함하지 않습니다.
+- 외부 상용 게임과 연결해 실제 계정·경제를 변경하는 기능은 이번 구현 범위에 포함하지 않습니다.
+
+필수 보고서 3종은 실제 구현·시험 결과를 설명하는 제출본입니다. 모든 가이드 요구를 완전히 검증했다는 의미는 아닙니다. [마무리 기준과 후속 과제](docs/ik/문서_마무리와_루트_README_구성.md)
+
+## 7. 개발 규칙
+
+- 코드·브랜치 작업 규칙은 [AGENTS.md](AGENTS.md)를 따릅니다.
+- Python 품질 검사는 루트 `pyproject.toml` 기준으로 `ruff check .`, `ruff format --check .`를 사용합니다. CI 품질 검사 실패 시 배포하지 않습니다.
+- 동작·계약·설정·오류 처리·실행 절차가 바뀌면 관련 문서와 증거도 갱신합니다. 현행 상세 문서의 진입점은 `docs/ik/`이며 `pre/` 원문은 보존합니다.
+- 커밋에는 의도한 변경만 포함하고 API 키·비밀번호·개인 환경 파일·인증서 비밀정보는 제외합니다.
