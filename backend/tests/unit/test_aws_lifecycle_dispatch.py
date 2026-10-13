@@ -2,7 +2,11 @@
 
 import argparse
 import base64
+import hashlib
 import json
+import re
+import threading
+import time
 
 import pytest
 import yaml
@@ -11,6 +15,67 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from infra.aws import cleanup
 from infra.aws import lifecycle_dispatch as gate
+
+
+def journal_transport(monkeypatch, *, corrupt=None):
+    payload = bytes(range(256)) * 200
+    metadata = {"bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+    if corrupt == "hash":
+        metadata["sha256"] = "0" * 64
+    lock = threading.Lock()
+    activity = {"current": 0, "peak": 0, "offsets": []}
+
+    def command(_aws, _config, _instance, script, output):
+        if output.name == "journal-create.json":
+            return {"command_id": "create"}
+        offset = int(re.search(r"f.seek\((\d+)\)", script).group(1))
+        size = int(re.search(r"f.read\((\d+)\)", script).group(1))
+        assert size == 12000
+        with lock:
+            activity["current"] += 1
+            activity["peak"] = max(activity["peak"], activity["current"])
+            activity["offsets"].append(offset)
+        time.sleep(0.02)  # Overlap independent reads; no AWS/provider traffic.
+        with lock:
+            activity["current"] -= 1
+        return {"command_id": str(offset)}
+
+    def aws(*args, **kwargs):
+        if args[:2] == ("ec2", "describe-instances"):
+            return {"Reservations": [{"Instances": [{"State": {"Name": "running"}}]}]}
+        assert args[:2] == ("ssm", "get-command-invocation")
+        identifier = args[args.index("--command-id") + 1]
+        if identifier == "create":
+            value = json.dumps(metadata)
+        else:
+            offset = int(identifier)
+            raw = payload[offset : offset + 12000]
+            if corrupt == "length" and offset == 0:
+                raw = raw[:-1]
+            value = base64.b64encode(raw).decode()
+            if corrupt == "base64" and offset == 0:
+                value = "!" + value
+            assert len(value) <= 16001
+        return {"StandardOutputContent": value}
+
+    monkeypatch.setattr(cleanup, "command", command)
+    return aws, payload, activity
+
+
+def test_journal_parallel_read_is_bounded_and_preserves_order(monkeypatch, tmp_path):
+    aws, payload, activity = journal_transport(monkeypatch)
+    cleanup.journal(aws, {}, {"roles": {"fault-api": "owned-instance"}}, tmp_path)
+    assert (tmp_path / "fault-journal.tar.gz").read_bytes() == payload
+    assert 1 < activity["peak"] <= 3
+    assert sorted(activity["offsets"]) == list(range(0, len(payload), 12000))
+
+
+@pytest.mark.parametrize("corrupt", ["hash", "length", "base64"])
+def test_journal_corruption_never_publishes_archive(monkeypatch, tmp_path, corrupt):
+    aws, _payload, _activity = journal_transport(monkeypatch, corrupt=corrupt)
+    with pytest.raises(ValueError):
+        cleanup.journal(aws, {}, {"roles": {"fault-api": "owned-instance"}}, tmp_path)
+    assert not (tmp_path / "fault-journal.tar.gz").exists()
 
 
 def keypair(tmp_path):

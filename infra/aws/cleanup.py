@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from infra.aws.host_transport import command
@@ -53,15 +54,18 @@ def journal(aws, config, state, output):
         instance,
     )
     metadata = json.loads(details["StandardOutputContent"].strip())
-    content = bytearray()
-    for offset in range(0, metadata["bytes"], 6000):
+    # 12,000 raw bytes -> 16,000 base64 characters: below SSM's stdout limit. Only
+    # independent reads run concurrently; archive creation/deletion stays serial.
+    chunk_size = 12000
+
+    def download(offset):
         chunk = command(
             aws,
             config,
             instance,
             "python3 -c \"import base64;f=open('/tmp/eventquest-reset-journal.gz','rb');f.seek("
             + str(offset)
-            + ');print(base64.b64encode(f.read(6000)).decode())"',
+            + f');print(base64.b64encode(f.read({chunk_size})).decode())"',
             output / f"journal-chunk-{offset}.json",
         )
         value = aws(
@@ -72,7 +76,14 @@ def journal(aws, config, state, output):
             "--instance-id",
             instance,
         )
-        content.extend(base64.b64decode(value["StandardOutputContent"].strip(), validate=True))
+        chunk = base64.b64decode(value["StandardOutputContent"].strip(), validate=True)
+        if len(chunk) != min(chunk_size, metadata["bytes"] - offset):
+            raise ValueError("Fault journal download chunk length mismatch")
+        return chunk
+
+    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="reset-journal") as pool:
+        # map retains offset order even when SSM invocations finish out of order.
+        content = b"".join(pool.map(download, range(0, metadata["bytes"], chunk_size)))
     if (
         len(content) != metadata["bytes"]
         or hashlib.sha256(content).hexdigest() != metadata["sha256"]

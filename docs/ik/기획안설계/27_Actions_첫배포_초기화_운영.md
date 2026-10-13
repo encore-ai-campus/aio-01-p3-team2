@@ -67,3 +67,9 @@ backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch confirm-evidenc
 OIDC는 ikonly 저장소 subject만 허용한다. 컨트롤러의 키 접근은 앱/지정 lifecycle Parameter로 제한하고 KMS 복호화는 서울 SSM 경유로 제한한다. HTTPS 검사 규칙 변경은 소유 태그가 일치하는 security group만 허용한다. 런타임 서버의 읽기 권한은 기존 역할별 범위를 유지한다.
 
 구현 및 현재 AWS 정리 결과는 [변경·검증 기록](../검증산출물/2026-10-13_Actions_수명주기_전환과_AWS_초기화.md)을 따른다. 로컬 기존 초기화 성공, 새 gate 단위 검사, OIDC 실제 연결, GitHub CI 결과와 **새 hosted initial/prepare-reset/reset의 유료 통합 실행**을 구분한다. 이번 요청은 현재 환경 정리이므로 검증을 위해 다시 유료 인프라를 만들지 않는다.
+
+## 대규모 시험 증거 회수
+
+저널은 원격 호스트에서 한 번 만든 gzip 파일을 독립된 12,000-byte 조각으로 최대 3개 동시 읽는다. 조각당 base64 출력은 16,000문자 이내로 SSM 출력 한도보다 작다. offset 순서로 합치고 각 조각 길이, 전체 길이와 SHA256을 확인한 후에만 archive를 저장한다. archive 생성·상태 변경·자원 삭제는 기존 순서를 유지한다.
+
+2026-10-13 실제 준비에서 1,515,363-byte 저널의 기존 6,000-byte 순차 전송(253회)을 발견해 삭제 전 실행을 취소했다. 종료된 run의 소유권을 확인한 뒤 정확한 lock만 해제하고 RESETTING의 동일 frozen release/output 경로에서 재개한다. 취소는 자동 정상화로 집계하지 않는다. [전체 경로 검증](../검증산출물/2026-10-13_Actions_전체경로_AWS_검증.md)에 정상 실행과 취소·재개 시간을 따로 남긴다.

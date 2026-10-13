@@ -80,3 +80,10 @@ Edge 배포 화면 10 PASS(정상 화면 2 + 복구 시연 8). 실제 form 카�
 ## API 선택 업데이트 수용
 
 Actions 38332060874: main-api 선택에 따른 main-api/fault-api 쌍만 ACCEPTED. 다른 4개 역할 manifest 정확히 유지, 6개 instance ID 유지. 기존 실제 LLM 기획·게임 상태 및 양쪽 웹 proxy, 137건 suite 기록·13건 실제 호출 기록이 그대로 조회되고 시험 환경 CLEAN을 확인했다. 알림 SNS email은 PendingConfirmation이며 실제 이메일 전달은 미검증이다. MCP 쌍 업데이트와 전체 초기화는 이어서 검증한다.
+
+## MCP 업데이트·증거 보존과 정리 병목
+
+- MCP 선택 업데이트 38333034711: main-mcp/fault-mcp 쌍만 ACCEPTED. 다른 4개 manifest와 6개 instance ID 유지. 기존 기획·게임·137 suite·13 live 기록 및 CLEAN 재조회 통과.
+- 실제 LLM DB 원문 암호문과 복호화 키를 2개 공개키 봉인 archive로 로컬 보존하고 로컬 복호화·각 prompt/response hash를 검증했다. 정상 2 + 시험 27 = 실제 29호출, 총 입력 139,675/출력 5,843 token, 설정 단가 비용 $0.0652188. 비밀값은 Git/로그에 올리지 않았다.
+- prepare-reset 38334088845에서 1,515,363-byte 저널을 6,000-byte씩 순차 회수하는 병목을 발견했다(253번 SSM round trip). 자원 삭제 전 준비 실행을 취소하고 완료 상태·해당 run 소유 token을 검사해 남은 lock만 해제했다. 환경은 같은 frozen release의 RESETTING으로 유지한다.
+- 읽기 조각 12,000 bytes, 최대 3개 병렬, 출력 16,000 base64문자 이내, 조각 길이/전체 길이/SHA256/순서 확인으로 보완했다. 삭제와 상태 전이는 순차 유지. lifecycle 영향 단위 24 PASS, Ruff 통과. 정상 실행 시간과 취소·수정 시간을 분리한다.

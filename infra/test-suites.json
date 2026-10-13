@@ -989,7 +989,9 @@
         "test_consumption_validation_failures_clean_only_owned_generation",
         "test_early_workflow_failure_cleans_claimed_generation",
         "test_cleanup_failure_is_visible_and_retryable",
-        "test_first_deployment_success_or_failure_removes_owned_supply"
+        "test_first_deployment_success_or_failure_removes_owned_supply",
+        "test_journal_parallel_read_is_bounded_and_preserves_order",
+        "test_journal_corruption_never_publishes_archive"
       ]
     }
   ],
