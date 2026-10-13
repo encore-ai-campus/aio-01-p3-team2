@@ -152,6 +152,11 @@ def test_workflow_only_uploads_encrypted_and_safe_outputs():
     )
     assert "'--name-only','-z'" in validation
     assert ".decode('utf-8').split('\\0')" in validation
+    compile(
+        validation.split("python - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0],
+        "lifecycle-validation",
+        "exec",
+    )
 
 
 def test_parameter_secret_is_not_passed_in_cli_argv():
