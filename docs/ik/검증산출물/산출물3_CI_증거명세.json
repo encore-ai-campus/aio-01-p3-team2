@@ -1,0 +1,117 @@
+{
+  "source_sha": "530fd03ee8361aac3421f3f35fec0ff98c3fc4fd",
+  "run_id": "38334819091",
+  "attempt": 1,
+  "ci_verified": true,
+  "passed_cases": 731,
+  "suites": [
+    {
+      "suite": "quality-core",
+      "passed_cases": 633,
+      "reports": [
+        {
+          "name": "core.xml",
+          "cases": 634,
+          "skipped": 1,
+          "failures": 0,
+          "sha256": "sha256:6d83315b0acf4c7b8b4ccd50c40bba2ab0698730ed2bc9cf5680b669a013ac24"
+        }
+      ]
+    },
+    {
+      "suite": "postgres",
+      "passed_cases": 56,
+      "reports": [
+        {
+          "name": "core-pg.xml",
+          "cases": 3,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:fea962dc15eb278e333ee67ce455bedec61bd3ace4f388659a070aa581aa5f2f"
+        },
+        {
+          "name": "postgres.xml",
+          "cases": 53,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:4de467c62765ac52176f6da6612ec9002e8dc3d442bcd1ba05be77bacb0dfbbe"
+        }
+      ]
+    },
+    {
+      "suite": "ui",
+      "passed_cases": 36,
+      "reports": [
+        {
+          "name": "ui-connected.xml",
+          "cases": 29,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:50806658bfbfd4edc57307990136276e5380b482280957c0c408fa661e39e7cf"
+        },
+        {
+          "name": "ui-fault-display.xml",
+          "cases": 2,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:4e81d33856f61a87dcef7ee45c44052e69b40f9bdd3d3a8d5838bb94b4990357"
+        },
+        {
+          "name": "ui-game.xml",
+          "cases": 3,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:471d335d6a1eb8813b5dc876b1667b728a7389da2ff079e6c96e421f67f43ceb"
+        },
+        {
+          "name": "ui-mcp503.xml",
+          "cases": 1,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:612b88c162852a2e2486ebc10680f801fc057cc4c4668403bf1dca56467e2a02"
+        },
+        {
+          "name": "ui-restart.xml",
+          "cases": 1,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:65840c00e482f1f0cb5e717d2f43f54cc15e2647228cdd59b7b34a67d3d4f71a"
+        }
+      ]
+    },
+    {
+      "suite": "verify-images",
+      "passed_cases": 6,
+      "reports": [
+        {
+          "name": "images.xml",
+          "cases": 3,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:7334ff7f6b639517f2f74218d6d2aa4b5a663f7135c945d5ccc1ec4f42d83b92"
+        },
+        {
+          "name": "production-browser.xml",
+          "cases": 3,
+          "skipped": 0,
+          "failures": 0,
+          "sha256": "sha256:c3a832c4b8099d864956f6851b84d54fe31b06b16c5811b4817122451357459c"
+        }
+      ]
+    }
+  ],
+  "date": "2026-10-13",
+  "url": "https://github.com/ik-e/multi-agent-autohealing/actions/runs/38334819091",
+  "deployment_authorized": false,
+  "deployment_result": {
+    "status": "INACTIVE",
+    "created_resources": false
+  },
+  "fingerprints": {
+    "catalog": "sha256:5e59e6817498db80f3cfac24994fe72e71e21491fe0cd6ff31495182dd2ccb22",
+    "migration": "sha256:f6a0938ac854eb480af28d01217cba14511db52cb3623cbee9bdf01f1cbc6a6c",
+    "schema": "sha256:99c88e0f56d4ec24a68721c498262ab25cb09cf7158bce30ba248a04ffcabf55"
+  },
+  "report_hashes_verified_against_receipts_and_gate": true,
+  "paid_llm_calls": 0
+}
