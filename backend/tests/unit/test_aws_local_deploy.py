@@ -76,14 +76,15 @@ def test_local_ssm_operations_require_owned_running_instance_and_hide_output():
     assert len(requests) == 1
 
 
-def test_publication_rejects_failed_or_untrusted_ci_before_loading_images(tmp_path):
+@pytest.mark.parametrize("branch", ["main", "ikonly", "untrusted"])
+def test_publication_rejects_failed_or_untrusted_ci_before_loading_images(tmp_path, branch):
     from infra.aws.publish_release import verify
 
     candidate = {"version": 1, "source_sha": "a" * 40, "ci_run_id": "123", "ci_attempt": 1}
     (tmp_path / "candidate.json").write_text(json.dumps(candidate))
     (tmp_path / "ci-verified.json").write_text(json.dumps({**candidate, "ci_verified": True}))
     run_metadata = {
-        "head_branch": "ikonly",
+        "head_branch": branch,
         "event": "push",
         "path": ".github/workflows/ikonly-ci.yml",
         "status": "completed",
@@ -96,8 +97,34 @@ def test_publication_rejects_failed_or_untrusted_ci_before_loading_images(tmp_pa
     with pytest.raises(ValueError, match="provenance"):
         verify(tmp_path, run_metadata, [])
     run_metadata["conclusion"] = "success"
+    if branch != "main":
+        with pytest.raises(ValueError, match="provenance"):
+            verify(tmp_path, run_metadata, [{"name": "release-gate", "conclusion": "success"}])
+        return
     with pytest.raises(ValueError, match="remote CI job"):
         verify(tmp_path, run_metadata, [{"name": "release-gate", "conclusion": "success"}])
+
+
+def test_main_workflow_and_oidc_branch_guards_are_consistent():
+    from pathlib import Path
+
+    import yaml
+
+    root = Path(__file__).resolve().parents[3]
+    for name in ("ikonly-ci.yml", "ikonly-infrastructure.yml", "ikonly-lifecycle.yml"):
+        text = (root / ".github/workflows" / name).read_text(encoding="utf-8")
+        config = yaml.load(text, Loader=yaml.BaseLoader)
+        assert config["on"]["push"]["branches"] == ["main"]
+        assert "refs/heads/ikonly" not in text
+    ci = (root / ".github/workflows/ikonly-ci.yml").read_text(encoding="utf-8")
+    lifecycle = (root / ".github/workflows/ikonly-lifecycle.yml").read_text(encoding="utf-8")
+    assert 'test "$GITHUB_REF" = refs/heads/main' in ci
+    assert "github.ref == 'refs/heads/main'" in lifecycle
+    assert "run['head_branch'] != 'main'" in lifecycle
+    for name in ("publish_release.py", "bootstrap_oidc.py"):
+        text = (root / "infra/aws" / name).read_text(encoding="utf-8")
+        assert "refs/heads/main" in text
+        assert "refs/heads/ikonly" not in text
 
 
 def test_archive_identity_accepts_config_and_manifest_ids_without_rebuild(tmp_path):

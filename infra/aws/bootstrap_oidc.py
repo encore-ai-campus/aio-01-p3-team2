@@ -449,7 +449,7 @@ def bootstrap(config, output, *, apply=False):
                     "StringEquals": {
                         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
                         "token.actions.githubusercontent.com:sub": expected
-                        + ":ref:refs/heads/ikonly",
+                        + ":ref:refs/heads/main",
                     }
                 },
             }
@@ -467,7 +467,7 @@ def bootstrap(config, output, *, apply=False):
     }
     record = {
         "account_id": config["account_id"],
-        "subject": expected + ":ref:refs/heads/ikonly",
+        "subject": expected + ":ref:refs/heads/main",
         "provider_reused": provider,
         "roles": {
             "ikonly-control-controller": {"trust": trust, "policy": statements["controller"]},

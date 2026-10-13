@@ -956,6 +956,7 @@
         "test_host_image_selection_binds_manifest_hash_source_role_and_account",
         "test_local_ssm_operations_require_owned_running_instance_and_hide_output",
         "test_publication_rejects_failed_or_untrusted_ci_before_loading_images",
+        "test_main_workflow_and_oidc_branch_guards_are_consistent",
         "test_archive_identity_accepts_config_and_manifest_ids_without_rebuild",
         "test_compose_web_tmpfs_is_one_mount_and_ca_volumes_are_persistent"
       ]

@@ -1,4 +1,4 @@
-"""Publish only successful ikonly CI tar artifacts; never rebuild during deployment."""
+"""Publish only successful main CI tar artifacts; never rebuild during deployment."""
 
 import argparse
 import hashlib
@@ -54,7 +54,7 @@ def verify(directory, run_metadata, jobs, *, allow_current_run=False):
         allow_current_run
         and os.getenv("GITHUB_ACTIONS") == "true"
         and os.getenv("GITHUB_JOB") == "deploy"
-        and os.getenv("GITHUB_REF") == "refs/heads/ikonly"
+        and os.getenv("GITHUB_REF") == "refs/heads/main"
         and os.getenv("GITHUB_REPOSITORY") == "ik-e/multi-agent-autohealing"
         and os.getenv("GITHUB_RUN_ID") == str(run_metadata.get("id"))
         and os.getenv("GITHUB_SHA") == run_metadata.get("head_sha")
@@ -68,7 +68,7 @@ def verify(directory, run_metadata, jobs, *, allow_current_run=False):
         and {name for name, result in completed.items() if result == "failure"} == {"deploy"}
     )
     if (
-        run_metadata.get("head_branch") != "ikonly"
+        run_metadata.get("head_branch") != "main"
         or run_metadata.get("event") not in ("push", "workflow_dispatch")
         or run_metadata.get("path") != ".github/workflows/ikonly-ci.yml"
         or (

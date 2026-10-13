@@ -1,12 +1,12 @@
-name: Ikonly Linux CI and image gate
+name: Main Linux CI and image gate
 
 on:
   push:
-    branches: [ikonly]
+    branches: [main]
   workflow_dispatch:
     inputs:
       operation:
-        description: 'Update/recover here; initial/reset use Ikonly first deployment and reset'
+        description: 'Update/recover here; initial/reset use Main first deployment and reset'
         type: choice
         options: [ci, update, full, recover, oidc-check]
         default: ci
@@ -53,7 +53,7 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/ikonly
+          test "$GITHUB_REF" = refs/heads/main
           python infra/aws/deployment_impact.py --base "$BASE_SHA" --head "$HEAD_SHA" --output test-results/deployment-impact.json --github-output "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -290,7 +290,7 @@ jobs:
           NEEDS_JSON: ${{ toJSON(needs) }}
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = refs/heads/ikonly
+          test "$GITHUB_REF" = refs/heads/main
           python -m infra.ci.gate approve --output test-results/ci-verified.json
           echo 'ci_verified=true' >> "$GITHUB_OUTPUT"
           echo 'CI candidate verified. CD requires IKONLY_CD_ENABLED=true and an ACTIVE environment.' >> "$GITHUB_STEP_SUMMARY"
@@ -306,7 +306,7 @@ jobs:
     needs: [changes, release-gate]
     if: >-
       needs.release-gate.outputs.ci_verified == 'true' &&
-      github.ref == 'refs/heads/ikonly' &&
+      github.ref == 'refs/heads/main' &&
       vars.IKONLY_CD_ENABLED == 'true' &&
       (github.event_name == 'push' || inputs.operation == 'update' || inputs.operation == 'full')
     runs-on: ubuntu-24.04
@@ -375,7 +375,7 @@ jobs:
 
   operations:
     if: >-
-      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/ikonly' &&
+      github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
       (inputs.operation == 'recover' || inputs.operation == 'oidc-check')
     runs-on: ubuntu-24.04
     timeout-minutes: 110

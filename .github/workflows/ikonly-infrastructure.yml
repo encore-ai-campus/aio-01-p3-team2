@@ -1,9 +1,9 @@
-name: Ikonly infrastructure validation
+name: Main infrastructure validation
 
 on:
   workflow_dispatch:
   push:
-    branches: [ikonly]
+    branches: [main]
     paths:
       - 'infra/aws/**'
       - '.github/workflows/ikonly-infrastructure.yml'
