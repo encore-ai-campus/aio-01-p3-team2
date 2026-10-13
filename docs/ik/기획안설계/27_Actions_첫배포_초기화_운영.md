@@ -66,7 +66,7 @@ backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch confirm-evidenc
 
 OIDC는 ikonly 저장소 subject만 허용한다. 컨트롤러의 키 접근은 앱/지정 lifecycle Parameter로 제한하고 KMS 복호화는 서울 SSM 경유로 제한한다. HTTPS 검사 규칙 변경은 소유 태그가 일치하는 security group만 허용한다. 런타임 서버의 읽기 권한은 기존 역할별 범위를 유지한다.
 
-구현 및 현재 AWS 정리 결과는 [변경·검증 기록](../검증산출물/2026-10-13_Actions_수명주기_전환과_AWS_초기화.md)을 따른다. 로컬 기존 초기화 성공, 새 gate 단위 검사, OIDC 실제 연결, GitHub CI 결과와 **새 hosted initial/prepare-reset/reset의 유료 통합 실행**을 구분한다. 이번 요청은 현재 환경 정리이므로 검증을 위해 다시 유료 인프라를 만들지 않는다.
+최신 [Actions 전체 경로 AWS 검증](../검증산출물/2026-10-13_Actions_전체경로_AWS_검증.md)에서 hosted initial/각 서버 update/prepare-reset/reset의 실제 수용, 배포 환경 장애 시험, 로컬 증거 보존 및 잔존 0을 확인했다. 실행 시간과 취소·재개도 구분해 기록한다. 이전 [전환·초기화 기록](../검증산출물/2026-10-13_Actions_수명주기_전환과_AWS_초기화.md)은 당시 근거로 보존한다.
 
 ## 대규모 시험 증거 회수
 

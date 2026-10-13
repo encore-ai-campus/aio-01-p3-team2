@@ -1,6 +1,8 @@
 # Actions 전체 경로 AWS 검증
 
-상태: 진행 중 · 2026-10-13 · ikonly
+상태: 완료 · 2026-10-13 · ikonly · AWS 앱 ABSENT / 잔존 0
+
+아래는 시간 순서의 실행 기록이다. 최종 결과와 정밀 시간 집계는 마지막 절을 기준으로 한다.
 
 ## 목표와 사전 기준
 
@@ -87,3 +89,31 @@ Actions 38332060874: main-api 선택에 따른 main-api/fault-api 쌍만 ACCEPTE
 - 실제 LLM DB 원문 암호문과 복호화 키를 2개 공개키 봉인 archive로 로컬 보존하고 로컬 복호화·각 prompt/response hash를 검증했다. 정상 2 + 시험 27 = 실제 29호출, 총 입력 139,675/출력 5,843 token, 설정 단가 비용 $0.0652188. 비밀값은 Git/로그에 올리지 않았다.
 - prepare-reset 38334088845에서 1,515,363-byte 저널을 6,000-byte씩 순차 회수하는 병목을 발견했다(253번 SSM round trip). 자원 삭제 전 준비 실행을 취소하고 완료 상태·해당 run 소유 token을 검사해 남은 lock만 해제했다. 환경은 같은 frozen release의 RESETTING으로 유지한다.
 - 읽기 조각 12,000 bytes, 최대 3개 병렬, 출력 16,000 base64문자 이내, 조각 길이/전체 길이/SHA256/순서 확인으로 보완했다. 삭제와 상태 전이는 순차 유지. lifecycle 영향 단위 24 PASS, Ruff 통과. 정상 실행 시간과 취소·수정 시간을 분리한다.
+
+## 최종 수용·초기화와 시간
+
+Actions prepare-reset 38334854685 → 암호화 artifact 로컬 복호화·SHA256 확인 → Actions reset 38335674579 → RESET_COMPLETE. 최종 암호화 artifact도 로컬 복호화하고 독립 AWS 조회를 완료했다. 앱 자원 17개 분류 모두 잔존 0, active 프로젝트 stack 0, accepted state·operation lock 없음. 배포 인증 IAM 두 역할과 공유 GitHub OIDC만 유지한다. 확인 UTC: 2026-10-13T02:28:09.100674+00:00.
+
+| 작업 | Actions run | 전체 실행 | 배포/수명주기 job | 시작 대기 |
+|---|---|---:|---:|---:|
+| 첫 배포 사전 CI | [38326771862](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38326771862) | 5분 47초 | 배포 없음 | 3초 |
+| 첫 배포 | [38327297896](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38327297896) | 27분 31초 | 27분 31초 | 4초 |
+| 게임 웹 선택 업데이트 | [38328823504](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38328823504) | 11분 14초 | 2분 41초 | 37초 |
+| 기획 웹 선택 업데이트 | [38329923527](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38329923527) | 7분 45초 | 2분 36초 | 29초 |
+| API 쌍 선택 업데이트 | [38332060874](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38332060874) | 11분 30초 | 5분 53초 | 3초 |
+| MCP 쌍 선택 업데이트 | [38333034711](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38333034711) | 11분 58초 | 6분 36초 | 30초 |
+| 정리 준비 재개 | [38334854685](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38334854685) | 6분 14초 | 6분 14초 | 3초 |
+| 전송 보완 CI | [38334819091](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38334819091) | 7분 18초 | 배포 없음 | 2초 |
+| 전체 초기화 | [38335674579](https://github.com/ik-e/multi-agent-autohealing/actions/runs/38335674579) | 15분 31초 | 15분 31초 | 4초 |
+
+집계: skipped job을 제외한 첫 실제 job 시작부터 마지막 종료까지 전체 실행으로 계산한다. 업데이트 전체 시간에는 CI·이미지 빌드·검증·직렬 배포 대기가 포함된다. 초기 배포의 사전 CI는 별도 행이다. raw job/step/CloudFormation event 시간은 Git 제외 timing.json에 보존한다. 중간 기록의 임시 집계와 차이가 수 초 날 수 있다.
+
+실패/취소 이력: initial 사전 경로 거절 38326013543, 본문 들여쓰기 중단 38326676258은 자원 생성 전 실패다. 준비 38334088845는 저널 순차 회수 병목으로 삭제 전 취소했고 완료 owner의 lock을 운영자가 해제해 재개했다. 이 수동 운영 복구를 앱 자동 복구율에 포함하지 않는다. 정상 준비와 취소 시간을 합쳐 성공 실행 시간처럼 표현하지 않는다.
+
+- run 38326013543: failure, 실행 0분 49초.
+- run 38326676258: failure, 실행 0분 24초.
+- run 38334088845: cancelled, 실행 5분 36초.
+
+시험 상세 입력·기대값·실제 결과·복구 시간·개입 여부는 [기계 판독 요약](2026-10-13_AWS_시험요약.json)에, 최종 AWS 조회는 [독립 잔존 검사](2026-10-13_Actions_AWS_잔존검사.json)에 보존한다. 원본은 test-results/aws-actions-full-2026-10-13/의 campaign evidence, live-evidence, 봉인 DB 기록, 브라우저 XML·스크린샷, initial/reset 암호화 artifact와 복호화 결과에 보존한다. 개인키·비밀값·원문은 Git에 올리지 않는다.
+
+최종 artifact의 hosted result에 있는 evidence_saved_locally=false는 runner가 사용자 컴퓨터 저장 여부를 확인할 수 없음을 뜻한다. 이번 실행에서는 prepare/reset artifact를 실제 로컬에서 각각 복호화했다. 최종 ciphertext SHA256은 bcdd9e458eb2f4c1660f57b48c728a158bc7ddba850d03e942c83d4541ef3b69이며, RESET_COMPLETE와 독립 잔존 검사 PASS를 별도로 확인했다.

@@ -1,0 +1,33 @@
+{
+  "verified_at": "2026-10-13T02:28:09.100674+00:00",
+  "status": "PASS",
+  "lifecycle": "ABSENT",
+  "categories": 17,
+  "residuals": {
+    "runtime_roles": [],
+    "runtime_profiles": [],
+    "deploy_documents": [],
+    "alarms": [],
+    "topics": [],
+    "active_instances": [],
+    "active_nat": [],
+    "vpcs": [],
+    "eips": [],
+    "volumes": [],
+    "databases": [],
+    "snapshots": [],
+    "automated_backups": [],
+    "parameters": [],
+    "repositories": [],
+    "logs": [],
+    "buckets": []
+  },
+  "active_project_stacks": [],
+  "accepted_state_absent": true,
+  "operation_lock_absent": true,
+  "preserved_control_roles": [
+    "ikonly-control-controller",
+    "ikonly-control-cloudformation"
+  ],
+  "shared_github_oidc_retained": true
+}

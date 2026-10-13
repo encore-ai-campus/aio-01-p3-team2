@@ -1,0 +1,4573 @@
+{
+  "date": "2026-10-13",
+  "environment": "ikonly-demo",
+  "functional_source": "e476376a1971bc6c241c32450460b9249f6f43bf",
+  "deterministic": {
+    "counts": {
+      "PASS": 137,
+      "FAIL": 0,
+      "INCONCLUSIVE": 0,
+      "NOT_EXECUTED": 0
+    },
+    "metrics": {
+      "selected_error_cases": 127,
+      "automatic_normalizations": 51,
+      "automatic_normalization_rate": 0.4015748031496063,
+      "excluded_scenarios": [
+        "game_data_unavailable",
+        "input_guard_blocked",
+        "input_validation_error",
+        "supervisor_state_conflict",
+        "unsupported_capability"
+      ],
+      "timed_successes": 51,
+      "successful_time_missing": 0,
+      "mean_recovery_seconds": 1.026196535725485
+    },
+    "terminal_counts": {
+      "SAFE_STOP": 55,
+      "WAITING_APPROVAL": 53,
+      "REQUEST_BLOCKED": 4,
+      "COMPLETED": 4,
+      "FAILED": 21
+    },
+    "cases": [
+      {
+        "case_id": "F01-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 0,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-MCP-001",
+          "observed_code": "ERR-CONTRACT-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.031141987000069093,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F02-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 1,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SEC-CONTEXT-001",
+          "observed_code": "ERR-SEC-CONTEXT-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.0217403930000728,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 2,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.15548954600001252,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F04-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 3,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-INPUT-API-001",
+          "observed_code": "ERR-INPUT-API-001",
+          "detection_kind": "http_rejection",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "REQUEST_BLOCKED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "REQUEST_BLOCKED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F05-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 4,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SEC-INPUT-001",
+          "observed_code": "ERR-SEC-INPUT-001",
+          "detection_kind": "http_rejection",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "REQUEST_BLOCKED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "REQUEST_BLOCKED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F06-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 5,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SEC-OUTPUT-001",
+          "observed_code": "ERR-SEC-OUTPUT-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.041103812999949696,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F07-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 6,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SEC-TOOL-001",
+          "observed_code": "ERR-SEC-TOOL-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.02088995300005081,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F08-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 7,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SCOPE-CHECK-001",
+          "observed_code": "ERR-SCOPE-CHECK-001",
+          "detection_kind": "business_finding",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "COMPLETED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": "NEEDS_DEVELOPMENT",
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "COMPLETED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F09-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 8,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DATA-CONTEXT-001",
+          "observed_code": "ERR-DATA-CONTEXT-001",
+          "detection_kind": "business_finding",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "COMPLETED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": "NEEDS_DATA",
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "COMPLETED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 9,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.37375169199992797,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 10,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.25070786999992833,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F12-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 11,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-HANDOFF-001",
+          "observed_code": "ERR-CONTRACT-HANDOFF-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.022245919000056347,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 12,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.884483676000059,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 13,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.8845044529999768,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 14,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.0059068289999686,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 15,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.27159237299997585,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F17-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 16,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-002",
+          "observed_code": "ERR-DEP-LLM-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.03864148599996042,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 17,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.9102308129999983,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 18,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.0304433139999674,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F20-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 19,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-003",
+          "observed_code": "ERR-DEP-MCP-003",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "TOOL_FALLBACK"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 1,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.44187105000014526,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F21-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 20,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-STORE-DB-001",
+          "observed_code": "ERR-STORE-DB-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.887416759999951,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F22-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 21,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-STORE-DB-002",
+          "observed_code": "ERR-STORE-DB-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.01193277900006251,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F23-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 22,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-OBS-TRACE-001",
+          "observed_code": "ERR-OBS-TRACE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.023711440000170114,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F24-current_active-always",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 23,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CTRL-LIMIT-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.4608902380000472,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F25-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 24,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CTRL-STATE-001",
+          "observed_code": "ERR-CTRL-STATE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": false,
+        "recovery_seconds": 0.010231363000002602,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F26-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 25,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CTRL-BUDGET-001",
+          "observed_code": "ERR-CTRL-BUDGET-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.03841222200003358,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F27-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 26,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CTRL-DEADLINE-001",
+          "observed_code": "ERR-CTRL-DEADLINE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.02147411999999349,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F28-current_active-once",
+        "run_id": "1f41a046-a913-40f7-a8c1-646287762519",
+        "case_index": 27,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-UNKNOWN-WORKFLOW-001",
+          "observed_code": "ERR-UNKNOWN-WORKFLOW-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.02285036900002524,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F01-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 0,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-MCP-001",
+          "observed_code": "ERR-CONTRACT-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.031847384999991846,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F02-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 1,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SEC-CONTEXT-001",
+          "observed_code": "ERR-SEC-CONTEXT-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.02359786100009842,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 2,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.0518821159998879,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F04-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 3,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-INPUT-API-001",
+          "observed_code": "ERR-INPUT-API-001",
+          "detection_kind": "http_rejection",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "REQUEST_BLOCKED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "REQUEST_BLOCKED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F05-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 4,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SEC-INPUT-001",
+          "observed_code": "ERR-SEC-INPUT-001",
+          "detection_kind": "http_rejection",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "REQUEST_BLOCKED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "REQUEST_BLOCKED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F06-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 5,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SEC-OUTPUT-001",
+          "observed_code": "ERR-SEC-OUTPUT-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.037482085000192455,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F07-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 6,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SEC-TOOL-001",
+          "observed_code": "ERR-SEC-TOOL-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.021503316000007544,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F08-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 7,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-SCOPE-CHECK-001",
+          "observed_code": "ERR-SCOPE-CHECK-001",
+          "detection_kind": "business_finding",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "COMPLETED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": "NEEDS_DEVELOPMENT",
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "COMPLETED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F09-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 8,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DATA-CONTEXT-001",
+          "observed_code": "ERR-DATA-CONTEXT-001",
+          "detection_kind": "business_finding",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "COMPLETED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": "NEEDS_DATA",
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "COMPLETED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 9,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.03958863899993048,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 10,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.03789729400000397,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F12-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 11,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-HANDOFF-001",
+          "observed_code": "ERR-CONTRACT-HANDOFF-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.021787361000178862,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 12,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 0.0759189380000862,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 13,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 0.0651058869998451,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 14,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 0.06859566499997527,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 15,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.04006906499989782,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F17-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 16,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-002",
+          "observed_code": "ERR-DEP-LLM-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.0370094350000727,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 17,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.03772573299988835,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 18,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.03962181200017767,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F20-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 19,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-003",
+          "observed_code": "ERR-DEP-MCP-003",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.04065557500007344,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F21-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 20,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-STORE-DB-001",
+          "observed_code": "ERR-STORE-DB-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.02694723700005852,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F22-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 21,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-STORE-DB-002",
+          "observed_code": "ERR-STORE-DB-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.012208235999878525,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F23-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 22,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-OBS-TRACE-001",
+          "observed_code": "ERR-OBS-TRACE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.02174718500009476,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F25-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 23,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CTRL-STATE-001",
+          "observed_code": "ERR-CTRL-STATE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": false,
+        "recovery_seconds": 0.009529273999987709,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F26-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 24,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CTRL-BUDGET-001",
+          "observed_code": "ERR-CTRL-BUDGET-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.03736155699994015,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F27-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 25,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CTRL-DEADLINE-001",
+          "observed_code": "ERR-CTRL-DEADLINE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.023566555999877892,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F28-safe_stop-once",
+        "run_id": "4dddc988-d8a8-4c2d-b8c2-59b9ec2c84de",
+        "case_index": 26,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-UNKNOWN-WORKFLOW-001",
+          "observed_code": "ERR-UNKNOWN-WORKFLOW-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "SAFE_STOP",
+            "max_attempts": 1
+          },
+          "policy_actions": [
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 1,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.02129153700002462,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 0,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.15399030900016442,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 1,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.2939879140001267,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 2,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.29998457400006373,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 3,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.3093066669998734,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 4,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.30228884399980416,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 5,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.6794147479999992,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 6,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.8322068689999469,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 7,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.3470899809999537,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 8,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.3180579889999535,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 9,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.7101319270000204,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 10,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.23957511699995848,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 11,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.5609943019999264,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 12,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.5606886569999006,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 13,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.5997743350001201,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 14,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.6828241729999718,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 15,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.9376026460001867,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 16,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.7146785639999962,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 17,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5685438629998316,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 18,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.6013847280000846,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 19,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5289537809999274,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 20,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.8627151719999802,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 21,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.6486728439999752,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 22,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5733761920000688,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 23,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.6080506559999321,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 24,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5387538120000954,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 25,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.8684315640000477,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 26,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.658459559999983,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 27,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 2.2964993009998125,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 28,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.6741723560000992,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 29,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.591977987999826,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 30,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.35603985500006274,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 31,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.6668296929999542,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 32,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.4386105920000318,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 33,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.550023538000005,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 34,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.53881621000005,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 35,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.9666544689998773,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 36,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.3601416430001336,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 37,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.9764164919999985,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 38,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.4936655690000862,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 39,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.3621620869998878,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 40,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.0523898429999008,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-retry_allowed-first_n-2",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 41,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.51529467499995,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-retry_allowed-first_n-3",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 42,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 2.01039908499979,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-retry_allowed-first_n-4",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 43,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.6673704540000926,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-retry_allowed-always",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 44,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.5655194989999472,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F20-retry_allowed-once",
+        "run_id": "8565c7fd-d208-47e8-9302-0b2ce2dc8c7f",
+        "case_index": 45,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-003",
+          "observed_code": "ERR-DEP-MCP-003",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "TOOL_FALLBACK"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 2,
+          "fallback_calls": 1,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.44950482700005523,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 0,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.30469066299997394,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 1,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.31693839799982015,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 2,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.3058456410001327,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F03-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 3,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-002",
+          "observed_code": "ERR-DOMAIN-PLANNER-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 0.31117035600004783,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 4,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.7936656879999191,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 5,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.4073992010000893,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 6,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.6591481210000438,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F10-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 7,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-PLANNER-001",
+          "observed_code": "ERR-CONTRACT-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.578779964999967,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 8,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.7003999229998499,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 9,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.2734512770000492,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 10,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.3399868690000858,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F11-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 11,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-CONTRACT-CRITIC-001",
+          "observed_code": "ERR-CONTRACT-CRITIC-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.3742979010000909,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 12,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.6580617850002,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 13,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5619092080000883,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 14,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.585001567999825,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F13-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 15,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-PLANNER-001",
+          "observed_code": "ERR-DOMAIN-PLANNER-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.6456157719999283,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 16,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.6227309070000047,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 17,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5625849379998726,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 18,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5575467349999599,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F14-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 19,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-RULE-001",
+          "observed_code": "ERR-DOMAIN-RULE-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5695936410002105,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 20,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.6200610240000515,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 21,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5227045799999814,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 22,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.5597590520001177,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F15-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 23,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DOMAIN-REWARD-001",
+          "observed_code": "ERR-DOMAIN-REWARD-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "REVISE_PLAN",
+            "max_attempts": 3
+          },
+          "policy_actions": [
+            "RUN_AGENT",
+            "RUN_AGENT",
+            "SAFE_STOP"
+          ],
+          "terminal": "FAILED",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "FAILED",
+        "recovered": false,
+        "recovery_seconds": 1.6302739340001153,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 24,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 0.8018697400000292,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 25,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.5411788730000353,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 26,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.4947887440000613,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F16-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 27,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-LLM-001",
+          "observed_code": "ERR-DEP-LLM-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_AGENT",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.1226921710001534,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 28,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.6217406390001088,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 29,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 2.280455646999826,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 30,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.4811730340002214,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F18-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 31,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-001",
+          "observed_code": "ERR-DEP-MCP-001",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.4527860170001077,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-current_active-first_n-2",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 32,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 3,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 1.2957966049998504,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-current_active-first_n-3",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 33,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY"
+          ],
+          "terminal": "WAITING_APPROVAL",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 2.143192537999994,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-current_active-first_n-4",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 34,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.6834573840001212,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      },
+      {
+        "case_id": "F19-current_active-always",
+        "run_id": "0956c15f-c45d-4849-b68a-a9c51937f549",
+        "case_index": 35,
+        "verdict": "PASS",
+        "expected": {
+          "catalog_code": "ERR-DEP-MCP-002",
+          "observed_code": "ERR-DEP-MCP-002",
+          "detection_kind": "exception_or_validation",
+          "policy_rule": {
+            "action": "RETRY_OPERATION",
+            "max_attempts": 4
+          },
+          "policy_actions": [
+            "RETRY",
+            "RETRY",
+            "RETRY",
+            "SAFE_STOP"
+          ],
+          "terminal": "SAFE_STOP",
+          "target_attempts": 4,
+          "fallback_calls": 0,
+          "finding": null,
+          "runtime_writes": 0,
+          "policy_restored": true
+        },
+        "actual_terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.680072943000141,
+        "manual_interventions": 0,
+        "all_manifest_checks_passed": true
+      }
+    ]
+  },
+  "live": {
+    "verdict": "PASS",
+    "cases": 13,
+    "source": "e476376a1971bc6c241c32450460b9249f6f43bf",
+    "source_file_hashes_match": true,
+    "normal_cases": 4,
+    "injected_cases": 9,
+    "automatic_recoveries": 6,
+    "automatic_recovery_rate": 0.6666666666666666,
+    "expected_recovery_successes": 6,
+    "expected_recovery_cases": 6,
+    "safe_stops": 3,
+    "safe_stop_expected_cases": 3,
+    "mean_recovery_seconds": 5.2882690543332656,
+    "calls": 27,
+    "input_tokens": 128756,
+    "output_tokens": 5356,
+    "configured_cost_usd": "0.0600720",
+    "rows": [
+      {
+        "case": "normal_single",
+        "run_id": "4e8b80d4-de8d-483f-9503-941450731537",
+        "workflow_id": "WF-73D7150C0551",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": false,
+        "recovery_seconds": null,
+        "checks_passed": true,
+        "calls": 2
+      },
+      {
+        "case": "normal_multi",
+        "run_id": "8a44c118-4492-4c69-b0a8-0b76b342c6d0",
+        "workflow_id": "WF-F6F0CF56BF07",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": false,
+        "recovery_seconds": null,
+        "checks_passed": true,
+        "calls": 2
+      },
+      {
+        "case": "normal_unsupported",
+        "run_id": "b6c8c1eb-89d9-40c9-9600-d5d26a6f51d2",
+        "workflow_id": "WF-E711B8CCCC00",
+        "verdict": "PASS",
+        "terminal": "COMPLETED",
+        "recovered": false,
+        "recovery_seconds": null,
+        "checks_passed": true,
+        "calls": 2
+      },
+      {
+        "case": "planner_format_once",
+        "run_id": "64a57dc3-27ab-4416-ac14-21d81e6f052a",
+        "workflow_id": "WF-C798D6B99DCE",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 4.376123027000176,
+        "checks_passed": true,
+        "calls": 3
+      },
+      {
+        "case": "planner_explanation_once",
+        "run_id": "71855273-f023-4efc-8cc0-b4a6caf5d67a",
+        "workflow_id": "WF-E294CD852DE3",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 4.174546106999969,
+        "checks_passed": true,
+        "calls": 4
+      },
+      {
+        "case": "llm_timeout_once",
+        "run_id": "92b001cf-548e-435c-bc44-2748b19d409b",
+        "workflow_id": "WF-2B8660E3748E",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 4.196494690999771,
+        "checks_passed": true,
+        "calls": 2
+      },
+      {
+        "case": "planner_format_always",
+        "run_id": "cea25459-2e7c-4df3-b6eb-385bc4620f8e",
+        "workflow_id": "WF-E8062669ABCB",
+        "verdict": "PASS",
+        "terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 7.940196846999697,
+        "checks_passed": true,
+        "calls": 4
+      },
+      {
+        "case": "llm_timeout_always",
+        "run_id": "bc69f589-48cd-4cc1-a0c1-fa60ac0dbc6f",
+        "workflow_id": "WF-00CD5D881C99",
+        "verdict": "PASS",
+        "terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 1.382104014000106,
+        "checks_passed": true,
+        "calls": 0
+      },
+      {
+        "case": "mcp_disconnect_once",
+        "run_id": "154fa9b4-2af1-4961-8526-1e2fc9ca7b07",
+        "workflow_id": "WF-636BAAA80270",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 6.114549169999918,
+        "checks_passed": true,
+        "calls": 2
+      },
+      {
+        "case": "mcp_delay_once",
+        "run_id": "046e2d97-668d-4b74-b533-573a77faa0a4",
+        "workflow_id": "WF-5F61B2CA53C8",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 6.09244667899975,
+        "checks_passed": true,
+        "calls": 2
+      },
+      {
+        "case": "mcp_503_once",
+        "run_id": "6565f7ee-eb19-468c-a6c9-4441662a803a",
+        "workflow_id": "WF-5F485AA19947",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": true,
+        "recovery_seconds": 6.775454652000008,
+        "checks_passed": true,
+        "calls": 2
+      },
+      {
+        "case": "mcp_503_always",
+        "run_id": "168b811c-90b8-4016-b7c3-70fbebe27641",
+        "workflow_id": "WF-8FA493352B8F",
+        "verdict": "PASS",
+        "terminal": "SAFE_STOP",
+        "recovered": false,
+        "recovery_seconds": 2.1911641199999394,
+        "checks_passed": true,
+        "calls": 0
+      },
+      {
+        "case": "normal_single",
+        "run_id": "25b9272f-9015-4210-903b-942451036573",
+        "workflow_id": "WF-B7DE9A263D12",
+        "verdict": "PASS",
+        "terminal": "WAITING_APPROVAL",
+        "recovered": false,
+        "recovery_seconds": null,
+        "checks_passed": true,
+        "calls": 2
+      }
+    ]
+  },
+  "normal_game_checks": [
+    {
+      "name": "anonymous HTTPS access blocked plan",
+      "passed": true
+    },
+    {
+      "name": "anonymous HTTPS access blocked game",
+      "passed": true
+    },
+    {
+      "name": "two web proxies share authoritative game state",
+      "passed": true
+    },
+    {
+      "name": "real LLM workflow reached approval",
+      "passed": true
+    },
+    {
+      "name": "live agent profile and recorded LLM usage",
+      "passed": true
+    },
+    {
+      "name": "planning request idempotency",
+      "passed": true
+    },
+    {
+      "name": "runtime eligible validated plan",
+      "passed": true
+    },
+    {
+      "name": "event apply idempotency",
+      "passed": true
+    },
+    {
+      "name": "exact selected spaces registered",
+      "passed": true
+    },
+    {
+      "name": "gameplay reaches event entry level",
+      "passed": true
+    },
+    {
+      "name": "space clear rift_space_02",
+      "passed": true
+    },
+    {
+      "name": "space clear rift_space_01",
+      "passed": true
+    },
+    {
+      "name": "both first-clear missions completed",
+      "passed": true
+    },
+    {
+      "name": "first-clear event rewards persisted",
+      "passed": true
+    },
+    {
+      "name": "repeat clear does not duplicate event reward",
+      "passed": true
+    },
+    {
+      "name": "both web proxies reflect persisted mutations",
+      "passed": true
+    },
+    {
+      "name": "normal recovery policy preserved",
+      "passed": true
+    }
+  ],
+  "browser": {
+    "normal_tests": 2,
+    "recovery_tests": 8,
+    "passed": 10,
+    "browser": "Edge",
+    "certificate_exception_in_browser_only": true
+  },
+  "limitations": [
+    "Deterministic DB errors use situation injection, not actual RDS interruption.",
+    "Live fault CLI uses an isolated child-only environment fixture; deployed fault API remains key-free deterministic.",
+    "Costs use configured pricing, not provider invoice.",
+    "SNS email subscription remains PendingConfirmation.",
+    "LOCAL RUNTIME UI badge does not distinguish AWS deployment."
+  ],
+  "sealed_llm_archives": [
+    {
+      "status": "PASS",
+      "role": "main-api",
+      "records": 2,
+      "sealed_sha256": "dc47f1b73057382c5a3f0a50523e379bc4a0383ba9f9f442644dce87b94a2ecb",
+      "local_unseal_and_record_hash_verified": true
+    },
+    {
+      "status": "PASS",
+      "role": "fault-api",
+      "records": 27,
+      "sealed_sha256": "25e6a42b2ddfaeda75b63afbc60678692d7127c4f068c9db7a256c24a497033f",
+      "local_unseal_and_record_hash_verified": true
+    }
+  ],
+  "total_actual_llm_calls": 29,
+  "total_input_tokens": 139675,
+  "total_output_tokens": 5843,
+  "total_configured_llm_cost_usd": "0.0652188",
+  "deployment_runs": {
+    "ci": "38326771862",
+    "source": "e476376",
+    "initial": "38327297896",
+    "failed_preflight": [
+      "38326013543",
+      "38326676258"
+    ],
+    "update_game": 38328823504,
+    "update_plan": 38329923527,
+    "update_api": 38332060874,
+    "update_mcp": 38333034711,
+    "prepare_reset": 38334854685,
+    "prepare_reset_cancelled": 38334088845,
+    "cleanup_ci": 38334819091,
+    "cleanup_infra_ci": 38334819105,
+    "reset": 38335674579
+  },
+  "final_reset": {
+    "verified_at": "2026-10-13T02:28:09.100674+00:00",
+    "status": "PASS",
+    "lifecycle": "ABSENT",
+    "categories": 17,
+    "residuals": {
+      "runtime_roles": [],
+      "runtime_profiles": [],
+      "deploy_documents": [],
+      "alarms": [],
+      "topics": [],
+      "active_instances": [],
+      "active_nat": [],
+      "vpcs": [],
+      "eips": [],
+      "volumes": [],
+      "databases": [],
+      "snapshots": [],
+      "automated_backups": [],
+      "parameters": [],
+      "repositories": [],
+      "logs": [],
+      "buckets": []
+    },
+    "active_project_stacks": [],
+    "accepted_state_absent": true,
+    "operation_lock_absent": true,
+    "preserved_control_roles": [
+      "ikonly-control-controller",
+      "ikonly-control-cloudformation"
+    ],
+    "shared_github_oidc_retained": true
+  },
+  "timings": [
+    {
+      "kind": "ci",
+      "run_id": 38326771862,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 3.0,
+      "execution_seconds": 347.0,
+      "elapsed_seconds": 350.0
+    },
+    {
+      "kind": "initial",
+      "run_id": 38327297896,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 4.0,
+      "execution_seconds": 1651.0,
+      "elapsed_seconds": 1655.0
+    },
+    {
+      "kind": "failed_preflight",
+      "run_id": 38326013543,
+      "status": "completed",
+      "conclusion": "failure",
+      "queue_seconds": 3.0,
+      "execution_seconds": 49.0,
+      "elapsed_seconds": 52.0
+    },
+    {
+      "kind": "failed_preflight",
+      "run_id": 38326676258,
+      "status": "completed",
+      "conclusion": "failure",
+      "queue_seconds": 3.0,
+      "execution_seconds": 24.0,
+      "elapsed_seconds": 27.0
+    },
+    {
+      "kind": "update_game",
+      "run_id": 38328823504,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 37.0,
+      "execution_seconds": 674.0,
+      "elapsed_seconds": 711.0
+    },
+    {
+      "kind": "update_plan",
+      "run_id": 38329923527,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 29.0,
+      "execution_seconds": 465.0,
+      "elapsed_seconds": 494.0
+    },
+    {
+      "kind": "update_api",
+      "run_id": 38332060874,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 3.0,
+      "execution_seconds": 690.0,
+      "elapsed_seconds": 693.0
+    },
+    {
+      "kind": "update_mcp",
+      "run_id": 38333034711,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 30.0,
+      "execution_seconds": 718.0,
+      "elapsed_seconds": 748.0
+    },
+    {
+      "kind": "prepare_reset",
+      "run_id": 38334854685,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 3.0,
+      "execution_seconds": 374.0,
+      "elapsed_seconds": 377.0
+    },
+    {
+      "kind": "prepare_reset_cancelled",
+      "run_id": 38334088845,
+      "status": "completed",
+      "conclusion": "cancelled",
+      "queue_seconds": 3.0,
+      "execution_seconds": 336.0,
+      "elapsed_seconds": 339.0
+    },
+    {
+      "kind": "cleanup_ci",
+      "run_id": 38334819091,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 2.0,
+      "execution_seconds": 438.0,
+      "elapsed_seconds": 440.0
+    },
+    {
+      "kind": "cleanup_infra_ci",
+      "run_id": 38334819105,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 2.0,
+      "execution_seconds": 37.0,
+      "elapsed_seconds": 39.0
+    },
+    {
+      "kind": "reset",
+      "run_id": 38335674579,
+      "status": "completed",
+      "conclusion": "success",
+      "queue_seconds": 4.0,
+      "execution_seconds": 931.0,
+      "elapsed_seconds": 935.0
+    }
+  ]
+}
