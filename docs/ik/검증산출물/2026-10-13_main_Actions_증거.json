@@ -1,0 +1,254 @@
+{
+  "version": 1,
+  "date": "2026-10-13",
+  "code_source_sha": "939472cd8e89e1e38d86babe7d6fcb349e338af8",
+  "branch": "main",
+  "runs": [
+    {
+      "id": 38340602181,
+      "name": "Main Linux CI and image gate",
+      "event": "push",
+      "head_branch": "main",
+      "head_sha": "939472cd8e89e1e38d86babe7d6fcb349e338af8",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/ik-e/multi-agent-autohealing/actions/runs/38340602181",
+      "run_started_at": "2026-10-13T03:12:32Z",
+      "completed_at": "2026-10-13T03:18:38Z",
+      "elapsed_seconds": 366.0,
+      "jobs": [
+        {
+          "name": "changes",
+          "conclusion": "success"
+        },
+        {
+          "name": "operations",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "build-images",
+          "conclusion": "success"
+        },
+        {
+          "name": "postgres",
+          "conclusion": "success"
+        },
+        {
+          "name": "quality-core",
+          "conclusion": "success"
+        },
+        {
+          "name": "ui",
+          "conclusion": "success"
+        },
+        {
+          "name": "verify-images",
+          "conclusion": "success"
+        },
+        {
+          "name": "release-gate",
+          "conclusion": "success"
+        },
+        {
+          "name": "deploy",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 38340602172,
+      "name": "Main infrastructure validation",
+      "event": "push",
+      "head_branch": "main",
+      "head_sha": "939472cd8e89e1e38d86babe7d6fcb349e338af8",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/ik-e/multi-agent-autohealing/actions/runs/38340602172",
+      "run_started_at": "2026-10-13T03:12:32Z",
+      "completed_at": "2026-10-13T03:13:11Z",
+      "elapsed_seconds": 39.0,
+      "jobs": [
+        {
+          "name": "validate",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "id": 38340602150,
+      "name": "Main first deployment and reset",
+      "event": "push",
+      "head_branch": "main",
+      "head_sha": "939472cd8e89e1e38d86babe7d6fcb349e338af8",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/ik-e/multi-agent-autohealing/actions/runs/38340602150",
+      "run_started_at": "2026-10-13T03:12:32Z",
+      "completed_at": "2026-10-13T03:12:32Z",
+      "elapsed_seconds": 0.0,
+      "jobs": [
+        {
+          "name": "lifecycle",
+          "conclusion": "skipped"
+        }
+      ]
+    },
+    {
+      "id": 38340636787,
+      "name": "Main Linux CI and image gate",
+      "event": "workflow_dispatch",
+      "head_branch": "main",
+      "head_sha": "939472cd8e89e1e38d86babe7d6fcb349e338af8",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/ik-e/multi-agent-autohealing/actions/runs/38340636787",
+      "run_started_at": "2026-10-13T03:12:59Z",
+      "completed_at": "2026-10-13T03:13:53Z",
+      "elapsed_seconds": 54.0,
+      "jobs": [
+        {
+          "name": "operations",
+          "conclusion": "success"
+        },
+        {
+          "name": "ui",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "quality-core",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "changes",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "release-gate",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "verify-images",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "postgres",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "deploy",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "build-images",
+          "conclusion": "skipped"
+        }
+      ]
+    }
+  ],
+  "tests": {
+    "core_passed": 636,
+    "postgres_passed": 56,
+    "ui_passed": 36,
+    "image_passed": 6,
+    "total_passed": 734,
+    "allowed_skip": 1,
+    "junit_reports": [
+      {
+        "name": "core.xml",
+        "sha256": "sha256:0959f5ecf3862fd5c9affcef42818474116fc1231bce392002a2c13139176109",
+        "passed": 636,
+        "skipped": 1
+      },
+      {
+        "name": "images.xml",
+        "sha256": "sha256:509bde412d7796f0870ae16e66f2b152862753922c4fb20a8014521f9f68c020",
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "name": "production-browser.xml",
+        "sha256": "sha256:b74388a92c7f50460c79692865b019d2c402a9122d33106d4cd606ff7fceb844",
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "name": "core-pg.xml",
+        "sha256": "sha256:f6281bd86e262e2fd357032e48d798ca6d31f1a10a13038d5e95c102c28dfd2a",
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "name": "postgres.xml",
+        "sha256": "sha256:a9e1085408aac3682cf29d681dda2bf31c2ad785987fa4702380ab034b37c921",
+        "passed": 53,
+        "skipped": 0
+      },
+      {
+        "name": "ui-connected.xml",
+        "sha256": "sha256:c04ed78bac3303df93e87a70e13f0caf945ceca7a7bdf144107c1557ef392b0d",
+        "passed": 29,
+        "skipped": 0
+      },
+      {
+        "name": "ui-fault-display.xml",
+        "sha256": "sha256:432eed500bd0aeb04bb5b42d0005ffd524a0e98e80e1a370f196c5ace625aa9a",
+        "passed": 2,
+        "skipped": 0
+      },
+      {
+        "name": "ui-game.xml",
+        "sha256": "sha256:d33ff7c88ad8a76111307ada625ae13dd4153ca77e7d970c3363fe4d6ed56351",
+        "passed": 3,
+        "skipped": 0
+      },
+      {
+        "name": "ui-mcp503.xml",
+        "sha256": "sha256:9f063fe1f675d24b1575c547b346ae6f5842de6d47102677944849ae2c5e106f",
+        "passed": 1,
+        "skipped": 0
+      },
+      {
+        "name": "ui-restart.xml",
+        "sha256": "sha256:116ec64ed839b2157cd7af105e4c83b9d12043b01267ed359028dc9ddae9e77d",
+        "passed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  "ci_verified": true,
+  "deployment_authorized": false,
+  "deployment": {
+    "status": "INACTIVE",
+    "created_resources": false
+  },
+  "oidc": {
+    "status": "OIDC_CONNECTED",
+    "lifecycle": "ABSENT",
+    "residual_counts": {
+      "runtime_roles": 0,
+      "runtime_profiles": 0,
+      "deploy_documents": 0,
+      "alarms": 0,
+      "topics": 0,
+      "active_instances": 0,
+      "active_nat": 0,
+      "vpcs": 0,
+      "eips": 0,
+      "volumes": 0,
+      "databases": 0,
+      "snapshots": 0,
+      "automated_backups": 0,
+      "parameters": 0,
+      "repositories": 0,
+      "logs": 0,
+      "buckets": 0
+    }
+  },
+  "historical_tests_rerun": false,
+  "paid_llm_calls": 0,
+  "application_first_deployment_executed": false
+}

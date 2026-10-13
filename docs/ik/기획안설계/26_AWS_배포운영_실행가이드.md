@@ -1,6 +1,6 @@
 # AWS 배포 운영 실행 가이드
 
-2026-10-13 main CI/CD transition: [main Actions / OIDC](../검증산출물/2026-10-13_main_CICD_전환과_병합.md).
+2026-10-13 현행 통합·CI/CD·OIDC 기준은 `main`이다. 기존 `ikonly` source의 시험은 당시 증거로 보존한다. [main 전환·실행 결과](../검증산출물/2026-10-13_main_CICD_전환과_병합.md).
 
 2026-10-13 최신 운영은 [Actions 운영 27](27_Actions_첫배포_초기화_운영.md)을 따른다. 첫 배포/초기화 전체 로컬 실행은 기존 비상 경로이며, 현재 AWS 앱은 **ABSENT / 잔존 17개 항목 0**이다. 아래 ACTIVE 기록은 이전 첫 배포 수용 시점의 기록이다. [실제 정리 결과](../검증산출물/2026-10-13_Actions_수명주기_전환과_AWS_초기화.md)를 확인한다.
 
@@ -23,7 +23,7 @@
 
 ## 인증 및 CI 연결
 
-`bootstrap_oidc.py`는 기존 공유 GitHub OIDC provider를 재사용한다. `ikonly-control-controller`, `ikonly-control-cloudformation`만 관리하며 기존 계정 provider를 초기화하지 않는다. 저장소 실제 immutable subject ID를 API에서 확인해 **ikonly 브랜치만** 신뢰한다. [GitHub OIDC 문서](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)의 subject 규칙을 따른다. CloudFormation 서비스 역할은 CFN principal과 정확한 PassRole을 사용한다. [AWS 서비스 역할 기준](https://docs.aws.amazon.com/prescriptive-guidance/latest/least-privilege-cloudformation/service-roles-for-cloudformation.html).
+`bootstrap_oidc.py`는 기존 공유 GitHub OIDC provider를 재사용한다. `ikonly-control-controller`, `ikonly-control-cloudformation`만 관리하며 기존 계정 provider를 초기화하지 않는다. 저장소 실제 immutable subject ID를 API에서 확인해 **main 브랜치만** 신뢰한다. [GitHub OIDC 문서](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)의 subject 규칙을 따른다. CloudFormation 서비스 역할은 CFN principal과 정확한 PassRole을 사용한다. [AWS 서비스 역할 기준](https://docs.aws.amazon.com/prescriptive-guidance/latest/least-privilege-cloudformation/service-roles-for-cloudformation.html).
 
 ```powershell
 $env:PYTHONPATH='.'
@@ -33,7 +33,7 @@ backend/.venv/Scripts/python.exe -m infra.aws.bootstrap_oidc --config test-resul
 생성한 `test-results/aws-lifecycle/operation-config.json`에는 CFN 역할 ARN이 포함된다. GitHub 변수 `IKONLY_DEPLOY_ROLE_ARN`, `IKONLY_ACCOUNT_ID`, `IKONLY_CONFIG`에는 비밀값이 없다. `IKONLY_CD_ENABLED=true`는 실제 OIDC 인증 성공 후 활성화했다. legacy config의 `auto_deploy_enabled`와 이 변수는 서로 다른 게이트다.
 
 ```powershell
-gh workflow run ikonly-ci.yml --repo ik-e/multi-agent-autohealing --ref ikonly -f operation=oidc-check
+gh workflow run ikonly-ci.yml --repo ik-e/multi-agent-autohealing --ref main -f operation=oidc-check
 ```
 
 필수 CI·이미지 승인 검사가 모두 통과한 같은 run의 immutable 이미지 tar만 배포한다. 현재 deploy job의 run이 아직 진행 중이어도 선행 CI job/gate 성공을 모두 확인한다. 실패한 CI 이미지는 배포하지 않는다. 전체 workflow 실패가 배포 job에서만 발생했다면 성공한 선행 CI artifact를 복구 재시도에 사용할 수 있다.

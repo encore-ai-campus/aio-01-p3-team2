@@ -1,6 +1,6 @@
 # Actions 첫 배포·초기화 운영
 
-2026-10-13 main CI/CD transition: [main Actions / OIDC](../검증산출물/2026-10-13_main_CICD_전환과_병합.md).
+2026-10-13 현행 통합·CI/CD·OIDC 기준은 `main`이다. 기존 `ikonly` source의 시험은 당시 증거로 보존한다. [main 전환·실행 결과](../검증산출물/2026-10-13_main_CICD_전환과_병합.md).
 
 기준: 2026-10-13, `ikonly`. [운영 가이드 26](26_AWS_배포운영_실행가이드.md)의 첫 배포·초기화 전체를 로컬에서 수행하는 기본 경로를 이 문서로 변경한다. 기존 로컬 명령은 비상 운영 경로로 유지한다. 상위 수명주기·역할별 업데이트 계약은 [25](25_AWS_배포수명주기_정리.md)를 따른다.
 
@@ -9,7 +9,7 @@
 | 작업 | 실행 위치 | 조건 |
 |---|---|---|
 | 첫 배포 키 공급 | 사용자 PC → SSM SecureString | AWS 로그인, backend/.env, 승인 정책 원본 SHA256 |
-| 첫 배포 | Actions `Ikonly first deployment and reset` → initial | ikonly, 정확한 환경명, 성공한 현행 CI run ID |
+| 첫 배포 | Actions `Main first deployment and reset` → initial | ikonly, 정확한 환경명, 성공한 현행 CI run ID |
 | 자동 변경 배포 | 기존 CI workflow → update | main push, ACTIVE, 영향 있는 역할만 |
 | 서버 선택 배포 | 기존 CI workflow → update + target_service | auto 또는 6개 역할 중 선택; 필요한 의존 서버를 빠뜨리면 거부 |
 | 전체 서버 업데이트·실패 복구 | 기존 CI workflow → full / recover | 기존 수용·복구 계약 유지 |
@@ -32,7 +32,7 @@ backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch stage --config 
 
 첫 배포 workflow는 AWS 인증 후 세대를 claim하고 CI artifact 검사/다운로드 실패 시에도 always 단계에서 해당 run의 세대만 정리한다. workflow 자체가 실행되지 않았거나 OIDC 인증에 실패하면 AWS에 접근할 수 없으므로 로컬에서 `lifecycle_dispatch clear-supply --config <config.json> --confirm-environment ikonly-demo --output <local-folder>`로 공급을 삭제한다. 다음 stage는 작업 lock 아래에서 만료·미완성·미활성 잔여 세대와 구 프로토콜 조각을 회수한다. claim한 workflow가 실행 중이면 재공급·sweep·키 교체를 거부한다. 삭제 실패는 generation과 잔존 count만 기록하고 실패로 반환한다. [SSM 보완 검증](../검증산출물/2026-10-13_SSM_임시공급_세대관리_보완.md)을 따른다.
 
-3. Actions에서 `Ikonly first deployment and reset`을 선택하고 branch `ikonly`, operation `initial`, confirm_environment `ikonly-demo`, ci_run_id에 성공 CI 번호를 입력한다. CI source와 현재 실행 코드의 차이가 있으면 거부한다. 문서만의 차이는 허용한다.
+3. Actions에서 `Main first deployment and reset`을 선택하고 branch `main`, operation `initial`, confirm_environment `ikonly-demo`, ci_run_id에 성공 CI 번호를 입력한다. CI source와 현재 실행 코드의 차이가 있으면 거부한다. 문서만의 차이는 허용한다.
 4. 기존 CI의 images/verified artifact를 그대로 내려받아 원래 검증·인프라 Add-only 검토·역할별 수용을 수행한다. runner는 HTTPS 수용 검사 중에만 자신의 공인 IP /32를 두 웹의 443 규칙에 추가하고 finally에서 제거한다. 사용자 PC 허용 범위를 바꾸지 않는다.
 5. `lifecycle-encrypted-<run>-<attempt>` artifact를 로컬에 다운로드한다. Actions에는 로그인 정보·원시 로그를 RSA-OAEP(SHA256)+AES-256-GCM으로 암호화한 파일만 업로드한다. 원문 및 복호화 개인키는 업로드하지 않는다. artifact 보존 기간은 7일이므로 성공 직후 다운로드한다.
 
@@ -66,7 +66,7 @@ backend/.venv/Scripts/python.exe -m infra.aws.lifecycle_dispatch confirm-evidenc
 
 ## 권한과 검증 한계
 
-OIDC는 ikonly 저장소 subject만 허용한다. 컨트롤러의 키 접근은 앱/지정 lifecycle Parameter로 제한하고 KMS 복호화는 서울 SSM 경유로 제한한다. HTTPS 검사 규칙 변경은 소유 태그가 일치하는 security group만 허용한다. 런타임 서버의 읽기 권한은 기존 역할별 범위를 유지한다.
+OIDC는 이 저장소의 main 브랜치 subject만 허용한다. 컨트롤러의 키 접근은 앱/지정 lifecycle Parameter로 제한하고 KMS 복호화는 서울 SSM 경유로 제한한다. HTTPS 검사 규칙 변경은 소유 태그가 일치하는 security group만 허용한다. 런타임 서버의 읽기 권한은 기존 역할별 범위를 유지한다.
 
 최신 [Actions 전체 경로 AWS 검증](../검증산출물/2026-10-13_Actions_전체경로_AWS_검증.md)에서 hosted initial/각 서버 update/prepare-reset/reset의 실제 수용, 배포 환경 장애 시험, 로컬 증거 보존 및 잔존 0을 확인했다. 실행 시간과 취소·재개도 구분해 기록한다. 이전 [전환·초기화 기록](../검증산출물/2026-10-13_Actions_수명주기_전환과_AWS_초기화.md)은 당시 근거로 보존한다.
 
