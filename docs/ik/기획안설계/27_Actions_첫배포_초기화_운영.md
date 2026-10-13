@@ -1,5 +1,7 @@
 # Actions 첫 배포·초기화 운영
 
+2026-10-13 main CI/CD transition: [main Actions / OIDC](../검증산출물/2026-10-13_main_CICD_전환과_병합.md).
+
 기준: 2026-10-13, `ikonly`. [운영 가이드 26](26_AWS_배포운영_실행가이드.md)의 첫 배포·초기화 전체를 로컬에서 수행하는 기본 경로를 이 문서로 변경한다. 기존 로컬 명령은 비상 운영 경로로 유지한다. 상위 수명주기·역할별 업데이트 계약은 [25](25_AWS_배포수명주기_정리.md)를 따른다.
 
 ## 실행 책임
@@ -8,7 +10,7 @@
 |---|---|---|
 | 첫 배포 키 공급 | 사용자 PC → SSM SecureString | AWS 로그인, backend/.env, 승인 정책 원본 SHA256 |
 | 첫 배포 | Actions `Ikonly first deployment and reset` → initial | ikonly, 정확한 환경명, 성공한 현행 CI run ID |
-| 자동 변경 배포 | 기존 CI workflow → update | ikonly push, ACTIVE, 영향 있는 역할만 |
+| 자동 변경 배포 | 기존 CI workflow → update | main push, ACTIVE, 영향 있는 역할만 |
 | 서버 선택 배포 | 기존 CI workflow → update + target_service | auto 또는 6개 역할 중 선택; 필요한 의존 서버를 빠뜨리면 거부 |
 | 전체 서버 업데이트·실패 복구 | 기존 CI workflow → full / recover | 기존 수용·복구 계약 유지 |
 | 정리 준비 | 새 lifecycle workflow → prepare-reset | 실제 수용된 환경, 정확한 환경명 |

@@ -1,5 +1,7 @@
 # AWS 배포 운영 실행 가이드
 
+2026-10-13 main CI/CD transition: [main Actions / OIDC](../검증산출물/2026-10-13_main_CICD_전환과_병합.md).
+
 2026-10-13 최신 운영은 [Actions 운영 27](27_Actions_첫배포_초기화_운영.md)을 따른다. 첫 배포/초기화 전체 로컬 실행은 기존 비상 경로이며, 현재 AWS 앱은 **ABSENT / 잔존 17개 항목 0**이다. 아래 ACTIVE 기록은 이전 첫 배포 수용 시점의 기록이다. [실제 정리 결과](../검증산출물/2026-10-13_Actions_수명주기_전환과_AWS_초기화.md)를 확인한다.
 
 ## 기준과 현재 상태
@@ -11,7 +13,7 @@
 | 실행 | 진입점 | 동작 |
 |---|---|---|
 | 첫 배포 | 로컬 `operations initial` | 성공 CI tar 검증→5 stack 생성→키 공급→DB 초기화→6 서비스 연결 수용 |
-| 선택 업데이트 | ikonly push / `update` | 각 서비스 실제 source부터 변경 계산, 필요한 역할만 교체 |
+| 선택 업데이트 | main push / `update` | 각 서비스 실제 source부터 변경 계산, 필요한 역할만 교체 |
 | 전체 업데이트 | workflow dispatch `full` | 기존 DB/인프라 유지, 여섯 역할 선택 |
 | 이미지 복구 | 자동 rollback / `recover` | 이전 서비스별 immutable 배치 복원 후 전체 연결 검사 |
 | 실패 재시도 | 로컬 `retry` | DB migration 시작 후에는 실패한 정확한 source/artifact만 재시도 |

@@ -1,5 +1,7 @@
 # Backend A 팀 사용 PostgreSQL 구축·적용 계획서
 
+> **기준선 안내 (2026-10-13, `ikonly`):** 이 문서는 2026-10-09 `checkpoint` 기준의 계획·검증 기록이다. `checkpoint`는 당시 브랜치 기준을 가리킬 뿐 현재 작업·통합 대상이 아니다. 배포 표의 `infra/compose.yml`, `infra/compose.release.yml` 상태도 당시 기록으로 읽는다. 현행은 로컬 PostgreSQL용 `infra/compose.yml`과 빈 과거 초안 `infra/compose.release.yml`이며, 현재 배포·CI/CD 계약과 결과는 IK의 [현재 구현 상태](../../ik/현재_구현상태.md)와 [CI/CD 검증 기록](../../ik/검증산출물/2026-10-13_현행코드_CICD_마무리.md)을 따른다. 당시 팀 DB 적용 전 확인 사항은 이력으로 보존한다.
+
 작성일: 2026-10-09
 대상 기준: `checkpoint` 브랜치
 상태: **Backend A 순번 보강·전용 PostgreSQL 검증 완료, 팀 사용 DB 적용 대기**. 팀이 함께 사용할 DB의 생성·변경·백업은 아직 실행하지 않았다.
@@ -27,7 +29,7 @@ Clash of Clans 공개 API 표본은 MCP가 외부에서 조회한다. `game_data
 | 게임 데이터 | `backend.scripts.apply_game_data_catalog`가 `game_data_catalog` 테이블과 `tiny_heroes` 초기값을 적용. 기존 행의 버전·내용이 다르면 중단 | 적용할 데이터 버전과 변경 승인 방식 |
 | 연결 | `DATABASE_URL`이 없으면 Backend는 인메모리. MCP는 `MCP_DATABASE_URL` 설정 시 PostgreSQL 조회 | DB 호스트·DB명·계정·접속 방식·비밀값 보관 위치 |
 | 검증 | 전용 로컬 PostgreSQL에서 저장·재시작·동시성, 별도 임시 DB에서 실제 MCP·OpenAI·Clash 연동 확인 | Backend A가 구축한 팀 사용 DB에서 동일 버전으로 재검증할 일정과 담당자 |
-| 배포 | `infra/compose.yml`, `infra/compose.release.yml`은 현재 비어 있음 | Compose/배포 구성을 누가 작성하고 승인할지 |
+| 배포 (2026-10-09 기록 당시) | 당시 기준에서 `infra/compose.yml`, `infra/compose.release.yml`이 비어 있다고 확인 | 당시 Compose/배포 구성을 누가 작성하고 승인할지 논의가 남아 있었음. 현행 상태와 배포 절차는 상단 기준선 안내를 따른다. |
 | 순번 무결성 | `checkpoint` 기준 코드에는 고유 제약과 원자적 할당이 없었음 | Backend A 작업 브랜치에서 보강·전용 PostgreSQL 동시성 검증 완료. 팀 사용 DB 확인은 별도 |
 
 ### 순번 코드 확인 결과

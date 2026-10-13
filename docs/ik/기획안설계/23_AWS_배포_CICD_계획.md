@@ -202,7 +202,7 @@ Standard parameter 저장과 기본 처리량 API에는 추가 요금이 없지�
 
 ## 7. CI/CD 흐름과 GitHub 계약
 
-사용자 결정에 따라 초기 수동 배포·rollback 검증 후 `ikonly` push의 변경 영향 자동 업데이트로 전환한다. [구현 계획 24 §6.1](24_AWS_배포_CICD_구현계획.md#61-push-기반-변경-영향-배포-2026-10-12)을 따른다. 현재 `ikonly-ci.yml`은 영향 판별/core/선택 웹 build의 **read-only 기반**만 구현됐으며 전체 release gate·AWS CD는 미구현이다.
+사용자 결정에 따라 초기 수동 배포·rollback 검증 후 `ikonly` push의 변경 영향 자동 업데이트로 전환한다. [구현 계획 24 §6.1](24_AWS_배포_CICD_구현계획.md#61-push-기반-변경-영향-배포-2026-10-12-확정)을 따른다. 현재 `ikonly-ci.yml`은 영향 판별/core/선택 웹 build의 **read-only 기반**만 구현됐으며 전체 release gate·AWS CD는 미구현이다.
 
 ```mermaid
 flowchart LR
