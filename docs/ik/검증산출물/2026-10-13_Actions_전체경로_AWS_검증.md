@@ -16,3 +16,7 @@ GitHub Actions 첫 배포 → 시스템별 업데이트 → 증거 로컬 보존
 전체 실제 실행 결과는 완료 후 추가한다. 준비·단위 시험을 유료 전체 경로 수용으로 표현하지 않는다.
 
 - 두 번째 run 38326676258은 첫 경로 수정의 heredoc 들여쓰기 오류로 claim 전 중단됐다. 이 수정 오류를 보존하고, workflow Python 본문 컴파일 검사를 기존 회귀 항목에 추가했다. 임시 공급은 아직 claim되지 않았으므로 다음 실행에서 사용한다. 유료 인프라는 생성되지 않았다.
+
+## 실제 첫 배포 진행
+
+CI 38326771862(source e476376)는 전체 승인 성공. Actions initial 38327297896이 실제 OIDC로 실행되어 network/access/data/application 스택 생성 완료, RDS available을 확인했다. 아직 서비스 최종 수용 전이므로 완료로 판정하지 않는다. 다음 시스템별 배포 시험은 기능 코드 변경 없이 이 진행 문서를 포함하는 새 Git revision의 검증 이미지를 사용한다. 이미지 revision/digest 및 선택 역할 변경, 나머지 역할 보존을 실제 대조한다. 시간은 Actions/job/step과 CloudFormation 이벤트에서 기록한다.
