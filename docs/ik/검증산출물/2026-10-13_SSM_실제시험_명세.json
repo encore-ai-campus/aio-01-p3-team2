@@ -1,0 +1,47 @@
+{
+  "source_sha": "9471dea2dba7a564a54a512b29a9ba3e9adde611",
+  "workflow_run_id": 38324733953,
+  "scenario": "initial artifact validation fails after generation claim",
+  "expected_workflow_conclusion": "failure",
+  "real_openai_key_used": false,
+  "paid_application_created": false,
+  "llm_called": false,
+  "cleanup": {
+    "status": "SUPPLY_REMOVED",
+    "generation": "4d6a05bf0bbd40fabb869e279a753d30",
+    "remaining_count": 0
+  },
+  "final_status": "ABSENT",
+  "remaining": {
+    "runtime_roles": [],
+    "runtime_profiles": [],
+    "deploy_documents": [],
+    "alarms": [],
+    "topics": [],
+    "active_instances": [],
+    "active_nat": [],
+    "vpcs": [],
+    "eips": [],
+    "volumes": [],
+    "databases": [],
+    "snapshots": [],
+    "automated_backups": [],
+    "parameters": [],
+    "repositories": [],
+    "logs": [],
+    "buckets": []
+  },
+  "linux_ci": {
+    "run_id": 38324628321,
+    "status": "success",
+    "passed_cases": {
+      "quality-core": 629,
+      "postgres": 56,
+      "ui": 36,
+      "verify-images": 6
+    },
+    "total": 727,
+    "automatic_update_status": "INACTIVE",
+    "created_resources": false
+  }
+}
