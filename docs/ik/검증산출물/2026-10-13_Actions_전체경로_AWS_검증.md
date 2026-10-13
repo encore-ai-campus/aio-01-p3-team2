@@ -76,3 +76,7 @@ API/MCP 업데이트, 실제 LLM 복구, 브라우저 시연, 초기화는 아�
 Edge 배포 화면 10 PASS(정상 화면 2 + 복구 시연 8). 실제 form 카탈로그, 정책 격리, 게임 Phaser·탭, custom brief, 재시도·기획 수정·MCP 재시도·폴백·지속 오류 안전 중단, 실제 DB 저장 결과, 실행 경로/복구 비교, 데스크톱·390px 모바일, 새로고침 중복 방지를 확인했다. 브라우저는 임시 인증서를 exception으로 열었고, API/Actions 수용은 실제 CA+hostname 인증을 별도로 통과했다. 모바일 큰 그래프는 가로 이동이 필요한 표시이며 상단 LOCAL RUNTIME 배지는 배포 환경 구분을 정확히 나타내지 않는 기존 표현 한계다. 기능 수용과 표현 한계를 구분한다.
 
 정책 시험 137건의 terminal 분포: WAITING_APPROVAL 53 / SAFE_STOP 55 / FAILED 21 / REQUEST_BLOCKED 4 / COMPLETED 4. 정상화 51 외 승인 대기 2는 상태 충돌 시험이므로 자동 복구 분자에 넣지 않는다. 실패·중단도 사전 기대 정책과 일치하면 시험 PASS일 수 있다.
+
+## API 선택 업데이트 수용
+
+Actions 38332060874: main-api 선택에 따른 main-api/fault-api 쌍만 ACCEPTED. 다른 4개 역할 manifest 정확히 유지, 6개 instance ID 유지. 기존 실제 LLM 기획·게임 상태 및 양쪽 웹 proxy, 137건 suite 기록·13건 실제 호출 기록이 그대로 조회되고 시험 환경 CLEAN을 확인했다. 알림 SNS email은 PendingConfirmation이며 실제 이메일 전달은 미검증이다. MCP 쌍 업데이트와 전체 초기화는 이어서 검증한다.
