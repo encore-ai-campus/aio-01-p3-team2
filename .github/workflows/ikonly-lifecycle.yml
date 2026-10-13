@@ -79,9 +79,9 @@ jobs:
                   raise SystemExit('A successful CI run ID is required')
               run = json.loads(subprocess.check_output(['gh','api',f'repos/ik-e/multi-agent-autohealing/actions/runs/{run_id}']))
               if run['conclusion'] != 'success' or run['head_branch'] != 'main':
-                  raise SystemExit('CI must be successful on ikonly')
+                  raise SystemExit('CI must be successful on main')
               changed = subprocess.check_output(['git','diff','--name-only','-z',run['head_sha'],'HEAD']).decode('utf-8').split('\0')
-              if any(name and not name.startswith('docs/') for name in changed):
+              if any(name and name != 'README.md' and not name.startswith('docs/') for name in changed):
                   raise SystemExit('CI source differs from current executable source')
               for prefix in ('images', 'verified'):
                   subprocess.run(['gh','run','download',run_id,'--repo','ik-e/multi-agent-autohealing','--name',f"{prefix}-{run['head_sha']}-{run['run_attempt']}",'--dir',str(root/'candidate')],check=True)

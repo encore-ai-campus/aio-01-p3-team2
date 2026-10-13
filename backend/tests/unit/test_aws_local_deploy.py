@@ -106,6 +106,7 @@ def test_publication_rejects_failed_or_untrusted_ci_before_loading_images(tmp_pa
 
 
 def test_main_workflow_and_oidc_branch_guards_are_consistent():
+    import ast
     from pathlib import Path
 
     import yaml
@@ -121,6 +122,33 @@ def test_main_workflow_and_oidc_branch_guards_are_consistent():
     assert 'test "$GITHUB_REF" = refs/heads/main' in ci
     assert "github.ref == 'refs/heads/main'" in lifecycle
     assert "run['head_branch'] != 'main'" in lifecycle
+    steps = yaml.load(lifecycle, Loader=yaml.BaseLoader)["jobs"]["lifecycle"]["steps"]
+    gate_step = next(
+        step
+        for step in steps
+        if step.get("name") == "Validate inputs and retrieve exact verified CI artifacts"
+    )
+    source = gate_step["run"].split("\n", 1)[1].rsplit("\nPY", 1)[0]
+    source_gate = next(
+        node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.If)
+        and "changed" in {name.id for name in ast.walk(node.test) if isinstance(name, ast.Name)}
+        and any(
+            isinstance(child, ast.Constant)
+            and child.value == "CI source differs from current executable source"
+            for child in ast.walk(node)
+        )
+    )
+    expression = compile(ast.Expression(source_gate.test), "source-gate", "eval")
+    for changed, blocked in (
+        (["README.md"], False),
+        (["docs/ik/result.json", "docs/ik/README.md", ""], False),
+        (["backend/app/main.py"], True),
+        (["README.md", ".github/workflows/ikonly-ci.yml"], True),
+        (["infra/aws/publish_release.py"], True),
+    ):
+        assert eval(expression, {"changed": changed}) is blocked
     for name in ("publish_release.py", "bootstrap_oidc.py"):
         text = (root / "infra/aws" / name).read_text(encoding="utf-8")
         assert "refs/heads/main" in text
