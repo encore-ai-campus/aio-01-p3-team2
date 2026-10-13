@@ -27,3 +27,22 @@ CI 38326771862(source e476376)는 전체 승인 성공. Actions initial 38327297
 - Actions update 38328823504: game-web만 ACCEPTED. API/MCP/기획 웹의 service manifest 5개가 이전과 정확히 같고 6개 instance ID도 유지됐다. 기능 코드가 같은 문서 revision 4194f66 이미지로 선택 배포 경로를 검증했다.
 - 실제 RDS DB: eventquest_demo / eventquest_fault_test, SSL=true 각각 확인. fault API 원래 서버 환경에는 OpenAI 키가 없다. 추가 메타데이터 도구의 날짜 JSON 변환 실패는 도구에 default=str을 추가해 재확인했고 앱 코드는 변경하지 않았다.
 - 다음 기획 웹 선택 배포도 새 기록 revision의 승인 이미지를 사용한다. SHA별 immutable ECR tag 계약 때문에 같은 SHA를 새로 빌드한 다른 archive로 덮어쓰지 않는다.
+
+## 배포 환경 기능·정책 시험과 시간 기록
+
+- 기획 웹 선택 업데이트 38329923527: plan-web만 ACCEPTED. 다른 5개 역할의 manifest와 6개 instance ID 유지. 기능 코드가 같은 기록 revision 6481383으로 검증했다.
+- 실제 OpenAI 기획 → 승인 → 게임 등록 → 선택한 두 공간 클리어 → 첫 보상 및 중복 방지까지 통과. gpt-4.1-mini Planner/Critic 2회 호출, RDS 저장 원문 암호화·복호화 후 hash 일치 2건, SSL=true를 별도로 확인했다.
+- 배포 fault API의 정책 시험 137건: PASS 137, FAIL/INCONCLUSIVE/미실행 0. 기본 28 / 안전 중단 27 / 재시도 허용 46 / 현재 활성 36. 결정적 응답 시험이며 OpenAI 호출은 없다. 실제 Supervisor의 검출·정책·복구를 사용한다. DB 장애는 상황 주입으로 실제 RDS 중단과 구분한다.
+- 사전 명세의 오류 모집단 127건 중 자동 정상화 51건(40.1575%), 복구 기대 사례 51/51, 평균 복구 1.0262초(51건, 누락 0). 안전 중단을 자동 정상화에 포함하지 않는다.
+- 독립 DB 재조회: 정상 정책·정상 게임 유지, 시험 게임 유지, 시험 정책 version/content 원복, fault 서버 부모 프로세스 OpenAI 키 없음. 원본 final.json의 PENDING 표시는 별도 preservation-after-137.json 증거로 보충한다.
+- 실제 LLM 시험 준비 중 원격 실행 문자열과 이미지에 제외된 시험 모듈 문제를 발견했다. 운영 기능 실패로 집계하지 않고 도구 준비 실패로 보존한다. 도구는 배포 source의 Git 원문을 별도 자식 프로세스에 공급한다.
+
+시간은 run/job/step UTC 기록으로 산출하고 전체 워크플로우와 실제 deploy job을 구분한다.
+
+| 작업 | 전체 실행 | deploy job | 비고 |
+|---|---:|---:|---|
+| 첫 배포 | 27분 31초 | 27분 31초 | CI 사전 승인 별도, 시작 대기 4초 |
+| game-web 업데이트 | 11분 16초 | 2분 41초 | CI 및 첫 배포 완료 대기 포함 |
+| plan-web 업데이트 | 7분 47초 | 2분 36초 | 전체 CI 포함 |
+
+API/MCP 업데이트, 실제 LLM 복구, 브라우저 시연, 초기화는 아직 완료 판정 전이다.
