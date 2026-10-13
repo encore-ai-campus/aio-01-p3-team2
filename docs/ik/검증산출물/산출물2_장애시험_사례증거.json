@@ -75,7 +75,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -174,7 +175,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -273,7 +275,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -370,7 +373,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -463,7 +467,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -558,7 +563,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -657,7 +663,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -754,7 +761,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -853,7 +861,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -954,7 +963,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1053,7 +1063,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1152,7 +1163,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1251,7 +1263,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1350,7 +1363,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1449,7 +1463,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1548,7 +1563,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1647,7 +1663,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1746,7 +1763,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1845,7 +1863,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -1944,7 +1963,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2043,7 +2063,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2140,7 +2161,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2235,7 +2257,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2337,7 +2360,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2440,7 +2464,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2535,7 +2560,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2634,7 +2660,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2733,7 +2760,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2832,7 +2860,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -2931,7 +2960,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3030,7 +3060,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3127,7 +3158,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3220,7 +3252,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3315,7 +3348,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3414,7 +3448,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3511,7 +3546,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3610,7 +3646,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3711,7 +3748,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3810,7 +3848,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -3909,7 +3948,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4008,7 +4048,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4107,7 +4148,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4206,7 +4248,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4305,7 +4348,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4404,7 +4448,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4503,7 +4548,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4602,7 +4648,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4701,7 +4748,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4800,7 +4848,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4897,7 +4946,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -4992,7 +5042,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5089,7 +5140,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5184,7 +5236,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5283,7 +5336,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5382,7 +5436,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5481,7 +5536,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5581,7 +5637,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5684,7 +5741,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5789,7 +5847,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5894,7 +5953,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -5997,7 +6057,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6097,7 +6158,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6200,7 +6262,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6306,7 +6369,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6414,7 +6478,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6519,7 +6584,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6619,7 +6685,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6722,7 +6789,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6828,7 +6896,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -6936,7 +7005,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7041,7 +7111,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7141,7 +7212,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7244,7 +7316,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7349,7 +7422,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7454,7 +7528,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7557,7 +7632,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7657,7 +7733,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7760,7 +7837,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7865,7 +7943,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -7970,7 +8049,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8073,7 +8153,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8173,7 +8254,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8276,7 +8358,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8381,7 +8464,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8486,7 +8570,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8589,7 +8674,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8689,7 +8775,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8792,7 +8879,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -8898,7 +8986,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9006,7 +9095,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9111,7 +9201,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9211,7 +9302,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9314,7 +9406,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9420,7 +9513,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9528,7 +9622,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9633,7 +9728,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9733,7 +9829,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9836,7 +9933,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -9942,7 +10040,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10050,7 +10149,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10155,7 +10255,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10255,7 +10356,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10358,7 +10460,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10463,7 +10566,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10568,7 +10672,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10672,7 +10777,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10775,7 +10881,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10881,7 +10988,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -10989,7 +11097,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11095,7 +11204,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11198,7 +11308,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11304,7 +11415,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11412,7 +11524,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11518,7 +11631,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11621,7 +11735,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11726,7 +11841,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11831,7 +11947,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -11935,7 +12052,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12038,7 +12156,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12143,7 +12262,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12248,7 +12368,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12352,7 +12473,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12455,7 +12577,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12560,7 +12683,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12665,7 +12789,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12769,7 +12894,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12872,7 +12998,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -12978,7 +13105,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13086,7 +13214,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13192,7 +13321,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13295,7 +13425,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13401,7 +13532,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13509,7 +13641,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13615,7 +13748,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13718,7 +13852,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13824,7 +13959,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13932,7 +14068,8 @@
         "manual_interventions": 0,
         "cleanup_ok": true,
         "provider_mode": "deterministic",
-        "llm_external_calls": 0
+        "llm_external_calls": 0,
+        "fixture_digest": "0bc904dac9a42817c527cc03c80523739c5c2c75ff32dc4a5b7a9776127d0545"
       },
       "comparison_checks": [
         {
@@ -13990,5 +14127,11 @@
       ],
       "verdict": "PASS"
     }
-  ]
+  ],
+  "population_note": "51/127 is the preregistered selected population; it excludes 10 including input security/state conflict. It is not all injected errors. Full mixed policy-test normalization: 51/137. Business scope/data outcomes are mixed; live error population: 6/9.",
+  "full_policy_test_normalization": {
+    "numerator": 51,
+    "denominator": 137,
+    "rate": 0.3722627737226277
+  }
 }
