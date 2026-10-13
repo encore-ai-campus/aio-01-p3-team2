@@ -46,3 +46,33 @@ CI 38326771862(source e476376)는 전체 승인 성공. Actions initial 38327297
 | plan-web 업데이트 | 7분 47초 | 2분 36초 | 전체 CI 포함 |
 
 API/MCP 업데이트, 실제 LLM 복구, 브라우저 시연, 초기화는 아직 완료 판정 전이다.
+
+## 실제 LLM·MCP 복구와 Edge 시연 수용
+
+실제 LLM 시험 13 PASS / FAIL·INCONCLUSIVE 0. 정상 4건(마지막 재가용성 재확인 포함), 오류 9건. 오류 중 자동 정상화 6/9(66.67%), 사전 복구 기대 6/6(100%), 지속 오류 안전 중단 3/3, 평균 복구 5.2883초. 실제 provider 호출 27, 입력 128,756 / 출력 5,356 token, 설정 가격 기준 $0.060072. 실제 청구 금액과 구분한다.
+
+시험 역할·DB는 fault-api / eventquest_fault_test. 배포 부모 API는 deterministic·키 없음 계약을 유지했다. 운영 이미지에서 제외한 4개 시험 모듈은 해당 배포 source e476376의 Git 원문을 메모리에 공급했다. 자식 CLI만 실제 호출을 허용하는 시험 fixture로 환경 판정을 대체하되, 시작 전 실제 CloudDatabase TLS·DB identity·runtime 권한 검증을 하고 연결별 validate_connection은 유지했다. 운영 fault API에 LLM을 켠 시험으로 표현하지 않는다. 운영 main API의 실제 LLM→게임 반영은 앞 절의 별도 정상 시험이다.
+
+응답 변형과 timeout은 시험 상황 주입이며 실제 OpenAI 사업자 장애가 아니다. MCP는 실제 private fault MCP 앞의 소유 loopback bridge/proxy로 연결 끊김·지연·503을 발생시켜 실제 client 검출과 복구를 시험했다. 부모 서버 설정·운영 기능 코드는 변경하지 않았다. 임시 SecureString과 IAM grant 삭제를 독립 조회했고 시험 정책·게임 원복/CLEAN을 확인했다.
+
+배포 이미지 파일 hash를 Windows 작업 파일이 아닌 해당 source Git blob과 비교했다(CRLF 차이 방지). 전부 일치. RDS의 실제 prompt/response 암호문 27건은 복호화 hash 일치, TLS=true를 별도로 확인했다. 준비 도구의 문자열·누락 모듈·변수명·cloud 격리 guard 중단은 본 시험 13건과 별도로 보존했다.
+
+| 사례 | 결과 | 종료 상태 | 실제 LLM 호출 |
+|---|---|---|---:|
+| normal_single | PASS | WAITING_APPROVAL | 2 |
+| normal_multi | PASS | WAITING_APPROVAL | 2 |
+| normal_unsupported | PASS | COMPLETED | 2 |
+| planner_format_once | PASS | WAITING_APPROVAL | 3 |
+| planner_explanation_once | PASS | WAITING_APPROVAL | 4 |
+| llm_timeout_once | PASS | WAITING_APPROVAL | 2 |
+| planner_format_always | PASS | SAFE_STOP | 4 |
+| llm_timeout_always | PASS | SAFE_STOP | 0 |
+| mcp_disconnect_once | PASS | WAITING_APPROVAL | 2 |
+| mcp_delay_once | PASS | WAITING_APPROVAL | 2 |
+| mcp_503_once | PASS | WAITING_APPROVAL | 2 |
+| mcp_503_always | PASS | SAFE_STOP | 0 |
+| normal_single | PASS | WAITING_APPROVAL | 2 |
+
+Edge 배포 화면 10 PASS(정상 화면 2 + 복구 시연 8). 실제 form 카탈로그, 정책 격리, 게임 Phaser·탭, custom brief, 재시도·기획 수정·MCP 재시도·폴백·지속 오류 안전 중단, 실제 DB 저장 결과, 실행 경로/복구 비교, 데스크톱·390px 모바일, 새로고침 중복 방지를 확인했다. 브라우저는 임시 인증서를 exception으로 열었고, API/Actions 수용은 실제 CA+hostname 인증을 별도로 통과했다. 모바일 큰 그래프는 가로 이동이 필요한 표시이며 상단 LOCAL RUNTIME 배지는 배포 환경 구분을 정확히 나타내지 않는 기존 표현 한계다. 기능 수용과 표현 한계를 구분한다.
+
+정책 시험 137건의 terminal 분포: WAITING_APPROVAL 53 / SAFE_STOP 55 / FAILED 21 / REQUEST_BLOCKED 4 / COMPLETED 4. 정상화 51 외 승인 대기 2는 상태 충돌 시험이므로 자동 복구 분자에 넣지 않는다. 실패·중단도 사전 기대 정책과 일치하면 시험 PASS일 수 있다.
